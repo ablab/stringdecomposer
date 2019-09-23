@@ -38,11 +38,8 @@ def cnt_suffix_edist(lst):
         return -1, -1 
     return 100 - result["editDistance"]*100//len(lst[0]), len(lst[1]) - result["locations"][0][1] - 1
 
-def load_fasta(filename, tp = "list"):
-    if tp == "map":
-        records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
-    else:
-        records = list(SeqIO.parse(filename, "fasta"))
+def load_fasta(filename):
+    records = [rec.upper() for rec in SeqIO.parse(filename, "fasta")]
     return records
 
 def make_record(seq, name, sid, d=""):
