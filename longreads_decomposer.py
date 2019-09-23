@@ -3,6 +3,8 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
+import cProfile
+
 import os
 import sys
 import argparse
@@ -12,6 +14,8 @@ import numpy as np
 
 from joblib import Parallel, delayed
 import edlib
+
+from monomers_alignment_statistics import StatisticsCounter
 
 
 ED_THRESHOLD = 0.5
@@ -195,6 +199,13 @@ if __name__ == "__main__":
     monomers = load_fasta(args.monomers)
 
     monomers = add_rc_monomers(monomers)
-    
-    parallel_edlib_version(reads, monomers, outfile, t, i)
+
+    #cProfile.run("parallel_edlib_version(reads, monomers, outfile, t, i)")
+    stats_only = True
+    if not stats_only:
+        parallel_edlib_version(reads, monomers, outfile, t, i)
+
+    if stats_only:
+       sc = StatisticsCounter(outfile, args.sequences, args.monomers)
+       sc.save_stats(outfile[:-len(".tsv")])
 
