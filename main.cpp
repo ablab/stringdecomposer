@@ -50,6 +50,11 @@ struct MonomerAlignment {
     : monomer_name(monomer_name_), read_name(read_name_), start_pos(start_pos_), end_pos(end_pos_), identity(identity_), best(best_) {}
 };
 
+bool sortby1(const pair<int, vector<MonomerAlignment>> &a
+             , const pair<int, vector<MonomerAlignment>> &b) {
+    return (a.first < b.first);
+}
+
 class MonomersAligner {
 
 public:
@@ -63,6 +68,7 @@ public:
         vector<int> save_steps;
         for (auto r: reads) {
             int cnt = 0;
+            //cout << r.seq.size() << endl;
             for (int i = 0; i < r.seq.size(); i += PART_SZ) {
                 if ((int) r.seq.size() - i >= 200) {  
                     Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(PART_SZ + 200, (int) r.seq.size() - i) ), i );
@@ -77,19 +83,21 @@ public:
         int start = 0;
         for (int p = 0; p < save_steps.size(); ++ p){
             vector<MonomerAlignment> batch;
-            vector<vector<MonomerAlignment>> subbatches;
+            vector<pair<int, vector<MonomerAlignment>>> subbatches;
             #pragma omp parallel for schedule(guided, 50) num_threads(16)
             for (int j = start; j < start + save_steps[p]; ++ j) {
                 vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
                 #pragma omp critical(aligner) 
                 {
-                    subbatches.push_back(aln);
+                    subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
                 }
             }
+            sort(subbatches.begin(), subbatches.end(), sortby1);
             for (int j = start; j < start + save_steps[p]; ++ j) {
-                for (auto a: subbatches[j - start]) {
+                int read_index = subbatches[j - start].first;
+                for (auto a: subbatches[j - start].second) {
                     MonomerAlignment new_m_aln(a.monomer_name, a.read_name, 
-                                                new_reads[j].read_id.id + a.start_pos, new_reads[j].read_id.id + a.end_pos, 
+                                                new_reads[read_index].read_id.id + a.start_pos, new_reads[read_index].read_id.id + a.end_pos, 
                                                 a.identity, a.best);
                     batch.push_back(new_m_aln);
                 }
@@ -128,6 +136,7 @@ private:
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
         vector<vector<vector<int>>> dp(read.seq.size());
+        //cout << dp.size() << endl;
         for (int i = 0; i < read.seq.size(); ++ i) {
             for (auto m: monomers_) {
                 dp[i].push_back(vector<int>(m.seq.size()));
@@ -316,6 +325,6 @@ int main() {
     vector<Seq> reads = load_fasta("../chrX/results/centromeric_reads/centromeric_reads.fasta");
     vector<Seq> monomers = load_fasta("../chrX/DXZ1_rc_star_monomers.fasta");
     add_reverse_complement(monomers);
-    MonomersAligner monomers_aligner(monomers, "cpp_version_ans");
+    MonomersAligner monomers_aligner(monomers, "cpp_version");
     monomers_aligner.AlignReadsSet(reads);
 }
