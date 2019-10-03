@@ -22,7 +22,7 @@ def cnt_edist(lst):
     if len(str(lst[1])) == 0:
         return -1
     ed_er = int(ED_THRESHOLD*len(lst[0]))
-    result = edlib.align(str(lst[0]), str(lst[1]), mode="NW", task="locations", k = ed_er)
+    result = edlib.align(str(lst[0]), str(lst[1]), mode="NW", task="locations", k = -1)#ed_er)
     if result["editDistance"] == -1:
         return -1
     return 100 - result["editDistance"]*100//max(len(lst[0]), len(lst[1]))
@@ -33,7 +33,7 @@ def cnt_suffix_edist(lst):
     if len(str(lst[1])) == 0:
         return -1, -1
     ed_er = int(ED_THRESHOLD*len(lst[0]))
-    result = edlib.align(str(lst[0])[::-1], str(lst[1])[::-1], mode="SHW", task="locations", k = ed_er)
+    result = edlib.align(str(lst[0])[::-1], str(lst[1])[::-1], mode="SHW", task="locations", k = -1)#ed_er)
     if result["editDistance"] == -1:
         return -1, -1 
     return 100 - result["editDistance"]*100//len(lst[0]), len(lst[1]) - result["locations"][0][1] - 1
@@ -60,7 +60,7 @@ def choose_best(read, read_dp, i, monomers, identity_dif):
         prev = 0
         if start - 1 >= 0:
             prev = read_dp[start-1]
-        if identity > 70:
+        if identity != -1:
             if identity + prev > best_score:
                 best_score, best_ind, best_monomer = identity + prev, start, m.name
     if best_score > -1:
@@ -84,8 +84,8 @@ def slow_edlib_version(args):
     ans_dp[0] = -1
     for i in range(1, read_len):
         read_dp[i], ans_dp[i], monomer_dp[i], identity_dp[i] = choose_best(r.seq, read_dp, i, monomers, identity_dif)
-        if read_dp[i] < read_dp[i - 1]:
-            read_dp[i], ans_dp[i], monomer_dp[i], identity_dp[i] = read_dp[i-1], i - 1, "", []
+        # if read_dp[i] < read_dp[i - 1]:
+        #     read_dp[i], ans_dp[i], monomer_dp[i], identity_dp[i] = read_dp[i-1], i - 1, "", []
     ans = []
     ind = read_len - 1
     while ind >= 0:
@@ -112,24 +112,38 @@ def transform_alignments(alns, new_reads, s):
                     if aa[0] == cur_name:
                         idnt = aa[1]
                         break
-                if cur_name == prev["name"] and end - prev["end"] < 150:
-                    if idnt > prev["idnt"]:
-                        res[-1] = [name, ind, m[2], m[0], m[1], m[3], idnt, "+"]
-                else:
-                    res.append([name, ind, m[2], m[0], m[1], m[3], idnt, "+"])
-                prev = {"name": cur_name, "start": start, "end": end, "idnt": idnt}
+                # if cur_name == prev["name"] and end - prev["end"] < 150:
+                #     if idnt > prev["idnt"]:
+                #         res[-1] = [name, ind, m[2], m[0], m[1], m[3], idnt, "+"]
+                # else:
+                res.append([name, ind, m[2], m[0], m[1], m[3], idnt, "+"])
+                #prev = {"name": cur_name, "start": start, "end": end, "idnt": idnt}
+    new_res = []
+    for i in range(len(res)):
+        add = True
+        for j in range(max(0, i - 3), i):
+            if (res[i][1] + res[i][4]) - (res[j][1] + res[j][4]) < 50:
+                if res[j][6] > res[i][6]:
+                    add = False
+
+        for j in range(i + 1, min(i + 4, len(res))):
+            if (res[j][1] + res[j][4]) - (res[i][1] + res[i][4]) < 50:
+                if res[j][6] > res[i][6]:
+                    add = False
+        if add:
+            new_res.append(res[i])
 
     WINDOW = 5
     idnts = []
     l = 0
-    for it in res:
+    for it in new_res:
         idnts.append(it[6])
         sm = sum(idnts[l:])/(len(idnts) - l)
         if sm < 80:
             it[7] = "?"
         if len(idnts) > WINDOW:
             l += 1
-    return res        
+    return new_res        
 
 
 def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
@@ -190,6 +204,7 @@ if __name__ == "__main__":
         outfile = "./decomposition.tsv"
 
     reads = load_fasta(args.sequences)
+    #reads[0].seq = reads[0].seq[57861200:60968785]
     monomers = load_fasta(args.monomers)
 
     monomers = add_rc_monomers(monomers)
