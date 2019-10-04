@@ -147,6 +147,8 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
     print("Initial number of reads: " + str(len(reads)) + ", Divided into chunks and reverse complement: " + str(len(new_reads)))
     with open(outfile, "w") as fout:
         fout.write("")
+    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout:
+        fout.write("")
     
     start = 0
     for j in range(0, len(save_step)):
