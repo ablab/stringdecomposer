@@ -2,6 +2,16 @@ from Bio.Seq import Seq
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
+import edlib
+
+def cnt_identity(lst, cur_mode = "NW"):
+    if len(str(lst[0])) == 0:
+        return 0
+    if len(str(lst[1])) == 0:
+        return 0
+    result = edlib.align(str(lst[0]), str(lst[1]), mode=cur_mode, task="distance")
+    return 100 - result["editDistance"]*100//max(len(str(lst[0])), len(str(lst[1])))
+
 def load_fasta(filename, tp = "list"):
     if tp == "map":
         records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
@@ -9,11 +19,11 @@ def load_fasta(filename, tp = "list"):
         records = list(SeqIO.parse(filename, "fasta"))
     return records
 
-def load_decomposition(filename):
+def load_decomposition(filename, reads, monomers):
     reads_mapping = {}
     with open(filename, "r") as fin:
         for ln in fin.readlines():
-            sseqid, qseqid, sstart, send, idnt, q = ln.strip().split("\t")[:6]
+            sseqid, qseqid, sstart, send, idnt = ln.strip().split("\t")[:5]
             if sseqid not in reads_mapping:
                     reads_mapping[sseqid] = []
             s, e, idnt = int(sstart), int(send), float(idnt)
@@ -21,21 +31,66 @@ def load_decomposition(filename):
             if qseqid.endswith("'"):
                 rev = True
                 qseqid = qseqid[:-1]
-            reads_mapping[sseqid].append({"qid": qseqid, "s": s, "e": e, "rev": rev, "idnt": idnt, "q": q})
-    for r in reads_mapping:
-        if len(reads_mapping[r]) > 0 and reads_mapping[r][0]["rev"]:
-            reads_mapping[r] = sorted(reads_mapping[r], key=lambda x: (-x["e"], x["s"]))
-        else:
-            reads_mapping[r] = sorted(reads_mapping[r], key=lambda x: (x["s"], -x["e"]))
+            if rev:
+                idnt = cnt_identity([reads[sseqid].seq[s: e + 1], monomers[qseqid].seq.reverse_complement()])
+            else:
+                idnt = cnt_identity([reads[sseqid].seq[s: e + 1], monomers[qseqid].seq])
+            if idnt > 70:
+                reads_mapping[sseqid].append({"qid": qseqid, "s": s, "e": e, "rev": rev, "idnt": idnt})
 
-    return reads_mapping
+    new_mapping = {}
+    bad_reads_num = 0
+    for r in reads_mapping:
+        if len(reads_mapping[r]) > 36:
+            cnt_rev = 0
+            for i in range(len(reads_mapping[r])):
+                h1 = reads_mapping[r][i]
+                if h1["rev"]:
+                    cnt_rev += 1
+            if cnt_rev == 0 or cnt_rev == len(reads_mapping[r]):
+                new_mapping[r] = reads_mapping[r]
+            elif cnt_rev < 0.1*len(reads_mapping[r]):
+                new_mapping[r] = []
+                for i in range(len(reads_mapping[r])):
+                    h1 = reads_mapping[r][i]
+                    if not h1["rev"]:
+                        new_mapping[r].append(h1)
+            elif cnt_rev > 0.9*len(reads_mapping[r]):
+                new_mapping[r] = []
+                for i in range(len(reads_mapping[r])):
+                    h1 = reads_mapping[r][i]
+                    if h1["rev"]:
+                        new_mapping[r].append(h1)
+            else:
+                bad_reads_num += 1
+        else:
+            bad_reads_num += 1
+
+    print("Bad reads " + str(bad_reads_num))
+    for r in new_mapping:
+        if len(new_mapping[r]) > 0 and new_mapping[r][0]["rev"]:
+            new_mapping[r] = sorted(new_mapping[r], key=lambda x: (-x["e"], x["s"]))
+        else:
+            new_mapping[r] = sorted(new_mapping[r], key=lambda x: (x["s"], -x["e"]))
+    return new_mapping
+
+def identify_monomer_order(filename):
+    monomers_lst = load_fasta(filename)
+    ordered = []
+    for m in monomers_lst:
+        ordered.append(m.name)
+    order_map = {}
+    for i in range(len(ordered)):
+        order_map[ordered[i]] = i
+    return ordered, order_map
 
 class StatisticsCounter:
     def __init__(self, filename_alns, filename_reads, filename_monomers):
         self.reads = load_fasta(filename_reads, "map")
         self.monomers = load_fasta(filename_monomers, "map")
-        self.hits = load_decomposition(filename_alns)
+        self.hits = load_decomposition(filename_alns, self.reads, self.monomers)
         self.NOGAP = 10
+        self.monomers_ordered, self.monomer_order_map = identify_monomer_order(filename_monomers)
 
     def transition_matrix(self):
         order_lst = {}
@@ -53,26 +108,19 @@ class StatisticsCounter:
                         if  (not rev and abs(h2["s"] - h1["e"]) < self.NOGAP) or (rev and abs(h2["e"] - h1["s"]) < self.NOGAP):
                             order_lst[h1["qid"]][h2["qid"]] += 1
 
-        symbol = {}
-        for m in self.monomers:
-            symbol[m] = int(m.split("_")[1])
-
-        s_r = {}
-        for s in symbol:
-            s_r[symbol[s]] = s
 
         res = ""
-        for m in sorted([symbol[k] for k in order_lst.keys()]):
+        for m in self.monomers_ordered:
             ans = []
-            for m2 in sorted([symbol[kk] for kk in order_lst[s_r[m]].keys()]):
-                ans.append(str(order_lst[s_r[m]][s_r[m2]]))
+            for m2 in self.monomers_ordered:
+                ans.append(str(order_lst[m][m2]))
             res += "\t".join(ans) + "\n"
         return res
 
     def identity_histogram(self):
         pass
 
-    def covered(self, high_qual = False):
+    def covered(self):
         sum_len = 0
         sum_filled = 0
         avg_mapping_identity, mapping_num = 0, 0
@@ -81,39 +129,29 @@ class StatisticsCounter:
             mappings = self.hits[r]
             ar = [0 for _ in range(read_len)]
             for m in mappings:
-                if not high_qual or m["q"] == "+":
-                    s, e = m["s"], m["e"]
-                    for i in range(s-1, e):
-                        ar[i] = 1
-                    avg_mapping_identity += m["idnt"]
-                    mapping_num += 1
+                s, e = m["s"], m["e"]
+                for i in range(s-1, e):
+                    ar[i] = 1
+                avg_mapping_identity += m["idnt"]
+                mapping_num += 1
             cnt = sum(ar)
-            sum_len += read_len
             sum_filled += cnt
+        for r in self.reads:
+            sum_len += len(self.reads[r].seq)
         return str(sum_filled*100//sum_len)+"%", str(int(avg_mapping_identity//mapping_num))+"%"
 
-    def abnormal_parts(self, high_qual = False):
+    def abnormal_parts(self):
         gaps = 0
         abnormal_order = 0
-        hits = self.hits
-        if high_qual:
-            high_qual_mp = {}
-            for r in self.hits:
-                high_qual_mp[r] = []
-                for h in self.hits[r]:
-                    if h["q"] == "+":
-                        high_qual_mp[r].append(h)
-            hits = high_qual_mp
-        for r in hits:
-            for i in range(len(hits[r]) - 1):
-                h1 = hits[r][i]
-                h2 = hits[r][i + 1]
-                if h1["rev"] == h2["rev"]:
-                    rev = h1["rev"]
-                    if (not rev and abs(h2["s"] - h1["e"]) < self.NOGAP) or (rev and abs(h2["e"] - h1["s"]) < self.NOGAP):
-                        s1, s2 = int(h1["qid"].split("_")[1]), int(h2["qid"].split("_")[1])
-                        if s1 + 1 != s2 and not (s1 == len(self.monomers) and s2 == 1):
-                            abnormal_order += 1 
+        for r in self.hits:
+            for i in range(len(self.hits[r]) - 1):
+                h1 = self.hits[r][i]
+                h2 = self.hits[r][i + 1]
+                rev = h1["rev"]
+                if (not rev and abs(h2["s"] - h1["e"]) < self.NOGAP) or (rev and abs(h2["e"] - h1["s"]) < self.NOGAP):
+                    s1, s2 = self.monomer_order_map[h1["qid"]], self.monomer_order_map[h2["qid"]]
+                    if s1 + 1 != s2 and not (s1 == len(self.monomers) - 1 and s2 == 0):
+                        abnormal_order += 1 
                 else:
                     gaps += 1
         return gaps, abnormal_order
@@ -123,17 +161,15 @@ class StatisticsCounter:
 
     def generate_stats_table(self):
         columns = ["                 ", "Covered", "Avg identity", "Gaps", "Abnormal mapping pairs"]
-        rows = ["Total set of mappings", "High quality mappings"]
+        rows = ["Total set of mappings"]
         columns_mp = {}
         for c in columns:
             columns_mp[c] = {}
             for r in rows:
                 columns_mp[c][r] = ""
-        columns_mp["                 "]["Total set of mappings"], columns_mp["                 "]["High quality mappings"] = rows[0], rows[1]
+        columns_mp["                 "]["Total set of mappings"]= rows[0]
         columns_mp["Covered"]["Total set of mappings"], columns_mp["Avg identity"]["Total set of mappings"] = self.covered()
-        columns_mp["Covered"]["High quality mappings"], columns_mp["Avg identity"]["High quality mappings"] = self.covered(True)
         columns_mp["Gaps"]["Total set of mappings"], columns_mp["Abnormal mapping pairs"]["Total set of mappings"] = self.abnormal_parts()
-        columns_mp["Gaps"]["High quality mappings"], columns_mp["Abnormal mapping pairs"]["High quality mappings"] = self.abnormal_parts(True)
         res = "\t".join(columns) + "\n"
         print(columns_mp)
         for r in rows:
