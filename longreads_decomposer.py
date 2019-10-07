@@ -19,6 +19,7 @@ from monomers_alignment_statistics import StatisticsCounter
 
 
 ED_THRESHOLD = 0.5
+LOWEST_IDENTITY = 70
 
 def cnt_edist(lst):
     if len(str(lst[0])) == 0:
@@ -67,7 +68,7 @@ def choose_best(read, read_dp, i, monomers, identity_dif):
         prev = 0
         if start - 1 >= 0:
             prev = read_dp[start-1]
-        if identity > 70:
+        if identity > LOWEST_IDENTITY:
             if identity + prev > best_score:
                 best_score, best_ind, best_monomer = identity + prev, start, m.name
     if best_score > -1:
@@ -181,6 +182,8 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--out',  help='output tsv-file, by default will be saved into decomposition.tsv', required=False)
     parser.add_argument('-i', '--identity', help='difference in identity for printed alignments, default i = 10', required=False)
     parser.add_argument('-t', '--threads', help='threads number', required=False)
+    parser.add_argument('-a', '--stats', help='prints coverage and identity statistics for computed alignments', required=False, action='store_true')
+    parser.add_argument('-d', '--identitythreshold', help='identity threshold for reliable mononomer alignment, default 70%', required=False)
 
     args = parser.parse_args()
     t = args.threads
@@ -191,6 +194,9 @@ if __name__ == "__main__":
         i = 10
     else:
         i = int(i)
+    if args.identitythreshold == None:
+        LOWEST_IDENTITY = 70
+
     print("Number of threads: " + t)
     outfile = args.out
     if outfile == None:
@@ -198,15 +204,12 @@ if __name__ == "__main__":
 
     reads = load_fasta(args.sequences)
     monomers = load_fasta(args.monomers)
-
     monomers = add_rc_monomers(monomers)
 
-    #cProfile.run("parallel_edlib_version(reads, monomers, outfile, t, i)")
-    stats_only = True
-    if not stats_only:
+    if not os.path.exists(outfile):
         parallel_edlib_version(reads, monomers, outfile, t, i)
 
-    if stats_only:
-       sc = StatisticsCounter(outfile, args.sequences, args.monomers)
+    if args.stats:
+       sc = StatisticsCounter(outfile, args.sequences, args.monomers, LOWEST_IDENTITY)
        sc.save_stats(outfile[:-len(".tsv")])
 

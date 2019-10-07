@@ -19,7 +19,7 @@ def load_fasta(filename, tp = "list"):
         records = list(SeqIO.parse(filename, "fasta"))
     return records
 
-def load_decomposition(filename, reads, monomers):
+def load_decomposition(filename, reads, monomers, identity_threshold):
     reads_mapping = {}
     with open(filename, "r") as fin:
         for ln in fin.readlines():
@@ -35,7 +35,7 @@ def load_decomposition(filename, reads, monomers):
                 idnt = cnt_identity([reads[sseqid].seq[s: e + 1], monomers[qseqid].seq.reverse_complement()])
             else:
                 idnt = cnt_identity([reads[sseqid].seq[s: e + 1], monomers[qseqid].seq])
-            if idnt > 70:
+            if idnt > identity_threshold:
                 reads_mapping[sseqid].append({"qid": qseqid, "s": s, "e": e, "rev": rev, "idnt": idnt})
 
     new_mapping = {}
@@ -85,12 +85,13 @@ def identify_monomer_order(filename):
     return ordered, order_map
 
 class StatisticsCounter:
-    def __init__(self, filename_alns, filename_reads, filename_monomers):
+    def __init__(self, filename_alns, filename_reads, filename_monomers, identity_threshold):
         self.reads = load_fasta(filename_reads, "map")
         self.monomers = load_fasta(filename_monomers, "map")
-        self.hits = load_decomposition(filename_alns, self.reads, self.monomers)
+        self.hits = load_decomposition(filename_alns, self.reads, self.monomers, identity_threshold)
         self.NOGAP = 10
         self.monomers_ordered, self.monomer_order_map = identify_monomer_order(filename_monomers)
+        self.identity_threshold = identity_threshold
 
     def transition_matrix(self):
         order_lst = {}
@@ -187,7 +188,7 @@ class StatisticsCounter:
 
     def save_stats(self, filename_out):
         print("Calculating resulting alignments statistics...")
-        with open(filename_out + "_stats.txt", "w") as fout:
+        with open(filename_out + "_stats" + str(self.identity_threshold) + ".txt", "w") as fout:
             fout.write("Reads number: " + str(len(self.reads)) + "\n")
             fout.write("Reads length: " + str(self.reads_len()) + "\n")
             fout.write("General alignment statistics\n")
@@ -195,5 +196,5 @@ class StatisticsCounter:
             fout.write("\n")
             fout.write("Monomers transition matrix\n")
             fout.write(self.transition_matrix())
-        print("Statistics saved to " + filename_out + "_stats.txt")
+        print("Statistics saved to " + filename_out + "_stats" + str(self.identity_threshold) + ".txt")
 
