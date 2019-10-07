@@ -112,12 +112,7 @@ def transform_alignments(alns, new_reads, s):
                     if aa[0] == cur_name:
                         idnt = aa[1]
                         break
-                # if cur_name == prev["name"] and end - prev["end"] < 150:
-                #     if idnt > prev["idnt"]:
-                #         res[-1] = [name, ind, m[2], m[0], m[1], m[3], idnt, "+"]
-                # else:
                 res.append([name, ind, m[2], m[0], m[1], m[3], idnt, "+"])
-                #prev = {"name": cur_name, "start": start, "end": end, "idnt": idnt}
     new_res = []
     for i in range(len(res)):
         add = True
