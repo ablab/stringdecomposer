@@ -182,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--identity', help='difference in identity for printed alignments, default i = 10', required=False)
     parser.add_argument('-t', '--threads', help='threads number', required=False)
     parser.add_argument('-a', '--stats', help='prints coverage and identity statistics for computed alignments', required=False, action='store_true')
-    parser.add_argument('-d', '--identitythreshold', help='identity threshold for reliable mononomer alignment, default 70%', required=False)
+    parser.add_argument('-d', '--identitythreshold', help='identity threshold for reliable mononomer alignment, default 70', required=False)
 
     args = parser.parse_args()
     t = args.threads
