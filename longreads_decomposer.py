@@ -30,7 +30,7 @@ def cnt_edist(lst):
     result = edlib.align(str(lst[0]), str(lst[1]), mode="NW", task="locations", k = ed_er)
     if result["editDistance"] == -1:
         return -1
-    return 100 - result["editDistance"]*100//max(len(lst[0]), len(lst[1]))
+    return 100 - result["editDistance"]*100//len(lst[0])
 
 def cnt_suffix_edist(lst):
     if len(str(lst[0])) == 0:
@@ -157,6 +157,7 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
     
     start = 0
     for j in range(0, len(save_step)):
+        print("Read " + new_reads[start].description + " aligning")
         all_ans = Parallel(n_jobs=THREADS)(delayed(slow_edlib_version)([new_reads[i], monomers, identity_dif]) for i in range(start, min(start + save_step[j], len(new_reads)) ))
         all_ans = transform_alignments(all_ans, new_reads, start)
         print("Read " + new_reads[start].description + " aligned")
@@ -166,9 +167,8 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
                     name = a[0]
                     ind = a[1]
                     fout.write("\t".join([name, str(a[2]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(a[6]), a[7]]) + "\n")
-                    add_star = True if len(a[5]) > 1 else False 
                     for alt in a[5]:
-                        if add_star:
+                        if str(alt[0]) == str(a[2]):
                             fout_alt.write("\t".join([name, str(alt[0]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(alt[1]), "*"]) + "\n")
                         else:
                             fout_alt.write("\t".join([name, str(alt[0]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(alt[1])]) + "\n")
@@ -193,6 +193,7 @@ if __name__ == "__main__":
         i = 10
     else:
         i = int(i)
+    i = 100
     if args.identitythreshold == None:
         LOWEST_IDENTITY = 70
 
@@ -205,8 +206,8 @@ if __name__ == "__main__":
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
 
-    if not os.path.exists(outfile):
-        parallel_edlib_version(reads, monomers, outfile, t, i)
+    #if not os.path.exists(outfile):
+    parallel_edlib_version(reads, monomers, outfile, t, i)
 
     if args.stats:
        sc = StatisticsCounter(outfile, args.sequences, args.monomers, LOWEST_IDENTITY)
