@@ -326,17 +326,22 @@ string reverse_complement(string &s){
 void add_reverse_complement(vector<Seq> &monomers) {
     vector<Seq> rev_c_monomers;
     for (auto s: monomers) {
-        rev_c_monomers.push_back(Seq(s.read_id.name + "_rc", reverse_complement(s.seq)));
+        rev_c_monomers.push_back(Seq(s.read_id.name + "'", reverse_complement(s.seq)));
     }
     monomers.insert(monomers.end(), rev_c_monomers.begin(), rev_c_monomers.end());
     return;
 }
 
 
-int main() {
-    vector<Seq> reads = load_fasta("../chrX/results/centromeric_reads/centromeric_reads.fasta");
-    vector<Seq> monomers = load_fasta("../chrX/DXZ1_rc_star_monomers.fasta");
+int main(int argc, char **argv) {
+    if (argc < 4) {
+        cout << "Failed to process. Number of arguments < 4\n";
+        cout << "./decompose <reads> <monomers> <output>\n";
+        return -1;
+    }
+    vector<Seq> reads = load_fasta(argv[1]);
+    vector<Seq> monomers = load_fasta(argv[2]);
     add_reverse_complement(monomers);
-    MonomersAligner monomers_aligner(monomers, "cpp_version");
+    MonomersAligner monomers_aligner(monomers, argv[3]);
     monomers_aligner.AlignReadsSet(reads);
 }
