@@ -159,10 +159,10 @@ private:
                 dp[0][j][k] = dp[0][j][k-1] + del;
             }
         }
-        dp[0][monomers_num][0] = 0;
+        //dp[0][monomers_num][0] = 0;
         //cout << "Init dp " << read.seq.size() << endl;
         for (int i = 1; i < read.seq.size(); ++ i) {
-            dp[i][monomers_num][0] = dp[i-1][monomers_num][0];
+            //dp[i][monomers_num][0] = dp[i-1][monomers_num][0];
             for (int j = 0; j < monomers_.size(); ++ j) {
                 dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers_[j].size() - 1]);
             }
@@ -189,7 +189,7 @@ private:
             }
         }
         //cout << "Counted dp \n";
-        int max_score = dp[read.seq.size()-1][monomers_num][0];
+        int max_score = INF; //dp[read.seq.size()-1][monomers_num][0];
         int best_m = monomers_num;
         for (int j = 0; j < monomers_.size(); ++ j) {
             if (max_score < dp[read.seq.size()-1][j][monomers_[j].size() -1] ) {
@@ -269,13 +269,25 @@ private:
         vector<MonomerAlignment> res;
         res.push_back(batch[0]);
         for (size_t i = 1; i < batch.size(); ++ i) {
-            if (batch[i].monomer_name == batch[i - 1].monomer_name && batch[i].end_pos - batch[i-1].end_pos < 150) {
-                if (batch[i].identity > batch[i-1].identity) {
-                    res[res.size() - 1] = batch[i];
+            bool add = true;
+            for (size_t j = (size_t) max((int) 0, (int) i - 3); j < i; ++ j) {
+                if ((batch[i].end_pos - batch[j].end_pos < 50 || batch[i].start_pos - batch[j].start_pos < 50) && batch[i].identity < batch[j].identity) {
+                    add = false;
                 }
-            } else {
-                res.push_back(batch[i]);
             }
+            for (size_t j = i + 1; j < (size_t) min((int) i + 4, (int) batch.size()); ++ j) {
+                if ((batch[j].end_pos - batch[i].end_pos < 50 || batch[j].start_pos - batch[i].start_pos < 50) && batch[i].identity < batch[j].identity) {
+                    add = false;
+                }
+            }
+            if (add) { res.push_back(batch[i]);}
+            // if (batch[i].monomer_name == batch[i - 1].monomer_name && batch[i].end_pos - batch[i-1].end_pos < 150) {
+            //     if (batch[i].identity > batch[i-1].identity) {
+            //         res[res.size() - 1] = batch[i];
+            //     }
+            // } else {
+            //     res.push_back(batch[i]);
+            // }
         }
         return res;
     }
