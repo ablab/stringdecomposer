@@ -117,24 +117,33 @@ def transform_alignments(alns, new_reads, s):
                     if aa[0] == cur_name:
                         idnt = aa[1]
                         break
-                if cur_name == prev["name"] and end - prev["end"] < 150:
-                    if idnt > prev["idnt"]:
-                        res[-1] = [name, ind, m[2], m[0], m[1], m[3], idnt, "+"]
-                else:
-                    res.append([name, ind, m[2], m[0], m[1], m[3], idnt, "+"])
-                prev = {"name": cur_name, "start": start, "end": end, "idnt": idnt}
+                res.append([name, ind, m[2], m[0], m[1], m[3], idnt, "+"])
+    new_res = []
+    for i in range(len(res)):
+        add = True
+        for j in range(max(0, i - 3), i):
+            if (res[i][1] + res[i][4]) - (res[j][1] + res[j][4]) < 50 or (res[i][1] + res[i][3]) - (res[j][1] + res[j][3]) < 50:
+                if res[j][6] > res[i][6]:
+                    add = False
+
+        for j in range(i + 1, min(i + 4, len(res))):
+            if (res[j][1] + res[j][4]) - (res[i][1] + res[i][4]) < 50 or (res[j][1] + res[j][3]) - (res[i][1] + res[i][3]) < 50:
+                if res[j][6] > res[i][6]:
+                    add = False
+        if add:
+            new_res.append(res[i])
 
     WINDOW = 5
     idnts = []
     l = 0
-    for it in res:
+    for it in new_res:
         idnts.append(it[6])
         sm = sum(idnts[l:])/(len(idnts) - l)
         if sm < 80:
             it[7] = "?"
         if len(idnts) > WINDOW:
             l += 1
-    return res        
+    return new_res
 
 
 def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
