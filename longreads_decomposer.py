@@ -205,6 +205,8 @@ if __name__ == "__main__":
     i = 100
     if args.identitythreshold == None:
         LOWEST_IDENTITY = 70
+    else:
+        LOWEST_IDENTITY = int(args.identitythreshold)
 
     print("Number of threads: " + t)
     outfile = args.out
