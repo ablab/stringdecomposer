@@ -173,10 +173,12 @@ def get_monomer_sequence(alns, avg_len, encoding):
         for i in range(len(res)):
             if res[i].endswith("'"):
                 res[i] = res[i][:-1]
-            else:
+            elif res[i] != "-":
                 res[i] = res[i] + "'"
+            else:
+                res[i] = res[i]
         res = res[::-1]
-    return "".join(res), "" if not reverse else "'"
+    return "".join(res), "" if not reverse else "'", alns[0][1] + alns[0][3], alns[-1][1] + alns[-1][4]
 
 def encode_monomers(monomers):
     if len(monomers) <= 26:
@@ -246,8 +248,8 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
                                                                              second_monomer, "{:.2f}".format(second_identity)]) + "\n")
         if len(encoding) > 0:
             with open(outfile[:-len(".tsv")] + ".fasta", "a+") as fout:
-                s, rev = get_monomer_sequence(all_ans, avg_len, encoding)
-                fout.write(">" + new_reads[start].description  + rev + "\n")
+                s, rev, left, right = get_monomer_sequence(all_ans, avg_len, encoding)
+                fout.write(">" + new_reads[start].description  + rev + "/" + str(left) + "_" + str(right) + "\n")
                 fout.write(s + "\n")
         start += save_step[j]
 
