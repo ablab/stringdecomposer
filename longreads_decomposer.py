@@ -146,12 +146,67 @@ def transform_alignments(alns, new_reads, s):
     return new_res
 
 
+def get_monomer_sequence(alns, avg_len, encoding):
+    res = []
+    prev_start, prev_end = -1, -1
+    rc_num, total_len = 0, 0
+    reverse = False
+    for a in alns:
+        name = a[2]
+        ind = a[1]
+        start, end = ind + a[3], ind + a[4]
+        num_n = 0
+        if prev_end != -1 and start - prev_end > 50:
+            num_n = (start - prev_end)//avg_len
+            if (start - prev_end)%avg_len*2 >= avg_len:
+                num_n += 1
+        for _ in range(num_n):
+            res.append("-")
+            total_len += 1
+        res.append(encoding[name])
+        total_len += 1
+        if encoding[name].endswith("'"):
+            rc_num += 1
+        prev_start, prev_end = start, end
+    if rc_num*2 > total_len:
+        reverse = True
+        for i in range(len(res)):
+            if res[i].endswith("'"):
+                res[i] = res[i][:-1]
+            else:
+                res[i] = res[i] + "'"
+        res = res[::-1]
+    return "".join(res), "" if not reverse else "'"
+
+def encode_monomers(monomers):
+    if len(monomers) <= 26:
+        res = {}
+        i = "A"
+        for m in monomers:
+            if not m.name.endswith("'"):
+                res[m.name] = i
+                i = chr(ord(i) + 1)
+            else:
+                res[m.name] = res[m.name[:-1]] + "'"
+        return res
+    else:
+        print("Warning: No encoding! Fasta won't be generated")
+        return {}
+
+def avg_length(monomers):
+    res = 0
+    for m in monomers:
+        res += len(m.seq)
+    return res//len(monomers)
+
 def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
     LEN_STEP = 5000
     THREADS = int(t)
     SAVE_STEP = 300
     save_step = []
     new_reads = []
+    avg_len = avg_length(monomers)
+    encoding = encode_monomers(monomers)
     for r in reads:
         cnt = 0
         for i in range(0, len(r.seq), LEN_STEP):
@@ -162,6 +217,8 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
     with open(outfile, "w") as fout:
         fout.write("")
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout:
+        fout.write("")
+    with open(outfile[:-len(".tsv")] + ".fasta", "w") as fout:
         fout.write("")
     
     start = 0
@@ -175,12 +232,23 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
                 for a in all_ans:
                     name = a[0]
                     ind = a[1]
-                    fout.write("\t".join([name, str(a[2]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(a[6]), a[7]]) + "\n")
+                    second_best = 1 if str(a[5][0][0]) == str(a[2]) else 0
                     for alt in a[5]:
                         if str(alt[0]) == str(a[2]):
                             fout_alt.write("\t".join([name, str(alt[0]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(alt[1]), "*"]) + "\n")
                         else:
                             fout_alt.write("\t".join([name, str(alt[0]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(alt[1])]) + "\n")
+                    if a[6] - a[5][second_best][1] < 5:
+                        second_monomer, second_identity = a[5][second_best]
+                    else:
+                        second_monomer, second_identity = "None", -1
+                    fout.write("\t".join([name, str(a[2]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(a[6]), \
+                                                                             second_monomer, "{:.2f}".format(second_identity)]) + "\n")
+        if len(encoding) > 0:
+            with open(outfile[:-len(".tsv")] + ".fasta", "a+") as fout:
+                s, rev = get_monomer_sequence(all_ans, avg_len, encoding)
+                fout.write(">" + new_reads[start].description  + rev + "\n")
+                fout.write(s + "\n")
         start += save_step[j]
 
 if __name__ == "__main__":
