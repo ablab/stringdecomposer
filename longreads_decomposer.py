@@ -161,7 +161,7 @@ def get_monomer_sequence(alns, avg_len, encoding):
             if (start - prev_end)%avg_len*2 >= avg_len:
                 num_n += 1
         for _ in range(num_n):
-            res.append("-")
+            res.append("?")
             total_len += 1
         res.append(encoding[name])
         total_len += 1
@@ -173,7 +173,7 @@ def get_monomer_sequence(alns, avg_len, encoding):
         for i in range(len(res)):
             if res[i].endswith("'"):
                 res[i] = res[i][:-1]
-            elif res[i] != "-":
+            elif res[i] != "?":
                 res[i] = res[i] + "'"
             else:
                 res[i] = res[i]
@@ -228,7 +228,6 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
         print("Read " + new_reads[start].description + " aligning")
         all_ans = Parallel(n_jobs=THREADS)(delayed(slow_edlib_version)([new_reads[i], monomers, identity_dif]) for i in range(start, min(start + save_step[j], len(new_reads)) ))
         all_ans = transform_alignments(all_ans, new_reads, start)
-        print("Read " + new_reads[start].description + " aligned")
         with open(outfile[:-len(".tsv")] + "_alt.tsv", "a+") as fout_alt:
             with open(outfile, "a+") as fout:
                 for a in all_ans:
@@ -246,11 +245,12 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
                         second_monomer, second_identity = "None", -1
                     fout.write("\t".join([name, str(a[2]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(a[6]), \
                                                                              second_monomer, "{:.2f}".format(second_identity)]) + "\n")
-        if len(encoding) > 0:
+        if len(encoding) > 0 and len(all_ans) > 0:
             with open(outfile[:-len(".tsv")] + ".fasta", "a+") as fout:
                 s, rev, left, right = get_monomer_sequence(all_ans, avg_len, encoding)
                 fout.write(">" + new_reads[start].description  + rev + "/" + str(left) + "_" + str(right) + "\n")
                 fout.write(s + "\n")
+        print("Read " + new_reads[start].description + " aligned")
         start += save_step[j]
 
 if __name__ == "__main__":
