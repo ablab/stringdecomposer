@@ -123,7 +123,7 @@ def transform_alignments(alns, new_reads, s):
         add = True
         for j in range(max(0, i - 3), i):
             if (res[i][1] + res[i][4]) - (res[j][1] + res[j][4]) < 50 or (res[i][1] + res[i][3]) - (res[j][1] + res[j][3]) < 50:
-                if res[j][6] > res[i][6]:
+                if res[j][6] >= res[i][6]:
                     add = False
 
         for j in range(i + 1, min(i + 4, len(res))):
