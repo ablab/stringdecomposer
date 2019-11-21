@@ -181,7 +181,7 @@ def get_monomer_sequence(alns, avg_len, encoding):
     return "".join(res), "" if not reverse else "'", alns[0][1] + alns[0][3], alns[-1][1] + alns[-1][4]
 
 def encode_monomers(monomers):
-    if len(monomers) <= 26:
+    if len(monomers)/2 <= 26:
         res = {}
         i = "A"
         for m in monomers:
