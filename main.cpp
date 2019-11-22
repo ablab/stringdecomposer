@@ -84,7 +84,7 @@ public:
         for (int p = 0; p < save_steps.size(); ++ p){
             vector<MonomerAlignment> batch;
             vector<pair<int, vector<MonomerAlignment>>> subbatches;
-            #pragma omp parallel for schedule(guided, 50) num_threads(16)
+            #pragma omp parallel for num_threads(16)
             for (int j = start; j < start + save_steps[p]; ++ j) {
                 vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
                 #pragma omp critical(aligner) 
