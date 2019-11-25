@@ -134,15 +134,15 @@ def transform_alignments(alns, new_reads, s):
             new_res.append(res[i])
 
     WINDOW = 5
-    idnts = []
     l = 0
-    for it in new_res:
-        idnts.append(it[6])
-        sm = sum(idnts[l:])/(len(idnts) - l)
-        if sm < 80:
-            it[7] = "?"
-        if len(idnts) > WINDOW:
-            l += 1
+    for i in range(len(new_res)):
+        sm, cnt = 0, 0
+        for j in range(i - 2, i + 3):
+            if j >= 0 and j < len(new_res):
+                sm += new_res[j][6]
+                cnt += 1
+        if sm/cnt < 80:
+            new_res[i][7] = "?"
     return new_res
 
 
@@ -244,7 +244,7 @@ def parallel_edlib_version(reads, monomers, outfile, t, identity_dif):
                     else:
                         second_monomer, second_identity = "None", -1
                     fout.write("\t".join([name, str(a[2]), str(ind + a[3]), str(ind + a[4]), "{:.2f}".format(a[6]), \
-                                                                             second_monomer, "{:.2f}".format(second_identity)]) + "\n")
+                                                                             second_monomer, "{:.2f}".format(second_identity), a[7]]) + "\n")
         if len(encoding) > 0 and len(all_ans) > 0:
             with open(outfile[:-len(".tsv")] + ".fasta", "a+") as fout:
                 s, rev, left, right = get_monomer_sequence(all_ans, avg_len, encoding)
