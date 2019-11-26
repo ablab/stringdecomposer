@@ -63,7 +63,7 @@ public:
         output_file_.open(output_file_name + "_alt.tsv", std::ofstream::out);
     }
 
-    void AlignReadsSet(vector<Seq> &reads) {
+    void AlignReadsSet(vector<Seq> &reads, int threads) {
         vector<Seq> new_reads;
         vector<int> save_steps;
         for (auto r: reads) {
@@ -84,7 +84,7 @@ public:
         for (int p = 0; p < save_steps.size(); ++ p){
             vector<MonomerAlignment> batch;
             vector<pair<int, vector<MonomerAlignment>>> subbatches;
-            #pragma omp parallel for num_threads(16)
+            #pragma omp parallel for num_threads(threads)
             for (int j = start; j < start + save_steps[p]; ++ j) {
                 vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
                 #pragma omp critical(aligner) 
@@ -329,13 +329,14 @@ void add_reverse_complement(vector<Seq> &monomers) {
 
 int main(int argc, char **argv) {
     if (argc < 4) {
-        cout << "Failed to process. Number of arguments < 4\n";
-        cout << "./decompose <reads> <monomers> <output>\n";
+        cout << "Failed to process. Number of arguments < 5\n";
+        cout << "./decompose <reads> <monomers> <output> <threads>\n";
         return -1;
     }
     vector<Seq> reads = load_fasta(argv[1]);
     vector<Seq> monomers = load_fasta(argv[2]);
     add_reverse_complement(monomers);
     MonomersAligner monomers_aligner(monomers, argv[3]);
-    monomers_aligner.AlignReadsSet(reads);
+    int num_threads = stoi(argv[4]);
+    monomers_aligner.AlignReadsSet(reads, num_threads);
 }
