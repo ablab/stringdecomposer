@@ -70,7 +70,7 @@ public:
             int cnt = 0;
             //cout << r.seq.size() << endl;
             for (int i = 0; i < r.seq.size(); i += PART_SZ) {
-                if ((int) r.seq.size() - i >= 200) {  
+                if ((int) r.seq.size() - i >= 200 || r.seq.size() < 200) {
                     Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(PART_SZ + 200, (int) r.seq.size() - i) ), i );
                     new_reads.push_back(seq);
                     ++ cnt;
