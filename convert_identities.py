@@ -54,17 +54,16 @@ def convert_read(decomposition, read, monomers):
             score = cnt_edist([read.seq[start:end + 1], m.seq])
             scores[m.name] = score
         
-        if not monomer:
+        if monomer == None:
             for s in scores:
-                if not monomer or scores[s] > scores[monomer]:
+                if monomer == None or scores[s] > scores[monomer]:
                     monomer = s
-
         secondbest, secondbest_score = None, -1 
         for m in scores:
             if m != monomer and abs(scores[m] - scores[monomer]) < 5:
                 if not secondbest or secondbest_score < scores[m]:
                     secondbest, secondbest_score = m, scores[m]
-        res.append({"m": d["m"], "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
+        res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
                                 "second_best": str(secondbest), "second_best_score": secondbest_score, "alt": scores, "q": "+"})
 
     window = 2
