@@ -63,15 +63,15 @@ public:
         output_file_.open(output_file_name + "_alt.tsv", std::ofstream::out);
     }
 
-    void AlignReadsSet(vector<Seq> &reads, int threads) {
+    void AlignReadsSet(vector<Seq> &reads, int threads, int part_size) {
         vector<Seq> new_reads;
         vector<int> save_steps;
         for (auto r: reads) {
             int cnt = 0;
             //cout << r.seq.size() << endl;
-            for (int i = 0; i < r.seq.size(); i += PART_SZ) {
+            for (int i = 0; i < r.seq.size(); i += part_size) {
                 if ((int) r.seq.size() - i >= 200 || r.seq.size() < 200) {
-                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(PART_SZ + 200, (int) r.seq.size() - i) ), i );
+                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + 200, (int) r.seq.size() - i) ), i );
                     new_reads.push_back(seq);
                     ++ cnt;
                 }
@@ -283,7 +283,6 @@ private:
 
     vector<Seq> monomers_;
     const int SAVE_STEP = 1;
-    const int PART_SZ = 5000;
     ofstream output_file_;
     ofstream output_file_best_;
 };
@@ -323,9 +322,9 @@ void add_reverse_complement(vector<Seq> &monomers) {
 
 
 int main(int argc, char **argv) {
-    if (argc < 4) {
-        cout << "Failed to process. Number of arguments < 5\n";
-        cout << "./decompose <reads> <monomers> <output> <threads>\n";
+    if (argc < 5) {
+        cout << "Failed to process. Number of arguments < 6\n";
+        cout << "./decompose <reads> <monomers> <output> <threads> <part-size>\n";
         return -1;
     }
     vector<Seq> reads = load_fasta(argv[1]);
@@ -333,5 +332,6 @@ int main(int argc, char **argv) {
     add_reverse_complement(monomers);
     MonomersAligner monomers_aligner(monomers, argv[3]);
     int num_threads = stoi(argv[4]);
-    monomers_aligner.AlignReadsSet(reads, num_threads);
+    int part_size = stoi(argv[5]);
+    monomers_aligner.AlignReadsSet(reads, num_threads, part_size);
 }
