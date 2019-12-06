@@ -70,8 +70,8 @@ public:
             int cnt = 0;
             //cout << r.seq.size() << endl;
             for (int i = 0; i < r.seq.size(); i += part_size) {
-                if ((int) r.seq.size() - i >= 200 || r.seq.size() < 200) {
-                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + 200, (int) r.seq.size() - i) ), i );
+                if ((int) r.seq.size() - i >= 500 || r.seq.size() < 500) {
+                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + 500, (int) r.seq.size() - i) ), i );
                     new_reads.push_back(seq);
                     ++ cnt;
                 }
@@ -266,12 +266,12 @@ private:
         res.push_back(batch[0]);
         for (size_t i = 1; i < batch.size(); ++ i) {
             bool add = true;
-            for (size_t j = (size_t) max((int) 0, (int) i - 3); j < i; ++ j) {
+            for (size_t j = (size_t) max((int) 0, (int) i - 6); j < i; ++ j) {
                 if ((batch[i].end_pos - batch[j].end_pos < 50 || batch[i].start_pos - batch[j].start_pos < 50) && batch[i].identity < batch[j].identity) {
                     add = false;
                 }
             }
-            for (size_t j = i + 1; j < (size_t) min((int) i + 4, (int) batch.size()); ++ j) {
+            for (size_t j = i + 1; j < (size_t) min((int) i + 7, (int) batch.size()); ++ j) {
                 if ((batch[j].end_pos - batch[i].end_pos < 50 || batch[j].start_pos - batch[i].start_pos < 50) && batch[i].identity <= batch[j].identity) {
                     add = false;
                 }
