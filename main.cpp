@@ -267,12 +267,12 @@ private:
         for (size_t i = 1; i < batch.size(); ++ i) {
             bool add = true;
             for (size_t j = (size_t) max((int) 0, (int) i - 6); j < i; ++ j) {
-                if ((batch[i].end_pos - batch[j].end_pos < 50 || batch[i].start_pos - batch[j].start_pos < 50) && batch[i].identity < batch[j].identity) {
+                if ((abs(batch[i].end_pos - batch[j].end_pos) < 50 || abs(batch[i].start_pos - batch[j].start_pos) < 50) && batch[i].identity < batch[j].identity) {
                     add = false;
                 }
             }
             for (size_t j = i + 1; j < (size_t) min((int) i + 7, (int) batch.size()); ++ j) {
-                if ((batch[j].end_pos - batch[i].end_pos < 50 || batch[j].start_pos - batch[i].start_pos < 50) && batch[i].identity <= batch[j].identity) {
+                if ((abs(batch[j].end_pos - batch[i].end_pos) < 50 || abs(batch[j].start_pos - batch[i].start_pos) < 50) && batch[i].identity <= batch[j].identity) {
                     add = false;
                 }
             }
