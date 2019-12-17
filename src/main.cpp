@@ -20,7 +20,9 @@ struct Seq {
     ReadId read_id;
     string seq;
 
-    Seq(string name_, string seq_): seq(seq_), read_id(ReadId(name_)) {}
+    Seq(string name_, string seq_): seq(seq_), read_id(ReadId(name_)) {
+        transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
+    }
 
     Seq(string name_, string seq_, int id_): seq(seq_), read_id(ReadId(name_, id_)) {}
 
