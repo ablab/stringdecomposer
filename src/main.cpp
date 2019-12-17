@@ -60,9 +60,12 @@ bool sortby1(const pair<int, vector<MonomerAlignment>> &a
 class MonomersAligner {
 
 public:
-    MonomersAligner(vector<Seq> &monomers, string output_file_name):monomers_(monomers) {
-        output_file_best_.open(output_file_name + ".tsv", std::ofstream::out);
-        output_file_.open(output_file_name + "_alt.tsv", std::ofstream::out);
+    MonomersAligner(vector<Seq> &monomers, int ins = -1, int del = -1, int mismatch = -1, int match = 1)
+      : monomers_(monomers),
+        ins_(ins),
+        del_(del),
+        mismatch_(mismatch),
+        match_(match) {
     }
 
     void AlignReadsSet(vector<Seq> &reads, int threads, int part_size) {
@@ -80,7 +83,7 @@ public:
             }
             save_steps.push_back(cnt);
         }
-        cout << "Prepared reads\n";
+        cerr << "Prepared reads\n";
         
         int start = 0;
         for (int p = 0; p < save_steps.size(); ++ p){
@@ -104,7 +107,7 @@ public:
                     batch.push_back(new_m_aln);
                 }
             }
-            cout << "Aligned " << batch[0].read_name << endl;
+            cerr << "Aligned " << batch[0].read_name << endl;
             batch = PostProcessing(batch);
             SaveBatch(batch);
             start += save_steps[p];
@@ -112,8 +115,6 @@ public:
     }
 
     ~MonomersAligner() {
-        output_file_.close();
-        output_file_best_.close();
     }
 
 private:
@@ -131,10 +132,10 @@ private:
     }
 
     vector<MonomerAlignment> AlignPartClassicDP(Seq &read) {
-        int ins = -1;
-        int del = -1;
-        int match = 1;
-        int mismatch = -1;
+        int ins = ins_;
+        int del = del_;
+        int match = match_;
+        int mismatch = mismatch_;
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
         vector<vector<vector<int>>> dp(read.seq.size());
@@ -255,11 +256,7 @@ private:
                        + to_string(a.start_pos) + "\t"
                        + to_string(a.end_pos) + "\t"
                        + to_string(a.identity);
-            if (a.best) {
-                output_file_best_ << s << "\n";
-                s += "\t*";    
-            }
-            output_file_ << s << "\n";
+            cout << s << "\n";
         }
     }
 
@@ -285,8 +282,10 @@ private:
 
     vector<Seq> monomers_;
     const int SAVE_STEP = 1;
-    ofstream output_file_;
-    ofstream output_file_best_;
+    int ins_;
+    int del_;
+    int mismatch_;
+    int match_;
 };
 
 vector<Seq> load_fasta(string filename) {
@@ -324,16 +323,24 @@ void add_reverse_complement(vector<Seq> &monomers) {
 
 
 int main(int argc, char **argv) {
-    if (argc < 5) {
-        cout << "Failed to process. Number of arguments < 6\n";
-        cout << "./decompose <reads> <monomers> <output> <threads> <part-size>\n";
+    if (argc < 4) {
+        cout << "Failed to process. Number of arguments < 5\n";
+        cout << "./decompose <reads> <monomers> <threads> <part-size> [<ins-score> <del-score> <mismatch-score> <match-score>]\n";
         return -1;
     }
+    int ins = -1, del = -1, mismatch = -1, match = 1;
+    if (argc == 9) {
+        ins = stoi(argv[5]);
+        del = stoi(argv[6]);
+        mismatch = stoi(argv[7]);
+        match = stoi(argv[8]);
+    }
+    cerr << "Scores: insertion=" << ins << " deletion=" << del << " mismatch=" << mismatch << " match=" << match << endl;
     vector<Seq> reads = load_fasta(argv[1]);
     vector<Seq> monomers = load_fasta(argv[2]);
     add_reverse_complement(monomers);
-    MonomersAligner monomers_aligner(monomers, argv[3]);
-    int num_threads = stoi(argv[4]);
-    int part_size = stoi(argv[5]);
+    MonomersAligner monomers_aligner(monomers, ins, del, mismatch, match);
+    int num_threads = stoi(argv[3]);
+    int part_size = stoi(argv[4]);
     monomers_aligner.AlignReadsSet(reads, num_threads, part_size);
 }
