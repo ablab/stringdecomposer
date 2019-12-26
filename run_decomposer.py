@@ -131,7 +131,6 @@ def run(sequences, monomers, num_threads, scoring):
     sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp"
     print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, scoring, file=sys.stderr)
     out = check_output([sd_exec_file, sequences, monomers, num_threads, "5000", ins, dels, mm, match])
-    print("Calculated raw decomposition", file=sys.stderr)
     return out.decode("utf-8")
 
 if __name__ == "__main__":
@@ -139,20 +138,25 @@ if __name__ == "__main__":
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
     parser.add_argument('-t', '--threads',  help='number of threads (by default 1)', default="1", required=False)
-    parser.add_argument('-o', '--out-file',  help='output tsv-file (by default final_decomposition.tsv)', default="final_decomposition.tsv", required=False)
+    parser.add_argument('-o', '--out-file',  help='output tsv-file (by default final_decomposition.tsv)', default="./final_decomposition.tsv", required=False)
     parser.add_argument('-i', '--min-identity',  \
                          help='only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0)', type=int, default=0, required=False)
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,match,mismatch" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
-    parser.add_argument('-r', '--raw',  help='save initial monomer decomposition to raw_decomposition.tsv (by default False)', action="store_true")
+    parser.add_argument('-r', '--raw',  help='save initial monomer decomposition to [OUTPUT_FILE_FOLDER]/raw_decomposition.tsv (by default False)', action="store_true")
 
     args = parser.parse_args()
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring)
+    print("Calculated raw decomposition", file=sys.stderr)
     if args.raw:
-        with open("raw_decomposition.tsv", "w") as fout:
+        folder = "/".join(args.out_file.split("/")[:-1])
+        print("Saving raw alignments to " + os.path.join(folder, "raw_decomposition.tsv") + "...", file=sys.stderr)
+        with open(os.path.join(folder, "raw_decomposition.tsv"), "w") as fout:
             fout.write(raw_decomposition)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
+    print("Transforming raw alignments...", file=sys.stderr)
     convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity))
+    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
