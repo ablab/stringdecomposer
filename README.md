@@ -38,7 +38,7 @@ Requirements can be installed through Conda as ```conda install --file requireme
 
 Required arguments:
 
-    sequences                                         fasta-file with long reads or genomic sequences (accepts several sequences in one file)
+    sequences                                         fasta-file with long reads or genomic sequences (accepts multiple sequences in one file)
     monomers                                          fasta-file with monomers
 
 Optional arguments:
@@ -54,3 +54,12 @@ Optional arguments:
     -s SCORING, --scoring SCORING                      set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")
 
     -r, --raw                                          save initial monomer decomposition to [OUTPUT_FILE_FOLDER]/raw_decomposition.tsv (by default False)
+
+
+## Citation
+
+The String Decomposition Problem and its Applications to Centromere Assembly. *Tatiana Dvorkina, Andrey V. Bzikadze, Pavel A. Pevzner* bioRxiv 2019.12.26.888685; doi: [https://doi.org/10.1101/2019.12.26.888685](https://doi.org/10.1101/2019.12.26.888685)
+
+## Contact
+
+In case of any issues please use [issue tracker](https://github.com/ablab/stringdecomposer/issues) or email directly to [t.dvorkina@spbu.ru](mailto:t.dvorkina@spbu.ru)
