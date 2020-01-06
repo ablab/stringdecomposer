@@ -21,15 +21,17 @@ Requirements can be installed through Conda as ```conda install --file requireme
 
     run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -r
 
-  Testing run results:
+Testing run results:
 
     final_decomposition.tsv           final decomposition of sequences to monomer alphabet
     final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
     raw_decomposition.tsv             raw decomposition with initial dynamic programming scores instead of identities
 
-  Each line in final_decomposition.tsv file has the following form:
+Each line in final_decomposition.tsv file has the following form:
 
-    <read-name> <best-monomer> <start-pos> <end-pos> <identity-score> <second-best-monomer/None> <second-best-monomer-identity/-1> <reliability>
+    <read-name> <best-monomer> <start-pos> <end-pos> <identity> <second-best-monomer> <second-best-monomer-identity> <homo-best-monomer> <homo-identity> <homo-second-best-monomer> <homo-second-best-monomer-identity> <reliability>
+
+_homo_-related columns represent statistics of the best-scoring (second-best-scoring) monomer after homopolymer collapsing in both monomer and the target read.
 
 
 ## Synopsis

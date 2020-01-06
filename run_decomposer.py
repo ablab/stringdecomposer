@@ -64,6 +64,13 @@ def add_rc_monomers(monomers):
         res.append(make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
     return res
 
+def convert_to_homo(seq):
+    res = ""
+    for c in seq:
+        if len(res) == 0 or res[-1] != c:
+            res += c
+    return res
+
 def convert_read(decomposition, read, monomers):
     res = []
     for d in decomposition:
@@ -79,11 +86,21 @@ def convert_read(decomposition, read, monomers):
                     monomer = s
         secondbest, secondbest_score = None, -1 
         for m in scores:
-            if m != monomer and abs(scores[m] - scores[monomer]) < 5:
+            if m != monomer: # and abs(scores[m] - scores[monomer]) < 5:
                 if not secondbest or secondbest_score < scores[m]:
                     secondbest, secondbest_score = m, scores[m]
+
+        homo_scores = []
+        homo_subseq = convert_to_homo(read.seq[start:end + 1])
+        for m in monomers:
+            score = aai([homo_subseq, convert_to_homo(m.seq)])
+            homo_scores.append([m.name, score])
+        homo_scores = sorted(homo_scores, key = lambda x: -x[1])
         res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
-                                "second_best": str(secondbest), "second_best_score": secondbest_score, "alt": scores, "q": "+"})
+                                "second_best": str(secondbest), "second_best_score": secondbest_score,\
+                                "homo_best": homo_scores[0][0], "homo_best_score": homo_scores[0][1],\
+                                "homo_second_best": homo_scores[1][0], "homo_second_best_score": homo_scores[1][1],\
+                                "alt": scores, "q": "+"})
 
     window = 2
     for i in range(len(res)):
@@ -102,7 +119,9 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th):
     for d in dec:
         if d["score"] >= identity_th:
             fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
-                                                    d["second_best"], "{:.2f}".format(d["second_best_score"]), d["q"]]) + "\n")
+                                                    d["second_best"], "{:.2f}".format(d["second_best_score"]), \
+                                                    d["homo_best"], "{:.2f}".format(d["homo_best_score"]), \
+                                                    d["homo_second_best"], "{:.2f}".format(d["homo_second_best_score"]), d["q"]]) + "\n")
             for a in d["alt"]:
                 star = "-"
                 if a == d["m"]:
