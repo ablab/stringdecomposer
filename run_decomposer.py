@@ -35,11 +35,19 @@ def aai(ar):
     ed, cigar = edist([str(p1), str(p2)])
     if ed == -1:
         return 0
+    total_length = 0 #max(len(p1), len(p2))
+    n = 0
+    for c in cigar:
+        if c.isdigit():
+            n = n*10 + int(c)
+        else:
+            total_length += n
+            n = 0
     matches = re.findall(r'\d+=', cigar)
     aai = 0.0
     for m in matches:
         aai += int(m[:-1])
-    aai /= max(len(p1), len(p2))
+    aai /= total_length
     return aai*100
 
 
