@@ -155,7 +155,7 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
 def run(sequences, monomers, num_threads, scoring):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
-    sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp"
+    sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp.exe"
     print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, scoring, file=sys.stderr)
     out = check_output([sd_exec_file, sequences, monomers, num_threads, "5000", ins, dels, mm, match])
     return out.decode("utf-8")
