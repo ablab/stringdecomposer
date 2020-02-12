@@ -2,6 +2,8 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <unordered_map> 
+#include <set>
 #include <algorithm>
 #include <cstring>
 #include <omp.h>
@@ -57,6 +59,42 @@ bool sortby1(const pair<int, vector<MonomerAlignment>> &a
     return (a.first < b.first);
 }
 
+class MonomerIndex{
+public:
+    MonomerIndex(vector<Seq> &monomers, size_t kmer_sz): monomers_(monomers), kmer_sz_(kmer_sz) {
+        for (int i = 0; i < monomers_.size(); ++ i){
+            if (kmer_sz_ > monomers_[i].seq.size()) continue;
+            for (int j = 0; j < monomers_[i].seq.size() - kmer_sz_; ++ j) {
+                string kmer = monomers_[i].seq.substr(j, kmer_sz_);
+                if (index_.count(kmer) == 0) {
+                    index_[kmer] = vector<pair<int, int>>();
+                }
+                index_[kmer].push_back(pair<int, int>(i, j));
+            }
+        }
+        index_[""] = vector<pair<int, int>>();
+        cout << "Index size " <<  index_.size() << endl;
+    }
+
+    vector<pair<int, int>> GetKmerMonomers(string kmer){
+        if (index_.count(kmer) > 0) {
+            return index_[kmer];
+        } else {
+            return index_[""];
+        }
+    }
+
+    size_t kmer_sz() {
+        return kmer_sz_;
+    }
+
+private:
+    vector<Seq> &monomers_;
+    size_t kmer_sz_;
+    unordered_map<string, vector<pair<int, int>> > index_;
+
+};
+
 class MonomersAligner {
 
 public:
@@ -65,8 +103,8 @@ public:
         ins_(ins),
         del_(del),
         mismatch_(mismatch),
-        match_(match) {
-    }
+        match_(match),
+        index_(monomers_, 10){}
 
     void AlignReadsSet(vector<Seq> &reads, int threads, int part_size) {
         vector<Seq> new_reads;
@@ -151,23 +189,98 @@ private:
             dp[i][monomers_num][0] = INF;
         }
 
-        for (int j = 0; j < monomers_.size(); ++ j) {
-            Seq m = monomers_[j];
+
+        map<int, int> read_kmers;
+        string s = read.seq.substr(0, 171);
+        for (int j = 0; j < s.size() - index_.kmer_sz(); ++ j) {
+            string kmer = s.substr(j, index_.kmer_sz());
+            vector<pair<int, int>> kmer_mono = index_.GetKmerMonomers(kmer);
+            for (auto p: kmer_mono) {
+                if (abs(p.second - j) < 10) {
+                    if (read_kmers.count(p.first) == 0) {
+                        read_kmers[p.first] = 0;
+                    }
+                    read_kmers[p.first] += 1;
+                }
+            }
+        }
+        //vector<int> similar_monomers = index_.GetSimilarMonomers(read.seq, 0);
+        cout << read_kmers.size() << endl;
+        unordered_map<int, int> valid_monomers;
+        for (auto const &it: read_kmers){
+            if (it.second > 20) {
+                valid_monomers[it.first] = 0;
+            }
+        }
+        if (valid_monomers.size() == 0){
+            for (int j = 0; j < monomers_num; ++ j){
+                valid_monomers[j] = 0;
+            }
+        }
+        cout << "i=0 " <<  valid_monomers.size() << endl;
+        for (auto &it: valid_monomers){ 
+            Seq m = monomers_[it.first];
+            int j = it.first;
             if (m.seq[0] == read.seq[0]) {
                 dp[0][j][0] = match;
             } else {
                 dp[0][j][0] = mismatch;
             }
             for (int k = 1; k < m.seq.size(); ++ k) {
-                int mm_score = monomers_[j].seq[k] == read.seq[0] ? match: mismatch;
+                int mm_score = m.seq[k] == read.seq[0] ? match: mismatch;
                 dp[0][j][k] = max(dp[0][j][k-1] + del, del*(k-1) + mm_score);
             }
+            ++ it.second;
         }
         for (int i = 1; i < read.seq.size(); ++ i) {
+            cout << "i=" << i << endl;
+            read_kmers.clear();
+            string s = read.seq.substr(i, 171);
+            if (s.size() > index_.kmer_sz()){
+                for (int j = 0; j < s.size() - index_.kmer_sz(); ++ j) {
+                    string kmer = s.substr(j, index_.kmer_sz());
+                    vector<pair<int, int>> kmer_mono = index_.GetKmerMonomers(kmer);
+                    for (auto p: kmer_mono) {
+                        if (abs(p.second - j) < 10) {
+                            if (read_kmers.count(p.first) == 0) {
+                                read_kmers[p.first] = 0;
+                            }
+                            read_kmers[p.first] += 1;
+                        }
+                    }
+                }
+            }
+            cout << "read kmers size " << read_kmers.size() << endl;
+            set<int> invalid_kmers;
+            for (auto const &it: read_kmers){
+                if (it.second > 20) {
+                    valid_monomers[it.first] = 0;
+                } else{
+                    if (it.second == 0) {
+                        invalid_kmers.insert(it.first);
+                    }
+                }
+            }
+            cout << "valid monomers " << valid_monomers.size() << endl;
+            if (valid_monomers.size() == 0){
+                for (int j = 0; j < monomers_num; ++ j){
+                    valid_monomers[j] = 0;
+                }
+            }
+            for (auto const &it: invalid_kmers) {
+                read_kmers.erase(it);
+            }
+
             for (int j = 0; j < monomers_.size(); ++ j) {
                 dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers_[j].size() - 1]);
             }
-            for (int j = 0; j < monomers_.size(); ++ j) {
+            //for (int j = 0; j < monomers_.size(); ++ j) {
+            //    for (int k = 0; k < monomers_[j].size(); ++ k) {
+            set<int> invalid;
+            cout << "valid monomers " << valid_monomers.size() << endl;
+            for (auto &it: valid_monomers){
+                int j = it.first;
+                //cout << " " << monomers_[j].read_id.name << endl;
                 for (int k = 0; k < monomers_[j].size(); ++ k) {
                     int score = INF;
                     int mm_score = monomers_[j].seq[k] == read.seq[i] ? match: mismatch;
@@ -187,6 +300,13 @@ private:
                     }
                     dp[i][j][k] = score;
                 }
+                ++ it.second;
+                if (it.second > 200) {
+                    invalid.insert(it.first);
+                }
+            }
+            for (auto const &it: invalid) {
+                valid_monomers.erase(it);
             }
         }
         int max_score = INF;
@@ -280,12 +400,14 @@ private:
         return res;
     }
 
+private:
     vector<Seq> monomers_;
     const int SAVE_STEP = 1;
     int ins_;
     int del_;
     int mismatch_;
     int match_;
+    MonomerIndex index_;
 };
 
 vector<Seq> load_fasta(string filename) {
