@@ -139,55 +139,187 @@ private:
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
         vector<vector<vector<int>>> dp(read.seq.size());
+        vector<vector<vector<pair<int, int> >>> dp_local(read.seq.size());
+        vector<vector<int>> queue(monomers_num);
         //cout << dp.size() << endl;
         for (int i = 0; i < read.seq.size(); ++ i) {
             for (auto m: monomers_) {
                 dp[i].push_back(vector<int>(m.seq.size()));
                 for (int k = 0; k < m.seq.size(); ++ k) {
-                    dp[i][dp[i].size() - 1][k] = INF; 
+                    dp[i][dp[i].size() - 1][k] = INF;
                 }
             }
             dp[i].push_back(vector<int>(1));
             dp[i][monomers_num][0] = INF;
         }
 
+        for (int i = 0; i < read.seq.size(); ++ i) {
+            for (auto m: monomers_) {
+                dp_local[i].push_back(vector<pair<int, int>>(m.seq.size()));
+                for (int k = 0; k < m.seq.size(); ++ k) {
+                    dp_local[i][dp_local[i].size() - 1][k] = pair<int,int>(0, -INF);
+                }
+            }
+            dp_local[i].push_back(vector<pair<int, int>>(1));
+            dp_local[i][monomers_num][0] = pair<int,int>(0, -INF);
+        }
+        float per = 0.85;
+        int len = 25;
+        vector<float> per_read(read.seq.size());
+        vector<int> len_read(read.seq.size());
+        for (int i = 0; i < min((int) read.seq.size(), 300); ++ i) {
+            per_read[i] = per;
+            len_read[i] = 200;
+            per_read[read.seq.size() - i - 1] = per;
+            len_read[read.seq.size() - i - 1] = 200;
+        }
+        for (int i = 300; i < max((int)read.seq.size() - 300, 0); ++ i) {
+            per_read[i] = per;
+            len_read[i] = len;
+        }
+
         for (int j = 0; j < monomers_.size(); ++ j) {
             Seq m = monomers_[j];
             if (m.seq[0] == read.seq[0]) {
                 dp[0][j][0] = match;
+                dp_local[0][j][0].first = 1;
+                dp_local[0][j][0].second = 1;
             } else {
                 dp[0][j][0] = mismatch;
+                dp_local[0][j][0].first = 0;
+                dp_local[0][j][0].second = 1;
             }
+            queue[j].push_back(0);
             for (int k = 1; k < m.seq.size(); ++ k) {
                 int mm_score = monomers_[j].seq[k] == read.seq[0] ? match: mismatch;
-                dp[0][j][k] = max(dp[0][j][k-1] + del, del*(k-1) + mm_score);
+                if (k < len_read[0]) {
+                    dp[0][j][k] = max(dp[0][j][k-1] + del, del*(k-1) + mm_score);
+                    if (dp[0][j][k] == dp[0][j][k-1] + del) {
+                        dp_local[0][j][k].first = dp_local[0][j][k-1].first;
+                        dp_local[0][j][k].second = k;       
+                    } else {
+                        dp_local[0][j][k].first = 1;
+                        dp_local[0][j][k].second = k;
+                    }
+                    queue[j].push_back(k);
+                } 
             }
+            //cout << j << " " << queue[j].size() << endl;
         }
+
+        float coef = 0.8;
+        int len_global = 500;
+
         for (int i = 1; i < read.seq.size(); ++ i) {
+            //cout << "i=" << i << " " << min(i, ((int)read.seq.size()) - i - 1) << " " << read.seq.size() << endl;
             for (int j = 0; j < monomers_.size(); ++ j) {
                 dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers_[j].size() - 1]);
             }
-            for (int j = 0; j < monomers_.size(); ++ j) {
-                for (int k = 0; k < monomers_[j].size(); ++ k) {
-                    int score = INF;
-                    int mm_score = monomers_[j].seq[k] == read.seq[i] ? match: mismatch;
-                    if (dp[i][monomers_num][0] > INF) {
-                        score = max(score, dp[i][monomers_num][0] + mm_score + k*del);
-                    }
-                    if (k > 0) {
-                        if (dp[i-1][j][k-1] > INF) {
-                            score = max(score, dp[i-1][j][k-1] + mm_score);
-                        }
-                        if (dp[i-1][j][k] > INF) {
-                            score = max(score, dp[i-1][j][k] + ins);
-                        }
-                        if (dp[i][j][k-1] > INF) {
-                            score = max(score, dp[i][j][k-1] + del);
-                        }
-                    }
-                    dp[i][j][k] = score;
+            vector<vector<int>> new_queue(monomers_num);
+            for (int j = 0; j < monomers_num; ++ j) {
+                // for (int q1 = 0; q1 < queue[j].size(); ++ q1) { 
+                //     cout << dp_local[i-1][j][queue[j][q1]].first << " " << dp_local[i-1][j][queue[j][q1]].second << ", ";
+                // }
+                // if (queue[j].size() > 0) cout << endl;
+                int k = 0;
+                while (k < len && dp[i][monomers_num][0] > INF) {
+                    int mm_score = monomers_[j].seq[0] == read.seq[i] ? match: mismatch;
+                    dp[i][j][k] = dp[i][monomers_num][0] + mm_score + k*del;
+                    dp_local[i][j][k].first = mm_score == match ? 1: 0;
+                    dp_local[i][j][k].second = k; 
+                    new_queue[j].push_back(k);
+                    ++ k;
                 }
+                int q2 = 0;
+
+                for (int q1 = 0; q1 < queue[j].size(); ++ q1) {
+                    while (q2 < new_queue[j].size() && new_queue[j][q2] < queue[j][q1] && monomers_[j].size() > new_queue[j][q2] + 1) {
+                        k = new_queue[j][q2];
+                        //cout << coef*max(i, k) << " " << i << " " << k << endl;
+                        if ((dp_local[i][j][k].second + 1) < len_read[i] || dp_local[i][j][k].first/float(dp_local[i][j][k].second+1) > per_read[i]){
+                        //if (max(k, min(i, ((int)read.seq.size()) - i - 1)) < len_global || dp[i][j][k] + del > coef*max(i, k)) {
+                            if (new_queue[j].size() == q2 + 1){
+                                new_queue[j].push_back(k + 1);
+                                dp[i][j][k + 1] = dp[i][j][k] + del;
+                                dp_local[i][j][k + 1].first = dp_local[i][j][k].first;
+                                dp_local[i][j][k + 1].second = dp_local[i][j][k].second + 1;
+                            } else {
+                                dp[i][j][k + 1] = max(dp[i][j][k + 1], dp[i][j][k] + del);
+                                if (dp[i][j][k + 1] == dp[i][j][k] + del) {
+                                    dp_local[i][j][k + 1].first = dp_local[i][j][k].first;
+                                    dp_local[i][j][k + 1].second = dp_local[i][j][k].second + 1;
+                                }
+                            }
+                        }
+                        ++ q2;
+                    }
+                    if (q2 == new_queue[j].size()) {
+                        k = queue[j][q1];
+                        if ((dp_local[i-1][j][k].second + 1) < len_read[i] || dp_local[i-1][j][k].first/float(dp_local[i-1][j][k].second+1) > per_read[i]){
+                        //if (max(k, min(i, ((int)read.seq.size()) - i - 1)) <len_global || dp[i - 1][j][k] + ins > coef*max(i, k)) {
+                            new_queue[j].push_back(k);
+                            dp[i][j][k] = dp[i-1][j][k] + ins;
+                            dp_local[i][j][k].first = dp_local[i-1][j][k].first;
+                            dp_local[i][j][k].second = dp_local[i-1][j][k].second + 1; 
+                        }
+                    } else {
+                        k = new_queue[j][q2];
+                        if ((dp_local[i-1][j][k].second + 1) < len_read[i] || dp_local[i-1][j][k].first/float(dp_local[i-1][j][k].second+1) > per_read[i]){
+                        //if (max(k, min(i, ((int)read.seq.size()) - i - 1)) < len_global || dp[i-1][j][k] + ins > coef*max(i, k)) {
+                            dp[i][j][k] = max(dp[i-1][j][k] + ins, dp[i][j][k]);
+                            if (dp[i][j][k] == dp[i-1][j][k] + ins) {
+                                dp_local[i][j][k].first = dp_local[i-1][j][k].first;
+                                dp_local[i][j][k].second = dp_local[i-1][j][k].second + 1;
+                            }
+                        }
+                    }
+                    if (monomers_[j].size() > queue[j][q1] + 1) {
+                        k = queue[j][q1];
+                        int mm_score = monomers_[j].seq[k + 1] == read.seq[i] ? match: mismatch; 
+                        int local_mm_score = monomers_[j].seq[k + 1] == read.seq[i] ? 1: 0; 
+                        if ((dp_local[i][j][k].second + 1) < len_read[i] || (dp_local[i][j][k].first + local_mm_score)/float(dp_local[i][j][k].second+1) > per_read[i]){
+                        //if (max(k, min(i, ((int)read.seq.size()) - i - 1)) < len_global || dp[i][j][k] + mm_score > coef*max(i, k)) {
+                            if (new_queue[j].size() == q2 + 1){
+                                new_queue[j].push_back(k + 1);
+                                dp[i][j][k + 1] = dp[i-1][j][k] + mm_score;
+                                dp_local[i][j][k + 1].first = dp_local[i-1][j][k].first + local_mm_score;
+                                dp_local[i][j][k + 1].second = dp_local[i-1][j][k].second + 1;
+                            } else {
+                                dp[i][j][k + 1] = max(dp[i][j][k + 1], dp[i-1][j][k] + mm_score);
+                                if (dp[i][j][k + 1] == dp[i-1][j][k] + mm_score) {
+                                    dp_local[i][j][k + 1].first = dp_local[i-1][j][k].first + local_mm_score;
+                                    dp_local[i][j][k + 1].second = dp_local[i-1][j][k].second + 1;
+                                }
+                            }
+                        }
+                    }
+
+                }
+                while (q2 < new_queue[j].size() && monomers_[j].size() > new_queue[j][q2] + 1) {
+                    k = new_queue[j][q2];
+                    if ((dp_local[i][j][k].second + 1) < len_read[i] || dp_local[i][j][k].first/float(dp_local[i][j][k].second+1) > per_read[i]){
+                    //if (max(k, min(i, ((int)read.seq.size()) - i - 1)) < len_global || dp[i][j][k] + del > coef*max(i, k)) {
+                        if (new_queue[j].size() == q2 + 1){
+                            new_queue[j].push_back(k + 1);
+                            dp[i][j][k + 1] = dp[i][j][k] + del;
+                            dp_local[i][j][k + 1].first = dp_local[i][j][k].first;
+                            dp_local[i][j][k + 1].second = dp_local[i][j][k].second + 1;
+                        } else {
+                            dp[i][j][k + 1] = max(dp[i][j][k + 1], dp[i][j][k] + del);
+                            if (dp[i][j][k + 1] == dp[i][j][k] + del) {
+                                dp_local[i][j][k + 1].first = dp_local[i][j][k].first;
+                                dp_local[i][j][k + 1].second = dp_local[i][j][k].second + 1;
+                            }
+                        }
+                    }
+                    ++ q2;
+                }
+                // if (new_queue[j].size() > 0 ) {
+                //     cout << "Ended " << j << " " << new_queue[j].size() << endl;
+                // }
+                //cout << endl;
             }
+            queue = new_queue;
         }
         int max_score = INF;
         int best_m = monomers_num;
