@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstring>
 #include <omp.h>
+#include <ctime>
 
 using namespace std;
 
@@ -83,24 +84,43 @@ public:
             }
             save_steps.push_back(cnt);
         }
+        dp_ = vector<vector<vector<vector<int>>>>(threads, vector<vector<vector<int>>>(part_size + 500, vector<vector<int>>(monomers_.size() + 1)));
+        #pragma omp parallel for num_threads(threads)
+        for (int k = 0; k < threads; ++ k) {
+            clock_t begin = clock();
+            for (int i = 0; i < part_size + 500; ++ i) {
+                for (int j = 0; j < monomers_.size(); ++ j) {
+                    dp_[k][i][j] = vector<int>(monomers_[j].seq.size());
+                }
+                dp_[k][i][monomers_.size()] = vector<int>(1);
+            }
+            clock_t end = clock();
+            double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+            cerr << "Thread " << omp_get_thread_num() << " Time " <<  elapsed_secs << endl;
+        }
         cerr << "Prepared reads\n";
-        
+        cerr << threads << endl;
+        vector<pair<int, vector<MonomerAlignment>>> subbatches;
+        #pragma omp parallel for num_threads(threads)
+        for (int j = 0; j < new_reads.size(); ++ j) {
+            clock_t begin = clock();
+            vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
+            clock_t end = clock();
+            double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+            cerr << "Thread " << omp_get_thread_num() << " Time " <<  elapsed_secs << endl;
+            #pragma omp critical(aligner)
+            {
+                subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
+            }
+        }
+        sort(subbatches.begin(), subbatches.end(), sortby1);
+
         int start = 0;
         for (int p = 0; p < save_steps.size(); ++ p){
             vector<MonomerAlignment> batch;
-            vector<pair<int, vector<MonomerAlignment>>> subbatches;
-            #pragma omp parallel for num_threads(threads)
             for (int j = start; j < start + save_steps[p]; ++ j) {
-                vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
-                #pragma omp critical(aligner) 
-                {
-                    subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
-                }
-            }
-            sort(subbatches.begin(), subbatches.end(), sortby1);
-            for (int j = start; j < start + save_steps[p]; ++ j) {
-                int read_index = subbatches[j - start].first;
-                for (auto a: subbatches[j - start].second) {
+                int read_index = subbatches[j].first;
+                for (auto a: subbatches[j].second) {
                     MonomerAlignment new_m_aln(a.monomer_name, a.read_name, 
                                                 new_reads[read_index].read_id.id + a.start_pos, new_reads[read_index].read_id.id + a.end_pos, 
                                                 a.identity, a.best);
@@ -138,16 +158,13 @@ private:
         int mismatch = mismatch_;
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
-        vector<vector<vector<int>>> dp(read.seq.size());
-        //cout << dp.size() << endl;
+        vector<vector<vector<int>>> &dp = dp_[omp_get_thread_num()];
         for (int i = 0; i < read.seq.size(); ++ i) {
-            for (auto m: monomers_) {
-                dp[i].push_back(vector<int>(m.seq.size()));
-                for (int k = 0; k < m.seq.size(); ++ k) {
-                    dp[i][dp[i].size() - 1][k] = INF; 
+            for (int j = 0; j < monomers_.size(); ++ j) {
+                for (int k = 0; k < monomers_[j].seq.size(); ++ k) {
+                    dp[i][j][k] = INF;
                 }
             }
-            dp[i].push_back(vector<int>(1));
             dp[i][monomers_num][0] = INF;
         }
 
@@ -286,6 +303,7 @@ private:
     int del_;
     int mismatch_;
     int match_;
+    vector<vector<vector<vector<int>>>> dp_;
 };
 
 vector<Seq> load_fasta(string filename) {
