@@ -73,7 +73,7 @@ public:
             }
         }
         index_[""] = vector<pair<int, int>>();
-        cout << "Index size " <<  index_.size() << endl;
+        cerr << "Index size " <<  index_.size() << endl;
     }
 
     vector<pair<int, int>> GetKmerMonomers(string kmer){
@@ -120,36 +120,59 @@ public:
                 }
             }
             save_steps.push_back(cnt);
+            if (save_steps.size() > 1) {
+                save_steps[save_steps.size() - 1] += save_steps[save_steps.size() - 2]; 
+            }
         }
-        cerr << "Prepared reads\n";
-        
-        int start = 0;
+        cerr << reads.size() << " reads divided into " << new_reads.size() << " parts\n";
+
+        dp_ = vector<vector<vector<vector<int>>>>(threads, vector<vector<vector<int>>>(part_size + 500, vector<vector<int>>(monomers_.size() + 1)));
+        for (int k = 0; k < threads; ++ k) {
+            for (int i = 0; i < part_size + 500; ++ i) {
+                for (int j = 0; j < monomers_.size(); ++ j) {
+                    dp_[k][i][j] = vector<int>(monomers_[j].seq.size());
+                }
+                dp_[k][i][monomers_.size()] = vector<int>(1);
+            }
+        }
+        cerr << "Prepared memory\n";
+        cerr << threads << endl;
+
+        vector<pair<int, vector<MonomerAlignment>>> subbatches;
+        #pragma omp parallel for num_threads(threads)
+        for (int j = 0; j < new_reads.size(); ++ j) {
+            clock_t begin = clock();
+            vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
+            clock_t end = clock();
+            double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+            cerr << "Thread " << omp_get_thread_num() << " Time " <<  elapsed_secs << endl;
+            #pragma omp critical(aligner)
+            {
+                subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
+            }
+        }
+        sort(subbatches.begin(), subbatches.end(), sortby1);
+
+        #pragma omp parallel for num_threads(threads)
         for (int p = 0; p < save_steps.size(); ++ p){
             vector<MonomerAlignment> batch;
-            vector<pair<int, vector<MonomerAlignment>>> subbatches;
-            #pragma omp parallel for num_threads(threads)
-            for (int j = start; j < start + save_steps[p]; ++ j) {
-                vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
-                #pragma omp critical(aligner) 
-                {
-                    subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
-                }
-            }
-            sort(subbatches.begin(), subbatches.end(), sortby1);
-            for (int j = start; j < start + save_steps[p]; ++ j) {
-                int read_index = subbatches[j - start].first;
-                for (auto a: subbatches[j - start].second) {
+            int start = p == 0? 0: save_steps[p-1];
+            for (int j = start; j < save_steps[p]; ++ j) {
+                int read_index = subbatches[j].first;
+                for (auto a: subbatches[j].second) {
                     MonomerAlignment new_m_aln(a.monomer_name, a.read_name, 
                                                 new_reads[read_index].read_id.id + a.start_pos, new_reads[read_index].read_id.id + a.end_pos, 
                                                 a.identity, a.best);
                     batch.push_back(new_m_aln);
                 }
             }
-            cerr << "Aligned " << batch[0].read_name << endl;
             batch = PostProcessing(batch);
-            SaveBatch(batch);
-            start += save_steps[p];
-        }           
+            cerr << "Aligned " << batch[0].read_name << endl;
+            #pragma omp critical(aligner2)
+            {
+                SaveBatch(batch);
+            }
+        }      
     }
 
     ~MonomersAligner() {
@@ -176,7 +199,7 @@ private:
         int mismatch = mismatch_;
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
-        vector<vector<vector<int>>> dp(read.seq.size());
+        vector<vector<vector<int>>> &dp = dp_[omp_get_thread_num()];
         //cout << dp.size() << endl;
         for (int i = 0; i < read.seq.size(); ++ i) {
             for (auto m: monomers_) {
@@ -205,7 +228,7 @@ private:
             }
         }
         //vector<int> similar_monomers = index_.GetSimilarMonomers(read.seq, 0);
-        cout << read_kmers.size() << endl;
+        //cout << read_kmers.size() << endl;
         unordered_map<int, int> valid_monomers;
         for (auto const &it: read_kmers){
             if (it.second > 20) {
@@ -217,7 +240,7 @@ private:
                 valid_monomers[j] = 0;
             }
         }
-        cout << "i=0 " <<  valid_monomers.size() << endl;
+        //cout << "i=0 " <<  valid_monomers.size() << endl;
         for (auto &it: valid_monomers){ 
             Seq m = monomers_[it.first];
             int j = it.first;
@@ -233,7 +256,7 @@ private:
             ++ it.second;
         }
         for (int i = 1; i < read.seq.size(); ++ i) {
-            cout << "i=" << i << endl;
+            //cout << "i=" << i << endl;
             read_kmers.clear();
             string s = read.seq.substr(i, 171);
             if (s.size() > index_.kmer_sz()){
@@ -241,7 +264,7 @@ private:
                     string kmer = s.substr(j, index_.kmer_sz());
                     vector<pair<int, int>> kmer_mono = index_.GetKmerMonomers(kmer);
                     for (auto p: kmer_mono) {
-                        if (abs(p.second - j) < 10) {
+                        if (abs(p.second - j) < 20) {
                             if (read_kmers.count(p.first) == 0) {
                                 read_kmers[p.first] = 0;
                             }
@@ -250,7 +273,7 @@ private:
                     }
                 }
             }
-            cout << "read kmers size " << read_kmers.size() << endl;
+            //cout << "read kmers size " << read_kmers.size() << endl;
             set<int> invalid_kmers;
             for (auto const &it: read_kmers){
                 if (it.second > 20) {
@@ -261,7 +284,7 @@ private:
                     }
                 }
             }
-            cout << "valid monomers " << valid_monomers.size() << endl;
+            //cout << "valid monomers " << valid_monomers.size() << endl;
             if (valid_monomers.size() == 0){
                 for (int j = 0; j < monomers_num; ++ j){
                     valid_monomers[j] = 0;
@@ -277,7 +300,7 @@ private:
             //for (int j = 0; j < monomers_.size(); ++ j) {
             //    for (int k = 0; k < monomers_[j].size(); ++ k) {
             set<int> invalid;
-            cout << "valid monomers " << valid_monomers.size() << endl;
+            //cout << "valid monomers " << valid_monomers.size() << endl;
             for (auto &it: valid_monomers){
                 int j = it.first;
                 //cout << " " << monomers_[j].read_id.name << endl;
@@ -317,6 +340,7 @@ private:
                 best_m = j;
             }
         }
+        
         vector<MonomerAlignment> ans;
         int i = read.seq.size() - 1;
         int j = best_m;
@@ -408,6 +432,7 @@ private:
     int mismatch_;
     int match_;
     MonomerIndex index_;
+    vector<vector<vector<vector<int>>>> dp_;
 };
 
 vector<Seq> load_fasta(string filename) {
