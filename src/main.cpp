@@ -7,6 +7,8 @@
 #include <omp.h>
 #include <ctime>
 
+#include "edlib.h"
+
 using namespace std;
 
 struct ReadId {
@@ -82,62 +84,91 @@ public:
                     ++ cnt;
                 }
             }
-            save_steps.push_back(cnt);
         }
+        cerr << reads.size() << " reads divided into " << new_reads.size() << " parts\n";
+
         dp_ = vector<vector<vector<vector<int>>>>(threads, vector<vector<vector<int>>>(part_size + 500, vector<vector<int>>(monomers_.size() + 1)));
-        #pragma omp parallel for num_threads(threads)
         for (int k = 0; k < threads; ++ k) {
-            clock_t begin = clock();
             for (int i = 0; i < part_size + 500; ++ i) {
                 for (int j = 0; j < monomers_.size(); ++ j) {
                     dp_[k][i][j] = vector<int>(monomers_[j].seq.size());
                 }
                 dp_[k][i][monomers_.size()] = vector<int>(1);
             }
-            clock_t end = clock();
-            double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-            cerr << "Thread " << omp_get_thread_num() << " Time " <<  elapsed_secs << endl;
         }
-        cerr << "Prepared reads\n";
+        cerr << "Prepared memory\n";
         cerr << threads << endl;
-        vector<pair<int, vector<MonomerAlignment>>> subbatches;
-        #pragma omp parallel for num_threads(threads)
-        for (int j = 0; j < new_reads.size(); ++ j) {
-            clock_t begin = clock();
-            vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
-            clock_t end = clock();
-            double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-            cerr << "Thread " << omp_get_thread_num() << " Time " <<  elapsed_secs << endl;
-            #pragma omp critical(aligner)
-            {
-                subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
-            }
-        }
-        sort(subbatches.begin(), subbatches.end(), sortby1);
 
-        int start = 0;
-        for (int p = 0; p < save_steps.size(); ++ p){
-            vector<MonomerAlignment> batch;
-            for (int j = start; j < start + save_steps[p]; ++ j) {
-                int read_index = subbatches[j].first;
-                for (auto a: subbatches[j].second) {
+        int step = threads*2;
+        for (int i = 0; i < new_reads.size(); i += step) {
+            vector<pair<int, vector<MonomerAlignment>>> subbatches;
+            #pragma omp parallel for num_threads(threads)
+            for (int j = i; j < min(i + step, (int) new_reads.size()); ++ j) {
+                clock_t begin = clock();
+                vector<int> cur_monomers = ChooseBestMonomers(new_reads[j]);
+                vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j], cur_monomers);
+                clock_t end = clock();
+                double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
+                cerr << "Thread " << omp_get_thread_num() << " Time " <<  elapsed_secs << endl;
+                #pragma omp critical(aligner)
+                {
+                    subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
+                }
+            }
+            sort(subbatches.begin(), subbatches.end(), sortby1);
+
+            #pragma omp parallel for num_threads(threads)
+            for (int p = i; p < min(i + step, (int) new_reads.size()); ++ p){
+                vector<MonomerAlignment> batch;
+                int read_index = subbatches[p - i].first;
+                for (auto a: subbatches[p - i].second) {
                     MonomerAlignment new_m_aln(a.monomer_name, a.read_name, 
                                                 new_reads[read_index].read_id.id + a.start_pos, new_reads[read_index].read_id.id + a.end_pos, 
                                                 a.identity, a.best);
                     batch.push_back(new_m_aln);
                 }
+                batch = PostProcessing(batch);
+                #pragma omp critical(aligner2)
+                {
+                    SaveBatch(batch);
+                    cerr << "Aligned " << batch[0].read_name << endl;
+                }
             }
-            cerr << "Aligned " << batch[0].read_name << endl;
-            batch = PostProcessing(batch);
-            SaveBatch(batch);
-            start += save_steps[p];
-        }           
+        }         
     }
 
     ~MonomersAligner() {
     }
 
 private:
+
+    int EditDistance(string &query, string &target) {
+        EdlibAlignResult result = edlibAlign(query.c_str(), query.size(), target.c_str(), target.size(), 
+                                            edlibNewAlignConfig(query.size()/4, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
+        int editdist = query.size() + 100;
+        if (result.status == EDLIB_STATUS_OK && result.editDistance >= 0) {
+            editdist = result.editDistance;
+        }
+        edlibFreeAlignResult(result);
+        return editdist;
+    }
+
+    vector<int> ChooseBestMonomers(Seq &read) {
+        vector<pair<int, int>> best_monomers(monomers_.size());
+        for (int i = 0; i < monomers_.size(); ++ i) {
+            int edist = EditDistance(monomers_[i].seq, read.seq);
+            best_monomers[i].first = edist;
+            best_monomers[i].second = i;
+        }
+        sort(best_monomers.begin(), best_monomers.end());
+        int cnt = 100;
+        vector<int> res(cnt);
+        for (int i = 0; i < cnt; ++ i) {
+            res[i] = best_monomers[i].second;
+            //cout << best_monomers[i].first << " " << monomers_[best_monomers[i].second].read_id.name << endl;
+        }
+        return res;
+    }
 
     void PrecalculateMonomerAlignment(){
 
@@ -151,7 +182,7 @@ private:
 
     }
 
-    vector<MonomerAlignment> AlignPartClassicDP(Seq &read) {
+    vector<MonomerAlignment> AlignPartClassicDP(Seq &read, vector<int> &cur_monomers) {
         int ins = ins_;
         int del = del_;
         int match = match_;
@@ -160,7 +191,8 @@ private:
         int monomers_num = (int) monomers_.size();
         vector<vector<vector<int>>> &dp = dp_[omp_get_thread_num()];
         for (int i = 0; i < read.seq.size(); ++ i) {
-            for (int j = 0; j < monomers_.size(); ++ j) {
+            for (int p = 0; p < cur_monomers.size(); ++ p) {
+                int j = cur_monomers[p];
                 for (int k = 0; k < monomers_[j].seq.size(); ++ k) {
                     dp[i][j][k] = INF;
                 }
@@ -168,7 +200,8 @@ private:
             dp[i][monomers_num][0] = INF;
         }
 
-        for (int j = 0; j < monomers_.size(); ++ j) {
+        for (int p = 0; p < cur_monomers.size(); ++ p) {
+            int j = cur_monomers[p];
             Seq m = monomers_[j];
             if (m.seq[0] == read.seq[0]) {
                 dp[0][j][0] = match;
@@ -181,10 +214,12 @@ private:
             }
         }
         for (int i = 1; i < read.seq.size(); ++ i) {
-            for (int j = 0; j < monomers_.size(); ++ j) {
+            for (int p = 0; p < cur_monomers.size(); ++ p) {
+                int j = cur_monomers[p];
                 dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers_[j].size() - 1]);
             }
-            for (int j = 0; j < monomers_.size(); ++ j) {
+            for (int p = 0; p < cur_monomers.size(); ++ p) {
+                int j = cur_monomers[p];
                 for (int k = 0; k < monomers_[j].size(); ++ k) {
                     int score = INF;
                     int mm_score = monomers_[j].seq[k] == read.seq[i] ? match: mismatch;
@@ -208,7 +243,8 @@ private:
         }
         int max_score = INF;
         int best_m = monomers_num;
-        for (int j = 0; j < monomers_.size(); ++ j) {
+        for (int p = 0; p < cur_monomers.size(); ++ p) {
+            int j = cur_monomers[p];
             if (max_score < dp[read.seq.size()-1][j][monomers_[j].size() -1] ) {
                 max_score = dp[read.seq.size()-1][j][monomers_[j].size() -1];
                 best_m = j;
@@ -225,7 +261,9 @@ private:
             } 
             if (j == monomers_num) {
                 if (i != 0) {
-                    for (int p = 0; p < dp[i - 1].size(); ++ p) {
+                    for (int pp = 0; pp < cur_monomers.size(); ++ pp) {
+                        int p = cur_monomers[pp];
+                    //for (int p = 0; p < dp[i - 1].size(); ++ p) {
                         if (dp[i - 1][p][dp[i - 1][p].size() - 1] == dp[i][j][k]) {
                             -- i; 
                             j = p;
@@ -341,17 +379,17 @@ void add_reverse_complement(vector<Seq> &monomers) {
 
 
 int main(int argc, char **argv) {
-    if (argc < 4) {
-        cout << "Failed to process. Number of arguments < 5\n";
-        cout << "./decompose <reads> <monomers> <threads> <part-size> [<ins-score> <del-score> <mismatch-score> <match-score>]\n";
+    if (argc < 3) {
+        cout << "Failed to process. Number of arguments < 4\n";
+        cout << "./decompose <reads> <monomers> <threads> [<ins-score> <del-score> <mismatch-score> <match-score>]\n";
         return -1;
     }
     int ins = -1, del = -1, mismatch = -1, match = 1;
-    if (argc == 9) {
-        ins = stoi(argv[5]);
-        del = stoi(argv[6]);
-        mismatch = stoi(argv[7]);
-        match = stoi(argv[8]);
+    if (argc == 8) {
+        ins = stoi(argv[4]);
+        del = stoi(argv[5]);
+        mismatch = stoi(argv[6]);
+        match = stoi(argv[7]);
     }
     cerr << "Scores: insertion=" << ins << " deletion=" << del << " mismatch=" << mismatch << " match=" << match << endl;
     vector<Seq> reads = load_fasta(argv[1]);
@@ -359,6 +397,6 @@ int main(int argc, char **argv) {
     add_reverse_complement(monomers);
     MonomersAligner monomers_aligner(monomers, ins, del, mismatch, match);
     int num_threads = stoi(argv[3]);
-    int part_size = stoi(argv[4]);
+    int part_size = 20000;
     monomers_aligner.AlignReadsSet(reads, num_threads, part_size);
 }
