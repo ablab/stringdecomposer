@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include <set>
 #include <algorithm>
 #include <cstring>
 #include <omp.h>
@@ -288,6 +289,8 @@ private:
     int match_;
 };
 
+
+
 vector<Seq> load_fasta(string filename) {
     std::ifstream input_file;
     input_file.open(filename, std::ifstream::in);
@@ -300,6 +303,15 @@ vector<Seq> load_fasta(string filename) {
             seqs[seqs.size()-1].seq += s;
         }
     }
+    set<char> nucs = {'A', 'C', 'G', 'T'};
+    for (auto s: seqs) {
+        for (char c: s.seq) {
+            if (nucs.count(c) == 0) {
+                cerr << "ERROR: Sequence " << s.read_id.name <<" contains undefined symbol (not ACGT): " << c << endl;
+                exit(-1); 
+            }
+        }
+    }
     return seqs;
 }
 
@@ -307,7 +319,14 @@ string reverse_complement(string &s){
     string res = "";
     map<char, char> rc = {{'A', 'T'}, {'T', 'A'}, {'G','C'}, {'C','G'}};
     for (int i = (int) s.size() - 1; i >= 0; --i){
-        res += rc[s[i]];
+        try {
+            res += rc.at(s[i]);
+        }
+        catch (std::out_of_range& e)
+        {
+            cerr << e.what() << std::endl;
+            exit(-1);
+        }
     }
     return res;
 }
