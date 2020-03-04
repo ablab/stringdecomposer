@@ -1,3 +1,6 @@
 biopython
 edlib
 argparse
+joblib
+numpy
+pandas

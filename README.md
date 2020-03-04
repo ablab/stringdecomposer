@@ -13,6 +13,9 @@ Requirements:
     - [biopython](https://biopython.org/wiki/Download)
     - [edlib](https://pypi.org/project/edlib/)
     - [argparse](https://pypi.org/project/argparse/)
+    - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
+    - [numpy](https://scipy.org/install.html)
+    - [pandas](https://pypi.org/project/pandas/)
 - g++ (version 5.3.1 or higher)
 
 Requirements can be installed through Conda as ```conda install --file requirements.txt```.

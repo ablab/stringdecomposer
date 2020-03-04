@@ -15,8 +15,21 @@ import argparse
 import subprocess
 from subprocess import check_output
 
+import numpy as np; np.random.seed(0)
+import seaborn as sns; sns.set()
+import pandas as pd
+
+from sklearn import preprocessing
+from sklearn.linear_model import LogisticRegression
+
 import re
 import edlib
+
+import joblib
+
+p = os.path.abspath(__file__)
+logreg_file = p[:-len("run_decomposer.py")] + "/models/ont_logreg_model.sav" 
+clf = joblib.load(logreg_file)
 
 def edist(lst):
     if len(str(lst[0])) == 0:
@@ -79,6 +92,17 @@ def convert_to_homo(seq):
             res += c
     return res
 
+def classify(reads_mapping):
+    df = pd.DataFrame(reads_mapping)
+    df["idnt_diff"] = df["score"] - df["second_best_score"]
+    X = pd.concat([df["score"], df["idnt_diff"]], axis=1, keys = ["score", "idnt_diff"])
+    X_scaled = X
+    y_pred = list(clf.predict(X_scaled))
+    for i in range(len(reads_mapping)):
+        if y_pred[i] != 1:
+            reads_mapping[i]["q"] = "?" 
+    return reads_mapping
+
 def convert_read(decomposition, read, monomers):
     res = []
     for d in decomposition:
@@ -110,16 +134,7 @@ def convert_read(decomposition, read, monomers):
                                 "homo_second_best": homo_scores[1][0], "homo_second_best_score": homo_scores[1][1],\
                                 "alt": scores, "q": "+"})
 
-    window = 2
-    for i in range(len(res)):
-        sm, cnt = 0, 0
-        for j in range(i - window, i + window + 1):
-            if j >= 0 and j < len(res):
-                sm += res[j]["score"]
-                cnt += 1
-        if sm/cnt < 80:
-            res[i]["q"] = "?"
-
+    res = classify(res)
     return res
 
 def print_read(fout, fout_alt, dec, read, monomers, identity_th):
