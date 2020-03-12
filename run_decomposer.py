@@ -144,6 +144,7 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
             for ln in decomposition.split("\n")[:-1]:
                 read, monomer, start, end = ln.split("\t")[:4]
                 read = read.split()[0]
+                monomer = monomer.split()[0]
                 if read != prev_read and prev_read != None:
                     print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
                     cur_dec = []
