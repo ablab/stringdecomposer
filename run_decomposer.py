@@ -16,7 +16,6 @@ import subprocess
 from subprocess import check_output
 
 import numpy as np; np.random.seed(0)
-import seaborn as sns; sns.set()
 import pandas as pd
 
 from sklearn import preprocessing
