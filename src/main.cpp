@@ -303,21 +303,27 @@ vector<Seq> load_fasta(string filename) {
             seqs[seqs.size()-1].seq += s;
         }
     }
-    set<char> nucs = {'A', 'C', 'G', 'T'};
+    set<char> nucs = {'A', 'C', 'G', 'T', 'N'};
+    bool hasN = false;
     for (auto s: seqs) {
         for (char c: s.seq) {
             if (nucs.count(c) == 0) {
                 cerr << "ERROR: Sequence " << s.read_id.name <<" contains undefined symbol (not ACGT): " << c << endl;
                 exit(-1); 
+            } else if (c == 'N') {
+                hasN = true;
             }
         }
+    }
+    if (hasN) {
+        cerr << "WARNING: sequences in " << filename  << " contain N symbol. It will be counted as a separate symbol in scoring!" << endl;
     }
     return seqs;
 }
 
 string reverse_complement(string &s){
     string res = "";
-    map<char, char> rc = {{'A', 'T'}, {'T', 'A'}, {'G','C'}, {'C','G'}};
+    map<char, char> rc = {{'A', 'T'}, {'T', 'A'}, {'G','C'}, {'C','G'}, {'N','N'}};
     for (int i = (int) s.size() - 1; i >= 0; --i){
         try {
             res += rc.at(s[i]);
