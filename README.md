@@ -6,7 +6,7 @@ StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone
 ## Installation
 
     git clone https://github.com/TanyaDvorkina/stringdecomposer.git
-    cd src && g++ -o dp main.cpp -fopenmp && cd ..
+    cd src && g++ -o dp main.cpp -fopenmp && cd .. #g++ -o dp main.cpp edlib/src/edlib.cpp -I edlib/include -fopenmp
 
 Requirements:
 - Python3
