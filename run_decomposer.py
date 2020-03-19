@@ -157,7 +157,7 @@ def run(sequences, monomers, num_threads, scoring):
     p = os.path.abspath(__file__)
     sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp"
     print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, scoring, file=sys.stderr)
-    out = check_output([sd_exec_file, sequences, monomers, num_threads, "5000", ins, dels, mm, match])
+    out = check_output([sd_exec_file, sequences, monomers, num_threads, ins, dels, mm, match])
     return out.decode("utf-8")
 
 if __name__ == "__main__":

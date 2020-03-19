@@ -161,7 +161,7 @@ private:
             best_monomers[i].second = i;
         }
         sort(best_monomers.begin(), best_monomers.end());
-        int cnt = min(100, monomers_.size());
+        int cnt = min(100, (int) monomers_.size());
         vector<int> res(cnt);
         for (int i = 0; i < cnt; ++ i) {
             res[i] = best_monomers[i].second;
