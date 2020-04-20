@@ -168,12 +168,12 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
 
-def run(sequences, monomers, num_threads, scoring):
+def run(sequences, monomers, num_threads, scoring, batch_size):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
     sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp"
-    print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, scoring, file=sys.stderr)
-    out = check_output([sd_exec_file, sequences, monomers, num_threads, "5000", ins, dels, mm, match])
+    print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
+    out = check_output([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match])
     return out.decode("utf-8")
 
 if __name__ == "__main__":
@@ -186,10 +186,11 @@ if __name__ == "__main__":
                          help='only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0)', type=int, default=0, required=False)
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,match,mismatch" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
+    parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
     parser.add_argument('-r', '--raw',  help='save initial monomer decomposition to [OUTPUT_FILE_FOLDER]/raw_decomposition.tsv (by default False)', action="store_true")
 
     args = parser.parse_args()
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring)
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size)
     print("Calculated raw decomposition", file=sys.stderr)
     if args.raw:
         folder = "/".join(args.out_file.split("/")[:-1])
