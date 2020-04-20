@@ -86,32 +86,36 @@ public:
         }
         cerr << "Prepared reads\n";
         
-        int start = 0;
-        for (int p = 0; p < save_steps.size(); ++ p){
-            vector<MonomerAlignment> batch;
-            vector<pair<int, vector<MonomerAlignment>>> subbatches;
+        int start = 0, p = 0;
+        int step = threads*2;
+        vector<pair<int, vector<MonomerAlignment>>> subbatches;
+        for (int i = 0; i < new_reads.size(); i += step) {
             #pragma omp parallel for num_threads(threads)
-            for (int j = start; j < start + save_steps[p]; ++ j) {
+            for (int j = i; j < min(i + step, (int) new_reads.size()); ++ j) {
                 vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
                 #pragma omp critical(aligner) 
                 {
                     subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
                 }
             }
-            sort(subbatches.begin(), subbatches.end(), sortby1);
-            for (int j = start; j < start + save_steps[p]; ++ j) {
-                int read_index = subbatches[j - start].first;
-                for (auto a: subbatches[j - start].second) {
-                    MonomerAlignment new_m_aln(a.monomer_name, a.read_name, 
-                                                new_reads[read_index].read_id.id + a.start_pos, new_reads[read_index].read_id.id + a.end_pos, 
-                                                a.identity, a.best);
-                    batch.push_back(new_m_aln);
+            sort(subbatches.begin() + i, subbatches.begin() + min(i + step, (int) new_reads.size()), sortby1);
+            while (p < save_steps.size() && start + save_steps[p] <= subbatches.size()) {
+                vector<MonomerAlignment> batch;
+                for (int j = start; j < start + save_steps[p]; ++ j) {
+                    int read_index = subbatches[j].first;
+                    for (auto a: subbatches[j].second) {
+                        MonomerAlignment new_m_aln(a.monomer_name, a.read_name,
+                                                    new_reads[read_index].read_id.id + a.start_pos, new_reads[read_index].read_id.id + a.end_pos,
+                                                    a.identity, a.best);
+                        batch.push_back(new_m_aln);
+                    }
                 }
+                cerr << (p + 1) * 100/save_steps.size() << "%: Aligned " << batch[0].read_name << endl;
+                batch = PostProcessing(batch);
+                SaveBatch(batch);
+                start += save_steps[p];
+                ++ p;
             }
-            cerr << "Aligned " << batch[0].read_name << endl;
-            batch = PostProcessing(batch);
-            SaveBatch(batch);
-            start += save_steps[p];
         }           
     }
 
