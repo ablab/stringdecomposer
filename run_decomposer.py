@@ -18,16 +18,13 @@ from subprocess import check_output
 import numpy as np; np.random.seed(0)
 import pandas as pd
 
-from sklearn import preprocessing
-from sklearn.linear_model import LogisticRegression
-
 import re
 import edlib
 
 import joblib
 
 p = os.path.abspath(__file__)
-logreg_file = p[:-len("run_decomposer.py")] + "/models/ont_logreg_model.sav" 
+logreg_file = p[:-len("run_decomposer.py")] + "/models/new_ont_logreg_model.sav"
 clf = joblib.load(logreg_file)
 
 def edist(lst):
@@ -94,7 +91,7 @@ def convert_to_homo(seq):
 def classify(reads_mapping):
     df = pd.DataFrame(reads_mapping)
     df["idnt_diff"] = df["score"] - df["second_best_score"]
-    X = pd.concat([df["score"], df["idnt_diff"]], axis=1, keys = ["score", "idnt_diff"])
+    X = pd.concat([df["score"], df["idnt_diff"]], axis=1, keys = ["idnt", "idnt_diff"])
     X_scaled = X
     y_pred = list(clf.predict(X_scaled))
     for i in range(len(reads_mapping)):
@@ -185,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--min-identity',  \
                          help='only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0)', type=int, default=0, required=False)
     parser.add_argument('-s', '--scoring', \
-                         help='set scoring scheme for SD in the format "insertion,deletion,match,mismatch" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
+                         help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
     parser.add_argument('-r', '--raw',  help='save initial monomer decomposition to [OUTPUT_FILE_FOLDER]/raw_decomposition.tsv (by default False)', action="store_true")
 
