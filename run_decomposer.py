@@ -13,7 +13,6 @@ import sys
 import argparse
 
 import subprocess
-from subprocess import check_output
 
 import numpy as np; np.random.seed(0)
 import pandas as pd
@@ -165,13 +164,16 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
 
-def run(sequences, monomers, num_threads, scoring, batch_size):
+def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
     sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp"
     print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
-    out = check_output([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match])
-    return out.decode("utf-8")
+    with open(raw_file, 'w') as f:
+        subprocess.run([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match], stdout = f, check = True)
+    with open(raw_file, 'r') as f:
+        raw_decomposition = "".join(f.readlines())
+    return raw_decomposition
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Decomposes string into blocks alphabet')
@@ -184,16 +186,10 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
-    parser.add_argument('-r', '--raw',  help='save initial monomer decomposition to [OUTPUT_FILE_FOLDER]/raw_decomposition.tsv (by default False)', action="store_true")
 
     args = parser.parse_args()
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size)
-    print("Calculated raw decomposition", file=sys.stderr)
-    if args.raw:
-        folder = "/".join(args.out_file.split("/")[:-1])
-        print("Saving raw alignments to " + os.path.join(folder, "raw_decomposition.tsv") + "...", file=sys.stderr)
-        with open(os.path.join(folder, "raw_decomposition.tsv"), "w") as fout:
-            fout.write(raw_decomposition)
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
+    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
