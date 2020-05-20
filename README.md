@@ -9,7 +9,7 @@ StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone
     cd src && g++ -o dp main.cpp -fopenmp --std=c++11 && cd ..
     
 Requirements:
-- Python3
+- Python3.5
     - [biopython](https://biopython.org/wiki/Download)
     - [edlib](https://pypi.org/project/edlib/)
     - [argparse](https://pypi.org/project/argparse/)
@@ -28,7 +28,7 @@ Testing run results:
 
     final_decomposition.tsv           final decomposition of sequences to monomer alphabet
     final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
-    raw_decomposition.tsv             raw decomposition with initial dynamic programming scores instead of identities
+    final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
 
 Each line in final_decomposition.tsv file has the following form:
 
@@ -39,7 +39,7 @@ _homo_-related columns represent statistics of the best-scoring (second-best-sco
 
 ## Synopsis
 
-    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-r] sequences monomers
+    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] sequences monomers
 
 Required arguments:
 
@@ -58,7 +58,7 @@ Optional arguments:
 
     -s SCORING, --scoring SCORING                      set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")
 
-    -r, --raw                                          save initial monomer decomposition to [OUTPUT_FILE_FOLDER]/raw_decomposition.tsv (by default False)
+    -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
 
 
 ## Citation
