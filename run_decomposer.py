@@ -21,6 +21,7 @@ import re
 import edlib
 
 import joblib
+from itertools import groupby
 
 from nonmono_regions_extraction import contruct_nm_regions
 
@@ -87,10 +88,7 @@ def add_rc_monomers(monomers):
     return res
 
 def convert_to_homo(seq):
-    res = ""
-    for c in seq:
-        if len(res) == 0 or res[-1] != c:
-            res += c
+    res = ''.join(i for i, _ in groupby(seq))
     return res
 
 def classify(reads_mapping):
@@ -117,7 +115,7 @@ def convert_read(decomposition, read, monomers):
             for s in scores:
                 if monomer == None or scores[s] > scores[monomer]:
                     monomer = s
-        secondbest, secondbest_score = None, -1 
+        secondbest, secondbest_score = None, -1
         for m in scores:
             if m != monomer: # and abs(scores[m] - scores[monomer]) < 5:
                 if not secondbest or secondbest_score < scores[m]:
@@ -170,6 +168,50 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
 
+def form_nm_decomposition(non_mono, clusters, reads, outfile):
+    non_mono_byreads = {}
+    for m in non_mono:
+        cl_id = int(m.id.split("_")[1])
+        for region in clusters[cl_id]:
+            if region["r"] not in non_mono_byreads:
+                non_mono_byreads[region["r"]] = []
+            if region["rev"]:
+                idnt = aai([m.seq.reverse_complement(), reads[region["r"]].seq[region["s"]:region["e"] + 1] ])
+            else:
+                idnt = aai([m.seq, reads[region["r"]].seq[region["s"]:region["e"] + 1] ])
+            non_mono_byreads[region["r"]].append({"m": m.id, "s": region["s"], "e": region["e"], "rev": region["rev"], "idnt": idnt})
+    for r in non_mono_byreads:
+        non_mono_byreads[r] = sorted(non_mono_byreads[r], key = lambda x: x["s"])
+    decomposition = []
+    with open(outfile[:-len(".tsv")] + "_with_masking.tsv", "w") as fout:
+        with open(outfile, "r") as fin:
+            cur_read, cur_ind = None, 0
+            in_nonmono_region = False
+            for ln in fin.readlines():
+                read, monomer, start, end = ln.split("\t")[:4]
+                read = read.split()[0]
+                monomer = monomer.split()[0]
+                if cur_read != read:
+                    cur_read = read
+                    cur_ind = 0
+                start, end = int(start), int(end)
+                if read in non_mono_byreads and cur_ind < len(non_mono_byreads[read]):
+                    if start == non_mono_byreads[read][cur_ind]["s"]:
+                        in_nonmono_region = True
+                        name, n_start, n_end = non_mono_byreads[read][cur_ind]["m"], non_mono_byreads[read][cur_ind]["s"], non_mono_byreads[read][cur_ind]["e"]
+                        if non_mono_byreads[read][cur_ind]["rev"]:
+                            name += "'"
+                        fout.write("\t".join([read, name, str(n_start), str(n_end), "{:.2f}".format(non_mono_byreads[read][cur_ind]["idnt"]), \
+                                                    "None", "{:.2f}".format(-1), \
+                                                    "None", "{:.2f}".format(-1), \
+                                                    "None", "{:.2f}".format(-1), "+"]) + "\n")
+                if not in_nonmono_region:
+                    fout.write(ln)
+                if read in non_mono_byreads and cur_ind < len(non_mono_byreads[read]):
+                    if end == non_mono_byreads[read][cur_ind]["e"]:
+                        in_nonmono_region = False
+                        cur_ind += 1
+
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
@@ -196,25 +238,26 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--mask',  help='identifies similar large non-monomeric regions in reads and mask them as NM_X (where X is identifier of the region)', action="store_true")
 
     args = parser.parse_args()
-    # raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
-    # print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
+    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
-    # print("Transforming raw alignments...", file=sys.stderr)
-    # convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity))
-    # print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+    print("Transforming raw alignments...", file=sys.stderr)
+    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity))
+    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
 
-    print(args.data_type)
     if args.mask:
         print("Searching for non-monomeric regions started..")
-        non_mono, reads_with_nm_regions = contruct_nm_regions(args.out_file, reads, args.data_type)
+        non_mono, clusters = contruct_nm_regions(args.out_file, reads, args.data_type)
         for m in non_mono:
             print(m.name)
-        print(len(non_mono), len(reads_with_nm_regions))
+        print(len(non_mono), len(clusters))
         new_monomer_file = "/".join(args.out_file.split("/")[:-1]) + "/monomers_with_nm_regions.fasta"
         new_dec_elements = [x for x in monomers if not x.id.endswith("'")] + non_mono
         print("Saving new set of elements to decompose to ", new_monomer_file)
         save_fasta(new_monomer_file, new_dec_elements)
+        print("Saving new decomposition to ", args.out_file [:-len(".tsv")] + "_with_masking.tsv")
+        form_nm_decomposition(non_mono, clusters, reads, args.out_file)
         #print("Rerunning SD on reads with non-monomeric regions and new set of elements to decompose..")
