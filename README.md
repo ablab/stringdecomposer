@@ -22,13 +22,18 @@ Requirements can be installed through Conda as ```conda install --file requireme
 
 ## Quick start
 
-    run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -r
+    run_decomposer.py ./test_data/read_nm.fa ./test_data/DXZ1_star_monomers.fa -r -d ont
 
 Testing run results:
 
-    final_decomposition.tsv           final decomposition of sequences to monomer alphabet
-    final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
-    final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
+    final_decomposition.tsv                    final decomposition of sequences to monomer alphabet
+    final_decomposition_alt.tsv                final decomposition of sequences to monomer alphabet with alternative monomers for each position
+    final_decomposition_raw.tsv                raw decomposition with initial dynamic programming scores instead of identities
+    
+Additionally, SD generates files with classified non-monomeric regions (see option ```--mask```) if more reads provided:
+
+    final_decomposition_with_masking.tsv       final decomposition of sequences to monomer and non-monomeric alphabet
+    monomers_with_nm_regions.fasta             fasta-file with monomers and non-monomeric sequences
 
 Each line in final_decomposition.tsv file has the following form:
 
@@ -52,6 +57,8 @@ Optional arguments:
 
     -t THREADS, --threads THREADS                      number of threads (by default 1)
 
+    -d {hifi,ont}, --data-type {hifi,ont}              type of reads (hifi or ont), set hifi for assembly
+
     -o OUT_FILE, --out-file OUT_FILE                   output tsv-file (by default final_decomposition.tsv)
 
     -i MIN_IDENTITY, --min-identity MIN_IDENTITY       only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0%)
@@ -59,6 +66,8 @@ Optional arguments:
     -s SCORING, --scoring SCORING                      set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")
 
     -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
+
+    -m, --mask                                         identifies similar large non-monomeric regions in reads and mask them as NM_X (where X is unique identifier of the element)
 
 
 ## Citation
