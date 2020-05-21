@@ -22,6 +22,8 @@ import edlib
 
 import joblib
 
+from nonmono_regions_extraction import contruct_nm_regions
+
 p = os.path.abspath(__file__)
 logreg_file = p[:-len("run_decomposer.py")] + "/models/new_ont_logreg_model.sav"
 clf = joblib.load(logreg_file)
@@ -72,6 +74,10 @@ def load_fasta(filename, tp = "list"):
 
 def make_record(seq, name, sid, d=""):
     return SeqRecord(seq, id=sid, name=name, description = d)
+
+def save_fasta(filename, orfs):
+    with open(filename, "w") as output_handle:
+        SeqIO.write(orfs, output_handle, "fasta")
 
 def add_rc_monomers(monomers):
     res = []
@@ -179,6 +185,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Decomposes string into blocks alphabet')
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
+    parser.add_argument('-d', '--data-type',  help='type of reads (hifi or ont)', choices=["hifi", "ont"], required=True)
     parser.add_argument('-t', '--threads',  help='number of threads (by default 1)', default="1", required=False)
     parser.add_argument('-o', '--out-file',  help='output tsv-file (by default final_decomposition.tsv)', default="./final_decomposition.tsv", required=False)
     parser.add_argument('-i', '--min-identity',  \
@@ -186,14 +193,28 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
+    parser.add_argument('-m', '--mask',  help='identifies similar large non-monomeric regions in reads and mask them as NM_X (where X is identifier of the region)', action="store_true")
 
     args = parser.parse_args()
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
-    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
+    # raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
+    # print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
-    print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity))
-    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+    # print("Transforming raw alignments...", file=sys.stderr)
+    # convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity))
+    # print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+
+    print(args.data_type)
+    if args.mask:
+        print("Searching for non-monomeric regions started..")
+        non_mono, reads_with_nm_regions = contruct_nm_regions(args.out_file, reads, args.data_type)
+        for m in non_mono:
+            print(m.name)
+        print(len(non_mono), len(reads_with_nm_regions))
+        new_monomer_file = "/".join(args.out_file.split("/")[:-1]) + "/monomers_with_nm_regions.fasta"
+        new_dec_elements = [x for x in monomers if not x.id.endswith("'")] + non_mono
+        print("Saving new set of elements to decompose to ", new_monomer_file)
+        save_fasta(new_monomer_file, new_dec_elements)
+        #print("Rerunning SD on reads with non-monomeric regions and new set of elements to decompose..")
