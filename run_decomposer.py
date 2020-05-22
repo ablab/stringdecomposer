@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
-    parser.add_argument('-m', '--mask',  help='identifies similar large non-monomeric regions in reads and mask them as NM_X (where X is identifier of the region)', action="store_true")
+    parser.add_argument('-m', '--mask',  help='identifies similar large non-monomeric regions in reads and mask them as NM_X (where X is identifier of the element)', action="store_true")
 
     args = parser.parse_args()
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
@@ -250,11 +250,18 @@ if __name__ == "__main__":
 
     if args.mask:
         print("Searching for non-monomeric regions started..")
-        non_mono, clusters = contruct_nm_regions(args.out_file, reads, args.data_type)
+        params = {"th_border": 95, "th_mono": 85, "min_len": 200}
+        if args.data_type == "hifi":
+            params["ed"] = 5
+            params["th_mono"] = 85
+        else:
+            params["ed"] = 20
+            params["th_mono"] = 70
+        non_mono, clusters = contruct_nm_regions(args.out_file, reads, params)
         for m in non_mono:
             print(m.name)
         print(len(non_mono), len(clusters))
-        new_monomer_file = "/".join(args.out_file.split("/")[:-1]) + "/monomers_with_nm_regions.fasta"
+        new_monomer_file = args.out_file[:-len(".tsv")] + "_monomers_with_nm_regions.fasta"
         new_dec_elements = [x for x in monomers if not x.id.endswith("'")] + non_mono
         print("Saving new set of elements to decompose to ", new_monomer_file)
         save_fasta(new_monomer_file, new_dec_elements)

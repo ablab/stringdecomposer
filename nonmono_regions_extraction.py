@@ -177,7 +177,8 @@ def cluster_by_outer_ed(sequences, th=20):
 
     for cl in clusters_id:
         clusters.append(clusters_id[cl])
-        print(len(clusters), len(clusters[-1]), len(clusters[-1][0]["seq"]))
+        if len(clusters[-1]) > 1:
+            print(len(clusters), len(clusters[-1]), len(clusters[-1][0]["seq"]), file=sys.stderr)
     return clusters
 
 def construct_representative(clusters):
@@ -197,7 +198,8 @@ def construct_representative(clusters):
                         cur_score = ed
             if cur_score < best_score:
                 best_score, best_ind = cur_score, j
-        print(i + 1, best_ind, best_score)
+        if len(cl) > 1:
+            print(i + 1, best_ind, best_score, file=sys.stderr)
         res.append(make_record(cl[best_ind]["seq"], "NM_" + str(i) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"])), "NM_" + str(i) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))))
     return res
 
@@ -242,7 +244,7 @@ def construct_consensus(clusters):
                             total_alns[i] += alns[i]
                         alns = []
                     else:
-                        print("Something went wrong")
+                        print("Something went wrong", file=sys.stderr)
                         exit(-1)
         s_consensus = ""
         for i in range(len(total_alns[0])):
@@ -262,20 +264,13 @@ def construct_consensus(clusters):
     return seq_consensus
 
 
-def contruct_nm_regions(decomposition, reads, d_type):
+def contruct_nm_regions(decomposition, reads, params):
     reads_regions = load_regions(decomposition, reads)
-    nonmono_seq, clusters = identify_nm(reads_regions, d_type)
+    nonmono_seq, clusters = identify_nm(reads_regions, params)
     return nonmono_seq, clusters
 
 
-def identify_nm(reads_regions, d_type):
-    pb_params = {"th_border": 95, "th_mono": 85, "min_len": 200, "ed": 20}
-    ont_params = {"th_border": 95, "th_mono": 85, "min_len": 200, "ed": 5}
-    if d_type == "hifi":
-        params = pb_params
-    else:
-        params = ont_params
-
+def identify_nm(reads_regions, params):
     regions = extract_nonmono_regions(reads_regions, params["th_border"], params["th_mono"])
     cnt = 0
     seqs = []
@@ -283,16 +278,16 @@ def identify_nm(reads_regions, d_type):
     for r in regions:
         for region in regions[r]:
             if region["e"] -  region["s"] > params["min_len"]:
-                print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"])
+                print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"], file=sys.stderr)
                 #print(region["seq"])
                 seqs.append({"seq": Seq(region["seq"]), "r": r, "s": region["s"], "e": region["e"], "rev": False})
                 cnt += 1
                 reads_with_regions.add(r)
 
-    print("Found", cnt, "potential non-monomeric regions in", len(reads_with_regions), "reads")
-    print("Clustering regions..")
+    print("Found", cnt, "potential non-monomeric regions in", len(reads_with_regions), "reads", file=sys.stderr)
+    print("Clustering regions..", file=sys.stderr)
     clusters = cluster_by_outer_ed(seqs, params["ed"])
-    print("Indetify representatives..")
+    print("Identify representatives..", file=sys.stderr)
     consensus = construct_representative(clusters)
     consensus = sorted(consensus, key = lambda x: -int(x.id.split("_")[3]))
     consensus = [x for x in consensus if int(x.id.split("_")[2]) > 1]
@@ -314,7 +309,7 @@ def form_nm_decomposition(non_mono, clusters, reads, outfile):
     for r in non_mono_byreads:
         non_mono_byreads[r] = sorted(non_mono_byreads[r], key = lambda x: x["s"])
     decomposition = []
-    with open(outfile[:-len(".tsv")] + "_with_masking.tsv", "w") as fout:
+    with open(outfile, "w") as fout:
         with open(outfile, "r") as fin:
             cur_read, cur_ind = None, 0
             in_nonmono_region = False
@@ -348,15 +343,31 @@ if __name__ == "__main__":
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
     parser.add_argument('decomposition', help='tsv-file with sequences decomposition')
+    parser.add_argument('output', help='tsv-file to save new decomposition')
     parser.add_argument('-d', '--data-type',  help='type of reads (hifi or ont)', choices=["hifi", "ont"], required = True)
+    parser.add_argument('--min-monomer',  help='minimum identity of monomer (70 for ONT and 85 for Hifi, by default)', type=int, default=-1, required = False)
+    parser.add_argument('--min-reliable',  help='minimum identity of reliable monomer (95, by default)', type=int, default=95, required = False)
+    parser.add_argument('--min-length',  help='minimum length of non-monomeric region (200 bp, by default)', type=int, default=200, required = False)
+    parser.add_argument('--max-diff',  help='threshold on identiy for clustering (20 for ONT and 5 for Hifi, by default)', type=int, default=-1, required = False)
     #parser.add_argument('--use-clustal',  help='use clustal to construct representatives', action="store_true")
-
     args = parser.parse_args()
 
+    params = {"th_border": args.min_reliable, "th_mono": args.min_monomer, "min_len": args.min_length, "ed": args.max_diff}
+    if params["ed"] == -1:
+        if args.data_type == "hifi":
+            params["ed"] = 5
+        else:
+            params["ed"] = 20
+
+    if params["th_mono"] == -1:
+        if args.data_type == "hifi":
+            params["th_mono"] = 85
+        else:
+            params["th_mono"] = 70
 
     reads = load_fasta(args.sequences, "map")
     all_regions = load_regions(args.decomposition, reads)
-    non_mono, clusters = identify_nm(all_regions, args.data_type)
+    non_mono, clusters = identify_nm(all_regions, params)
     # if args.use_clustal:
     #     print("Saving clusters to", prefix)
     #     filenames = save_clusters(clusters, prefix)
@@ -364,9 +375,9 @@ if __name__ == "__main__":
     #     consensus = construct_consensus(filenames)
     # else:
     monomers = load_fasta(args.monomers)
-    new_monomer_file = "/".join(args.decomposition.split("/")[:-1]) + "/monomers_with_nm_regions.fasta"
+    new_monomer_file = args.output[:-len(".tsv")] + "_monomers_with_nm_regions.fasta"
     new_dec_elements = monomers + non_mono
-    print("Saving new set of elements to decompose to ", new_monomer_file)
+    print("Saving new set of elements to decompose to ", new_monomer_file, file=sys.stderr)
     save_fasta(new_monomer_file, new_dec_elements)
-    print("Saving new decomposition to ", args.decomposition[:-len(".tsv")] + "_with_masking.tsv")
-    form_nm_decomposition(non_mono, clusters, reads, args.decomposition)
+    print("Saving new decomposition to ", args.output, file=sys.stderr)
+    form_nm_decomposition(non_mono, clusters, reads, args.output)
