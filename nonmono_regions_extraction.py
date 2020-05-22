@@ -20,6 +20,14 @@ def edist(lst):
     result = edlib.align(str(lst[0]), str(lst[1]), mode="NW")
     return result["editDistance"]
 
+def edist_hw(lst):
+    if len(str(lst[0])) == 0:
+        return 100500
+    if len(str(lst[1])) == 0:
+        return 100500
+    result = edlib.align(str(lst[0]), str(lst[1]), mode="HW")
+    return result["editDistance"]
+
 def edist_aai(lst):
     if len(str(lst[0])) == 0:
         return -1, ""
@@ -75,7 +83,7 @@ def load_regions(filename, reads):
     reads_regions = {}
     with open(filename, "r") as fin:
         for ln in fin.readlines():
-            sseqid, _, sstart, send, _, _, _, qseqid, idnt  = ln.strip().split("\t")[:9]
+            sseqid, qseqid, sstart, send, idnt  = ln.strip().split("\t")[:5]
             sseqid = sseqid.split()[0]
             if sseqid not in reads_regions:
                 reads_regions[sseqid] = []
@@ -115,7 +123,7 @@ def extract_nonmono_regions(reads_regions, th_border = 95, th_mono = 85):
                         in_region = True
                         #print("new region")
                         collapsed_nonmono_regions[r].append([reads_regions[r][i]])
-                    #print(reads_regions[r][i]["s"], reads_regions[r][i]["e"])
+                    #print(reads_regions[r][i]["s"], reads_regions[r][i]["e"],reads_regions[r][i]["idnt"], th_mono)
                 else:
                     in_region = False
     new_collapsed_nonmono_regions = {}
@@ -178,14 +186,14 @@ def cluster_by_outer_ed(sequences, th=20):
     for cl in clusters_id:
         clusters.append(clusters_id[cl])
         if len(clusters[-1]) > 1:
-            print(len(clusters), len(clusters[-1]), len(clusters[-1][0]["seq"]), file=sys.stderr)
+            print(len(clusters), len(clusters[-1]), len(clusters[-1][0]["seq"]))
     return clusters
 
 def construct_representative(clusters):
     res = []
     for i in range(len(clusters)):
         cl = clusters[i]
-        best_ind, best_score = 0, len(cl[0])
+        best_ind, best_score = 0, len(cl[0]["seq"])
         for j in range(len(cl)):
             cur_score = -1
             for k in range(len(cl)):
@@ -199,9 +207,13 @@ def construct_representative(clusters):
             if cur_score < best_score:
                 best_score, best_ind = cur_score, j
         if len(cl) > 1:
-            print(i + 1, best_ind, best_score, file=sys.stderr)
-        res.append(make_record(cl[best_ind]["seq"], "NM_" + str(i) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"])), "NM_" + str(i) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))))
-    return res
+            print(i + 1, best_ind, best_score, cl[best_ind]["r"], cl[best_ind]["s"], cl[best_ind]["e"])
+        rev = cl[best_ind]["rev"]
+        res.append(make_record(cl[best_ind]["seq"], "NM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"])), "NM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))))
+        if rev:
+            for j in range(len(cl)):
+                clusters[i][j]["rev"] = not clusters[i][j]["rev"]
+    return res, clusters
 
 def save_clusters(clusters, prefix):
     names = []
@@ -244,7 +256,7 @@ def construct_consensus(clusters):
                             total_alns[i] += alns[i]
                         alns = []
                     else:
-                        print("Something went wrong", file=sys.stderr)
+                        print("Something went wrong")
                         exit(-1)
         s_consensus = ""
         for i in range(len(total_alns[0])):
@@ -278,27 +290,34 @@ def identify_nm(reads_regions, params):
     for r in regions:
         for region in regions[r]:
             if region["e"] -  region["s"] > params["min_len"]:
-                print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"], file=sys.stderr)
+                print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"])
                 #print(region["seq"])
                 seqs.append({"seq": Seq(region["seq"]), "r": r, "s": region["s"], "e": region["e"], "rev": False})
                 cnt += 1
                 reads_with_regions.add(r)
 
-    print("Found", cnt, "potential non-monomeric regions in", len(reads_with_regions), "reads", file=sys.stderr)
-    print("Clustering regions..", file=sys.stderr)
+    print("Found", cnt, "potential non-monomeric regions in", len(reads_with_regions), "reads")
+    print("Clustering regions..")
     clusters = cluster_by_outer_ed(seqs, params["ed"])
-    print("Identify representatives..", file=sys.stderr)
-    consensus = construct_representative(clusters)
+    print("Identify representatives..")
+    consensus, clusters = construct_representative(clusters)
     consensus = sorted(consensus, key = lambda x: -int(x.id.split("_")[3]))
     consensus = [x for x in consensus if int(x.id.split("_")[2]) > 1]
+    for i in range(len(consensus)):
+        for j in range(i + 1, len(consensus)):
+            ed = edist_hw([consensus[i].seq, consensus[j].seq])
+            min_ed = min(ed, edist_hw([consensus[i].seq.reverse_complement(), consensus[j].seq]))
+            min_ed = min(min_ed, edist_hw([consensus[j].seq.reverse_complement(), consensus[i].seq]))
+            min_ed = min(min_ed, edist_hw([consensus[j], consensus[i].seq]))
+            print(consensus[i].id, consensus[j].id, min_ed)
     return consensus, clusters
 
 
-def form_nm_decomposition(non_mono, clusters, reads, outfile):
+def form_nm_decomposition(non_mono, clusters, reads, decomposition_file, outfile):
     non_mono_byreads = {}
     for m in non_mono:
         cl_id = int(m.id.split("_")[1])
-        for region in clusters[cl_id]:
+        for region in clusters[cl_id - 1]:
             if region["r"] not in non_mono_byreads:
                 non_mono_byreads[region["r"]] = []
             if region["rev"]:
@@ -310,7 +329,7 @@ def form_nm_decomposition(non_mono, clusters, reads, outfile):
         non_mono_byreads[r] = sorted(non_mono_byreads[r], key = lambda x: x["s"])
     decomposition = []
     with open(outfile, "w") as fout:
-        with open(outfile, "r") as fin:
+        with open(decomposition_file, "r") as fin:
             cur_read, cur_ind = None, 0
             in_nonmono_region = False
             for ln in fin.readlines():
@@ -377,7 +396,7 @@ if __name__ == "__main__":
     monomers = load_fasta(args.monomers)
     new_monomer_file = args.output[:-len(".tsv")] + "_monomers_with_nm_regions.fasta"
     new_dec_elements = monomers + non_mono
-    print("Saving new set of elements to decompose to ", new_monomer_file, file=sys.stderr)
+    print("Saving new set of elements to decompose to ", new_monomer_file)
     save_fasta(new_monomer_file, new_dec_elements)
-    print("Saving new decomposition to ", args.output, file=sys.stderr)
-    form_nm_decomposition(non_mono, clusters, reads, args.output)
+    print("Saving new decomposition to ", args.output)
+    form_nm_decomposition(non_mono, clusters, reads, args.decomposition, args.output)
