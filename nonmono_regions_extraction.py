@@ -289,7 +289,7 @@ def identify_nm(reads_regions, params):
     reads_with_regions = set()
     for r in regions:
         for region in regions[r]:
-            if region["e"] -  region["s"] > params["min_len"]:
+            if 20000 > region["e"] -  region["s"] > params["min_len"]:
                 print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"])
                 #print(region["seq"])
                 seqs.append({"seq": Seq(region["seq"]), "r": r, "s": region["s"], "e": region["e"], "rev": False})
@@ -301,15 +301,18 @@ def identify_nm(reads_regions, params):
     clusters = cluster_by_outer_ed(seqs, params["ed"])
     print("Identify representatives..")
     consensus, clusters = construct_representative(clusters)
+    total = len(consensus)
     consensus = sorted(consensus, key = lambda x: -int(x.id.split("_")[3]))
     consensus = [x for x in consensus if int(x.id.split("_")[2]) > 1]
-    for i in range(len(consensus)):
-        for j in range(i + 1, len(consensus)):
-            ed = edist_hw([consensus[i].seq, consensus[j].seq])
-            min_ed = min(ed, edist_hw([consensus[i].seq.reverse_complement(), consensus[j].seq]))
-            min_ed = min(min_ed, edist_hw([consensus[j].seq.reverse_complement(), consensus[i].seq]))
-            min_ed = min(min_ed, edist_hw([consensus[j], consensus[i].seq]))
-            print(consensus[i].id, consensus[j].id, min_ed)
+    filtered = len(consensus)
+    print("Number of non-monomeric elements ", total, ". With more than one occurence ", filtered)
+    # for i in range(len(consensus)):
+    #     for j in range(i + 1, len(consensus)):
+    #         ed = edist_hw([consensus[i].seq, consensus[j].seq])
+    #         min_ed = min(ed, edist_hw([consensus[i].seq.reverse_complement(), consensus[j].seq]))
+    #         min_ed = min(min_ed, edist_hw([consensus[j].seq.reverse_complement(), consensus[i].seq]))
+    #         min_ed = min(min_ed, edist_hw([consensus[j], consensus[i].seq]))
+    #         print(consensus[i].id, consensus[j].id, min_ed)
     return consensus, clusters
 
 
