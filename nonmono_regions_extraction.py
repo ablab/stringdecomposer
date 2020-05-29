@@ -79,7 +79,7 @@ def save_fasta(filename, orfs):
         SeqIO.write(orfs, output_handle, "fasta")
 
 
-def load_regions(filename, reads):
+def load_regions(filename):
     reads_regions = {}
     with open(filename, "r") as fin:
         for ln in fin.readlines():
@@ -88,10 +88,12 @@ def load_regions(filename, reads):
             if sseqid not in reads_regions:
                 reads_regions[sseqid] = []
             s, e, idnt = int(sstart), int(send), float(idnt)
-            reads_regions[sseqid].append({"seq": reads[sseqid].seq[s: e + 1], "idnt": idnt, "s": s, "e": e})
+            reads_regions[sseqid].append({"idnt": idnt, "s": s, "e": e})
+    for r in reads_regions:
+        reads_regions[r] = sorted(reads_regions[r], key=lambda x: x["s"])
     return reads_regions
 
-def extract_nonmono_regions(reads_regions, th_border = 95, th_mono = 85):
+def extract_nonmono_regions(reads_regions, reads, th_border = 95, th_mono = 85):
     window = 2
     for r in reads_regions:
         l, e = -1, -1
@@ -131,7 +133,7 @@ def extract_nonmono_regions(reads_regions, th_border = 95, th_mono = 85):
         if len(collapsed_nonmono_regions[r]) > 0:
             new_collapsed_nonmono_regions[r] = []
             for region in collapsed_nonmono_regions[r]:
-                new_collapsed_nonmono_regions[r].append({ "seq": "".join([str(x["seq"]) for x in region]), "s": region[0]["s"], "e": region[-1]["e"] })
+                new_collapsed_nonmono_regions[r].append({ "seq": "".join(reads[r].seq[region[0]["s"] : region[-1]["e"] + 1]), "s": region[0]["s"], "e": region[-1]["e"] })
     return new_collapsed_nonmono_regions
 
 def find_set(ind, parent):
@@ -186,10 +188,10 @@ def cluster_by_outer_ed(sequences, th=20):
     for cl in clusters_id:
         clusters.append(clusters_id[cl])
         if len(clusters[-1]) > 1:
-            print(len(clusters), len(clusters[-1]), len(clusters[-1][0]["seq"]))
+            print(len(clusters), len(clusters[-1]), len(clusters[-1][0]["seq"]), clusters[-1][0]["r"])
     return clusters
 
-def construct_representative(clusters):
+def construct_representative(clusters, reads):
     res = []
     for i in range(len(clusters)):
         cl = clusters[i]
@@ -208,8 +210,10 @@ def construct_representative(clusters):
                 best_score, best_ind = cur_score, j
         if len(cl) > 1:
             print(i + 1, best_ind, best_score, cl[best_ind]["r"], cl[best_ind]["s"], cl[best_ind]["e"])
+
         rev = cl[best_ind]["rev"]
-        res.append(make_record(cl[best_ind]["seq"], "NM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"])), "NM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))))
+        name = "NM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))
+        res.append(make_record(cl[best_ind]["seq"], name, name))
         if rev:
             for j in range(len(cl)):
                 clusters[i][j]["rev"] = not clusters[i][j]["rev"]
@@ -277,20 +281,20 @@ def construct_consensus(clusters):
 
 
 def contruct_nm_regions(decomposition, reads, params):
-    reads_regions = load_regions(decomposition, reads)
+    reads_regions = load_regions(decomposition)
     nonmono_seq, clusters = identify_nm(reads_regions, params)
     return nonmono_seq, clusters
 
 
-def identify_nm(reads_regions, params):
-    regions = extract_nonmono_regions(reads_regions, params["th_border"], params["th_mono"])
+def identify_nm(reads_regions, params, reads):
+    regions = extract_nonmono_regions(reads_regions, reads, params["th_border"], params["th_mono"])
     cnt = 0
     seqs = []
     reads_with_regions = set()
     for r in regions:
         for region in regions[r]:
             if 20000 > region["e"] -  region["s"] > params["min_len"]:
-                print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"])
+                #print(r, len(regions[r]), region["s"],  region["e"], region["e"] -  region["s"])
                 #print(region["seq"])
                 seqs.append({"seq": Seq(region["seq"]), "r": r, "s": region["s"], "e": region["e"], "rev": False})
                 cnt += 1
@@ -300,12 +304,15 @@ def identify_nm(reads_regions, params):
     print("Clustering regions..")
     clusters = cluster_by_outer_ed(seqs, params["ed"])
     print("Identify representatives..")
-    consensus, clusters = construct_representative(clusters)
+    consensus, clusters = construct_representative(clusters, reads)
     total = len(consensus)
     consensus = sorted(consensus, key = lambda x: -int(x.id.split("_")[3]))
     consensus = [x for x in consensus if int(x.id.split("_")[2]) > 1]
     filtered = len(consensus)
     print("Number of non-monomeric elements ", total, ". With more than one occurence ", filtered)
+    for c in consensus:
+        print(">" + c.id)
+        print(c.seq)
     # for i in range(len(consensus)):
     #     for j in range(i + 1, len(consensus)):
     #         ed = edist_hw([consensus[i].seq, consensus[j].seq])
@@ -388,8 +395,8 @@ if __name__ == "__main__":
             params["th_mono"] = 70
 
     reads = load_fasta(args.sequences, "map")
-    all_regions = load_regions(args.decomposition, reads)
-    non_mono, clusters = identify_nm(all_regions, params)
+    all_regions = load_regions(args.decomposition)
+    non_mono, clusters = identify_nm(all_regions, params, reads)
     # if args.use_clustal:
     #     print("Saving clusters to", prefix)
     #     filenames = save_clusters(clusters, prefix)
