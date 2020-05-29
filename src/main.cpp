@@ -84,7 +84,19 @@ public:
             }
             save_steps.push_back(cnt);
         }
-        cerr << "Prepared reads\n";
+        cerr << reads.size() << " read(s) divided into " << new_reads.size() << " part(s)\n";
+
+        dp_ = vector<vector<vector<vector<int>>>>(threads, vector<vector<vector<int>>>(part_size + 500, vector<vector<int>>(monomers_.size() + 1)));
+        for (int k = 0; k < threads; ++ k) {
+            for (int i = 0; i < part_size + 500; ++ i) {
+                for (int j = 0; j < monomers_.size(); ++ j) {
+                    dp_[k][i][j] = vector<int>(monomers_[j].seq.size());
+                }
+                dp_[k][i][monomers_.size()] = vector<int>(1);
+            }
+        }
+        cerr << "Prepared memory\n";
+
         
         int start = 0, p = 0;
         int step = threads*2;
@@ -143,7 +155,8 @@ private:
         int mismatch = mismatch_;
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
-        vector<vector<vector<int>>> dp(read.seq.size());
+        vector<vector<vector<int>>> &dp = dp_[omp_get_thread_num()];
+        //vector<vector<vector<int>>> dp(read.seq.size());
         //cout << dp.size() << endl;
         for (int i = 0; i < read.seq.size(); ++ i) {
             for (auto m: monomers_) {
@@ -290,6 +303,7 @@ private:
     int del_;
     int mismatch_;
     int match_;
+    vector<vector<vector<vector<int>>>> dp_;
 };
 
 
