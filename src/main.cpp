@@ -267,20 +267,17 @@ private:
 
     vector<MonomerAlignment> PostProcessing(vector<MonomerAlignment> &batch) {
         vector<MonomerAlignment> res;
-        res.push_back(batch[0]);
-        for (size_t i = 1; i < batch.size(); ++ i) {
-            bool add = true;
-            for (size_t j = (size_t) max((int) 0, (int) i - 6); j < i; ++ j) {
-                if ((abs(batch[i].end_pos - batch[j].end_pos) < 50 || abs(batch[i].start_pos - batch[j].start_pos) < 50) && batch[i].identity < batch[j].identity) {
-                    add = false;
+        size_t i = 0;
+        while (i < batch.size()) {
+            for (size_t j = i + 1; j < min(i + 7, batch.size()); ++ j) {
+                if ((batch[i].end_pos - batch[j].start_pos)*2 > (batch[j].end_pos - batch[j].start_pos)) {
+                    res.push_back(batch[i]);
+                    i = j + 1;
+                    break;
                 }
             }
-            for (size_t j = i + 1; j < (size_t) min((int) i + 7, (int) batch.size()); ++ j) {
-                if ((abs(batch[j].end_pos - batch[i].end_pos) < 50 || abs(batch[j].start_pos - batch[i].start_pos) < 50) && batch[i].identity <= batch[j].identity) {
-                    add = false;
-                }
-            }
-            if (add) { res.push_back(batch[i]);}
+            res.push_back(batch[i]);
+            ++ i;
         }
         return res;
     }
