@@ -282,7 +282,7 @@ def construct_consensus(clusters):
 
 def contruct_nm_regions(decomposition, reads, params):
     reads_regions = load_regions(decomposition)
-    nonmono_seq, clusters = identify_nm(reads_regions, params)
+    nonmono_seq, clusters = identify_nm(reads_regions, params, reads)
     return nonmono_seq, clusters
 
 
