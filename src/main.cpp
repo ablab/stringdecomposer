@@ -283,9 +283,7 @@ private:
         size_t i = 0;
         while (i < batch.size()) {
             for (size_t j = i + 1; j < min(i + 7, batch.size()); ++ j) {
-                int max_start = max(batch[i].start_pos, batch[j].start_pos);
-                int min_end = min(batch[i].end_pos, batch[j].end_pos);
-                if ((min_end - max_start) > 50) {
+                if ((batch[i].end_pos - batch[j].start_pos)*2 > (batch[j].end_pos - batch[j].start_pos)) {
                     res.push_back(batch[i]);
                     i = j + 1;
                     break;
