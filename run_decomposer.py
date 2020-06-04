@@ -168,11 +168,11 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
 
-def form_nm_decomposition(non_mono, clusters, reads, outfile):
+def form_nm_decomposition(non_mono, clusters, reads, decomposition_file, outfile):
     non_mono_byreads = {}
     for m in non_mono:
         cl_id = int(m.id.split("_")[1])
-        for region in clusters[cl_id]:
+        for region in clusters[cl_id - 1]:
             if region["r"] not in non_mono_byreads:
                 non_mono_byreads[region["r"]] = []
             if region["rev"]:
@@ -183,8 +183,8 @@ def form_nm_decomposition(non_mono, clusters, reads, outfile):
     for r in non_mono_byreads:
         non_mono_byreads[r] = sorted(non_mono_byreads[r], key = lambda x: x["s"])
     decomposition = []
-    with open(outfile[:-len(".tsv")] + "_with_masking.tsv", "w") as fout:
-        with open(outfile, "r") as fin:
+    with open(outfile, "w") as fout:
+        with open(decomposition_file, "r") as fin:
             cur_read, cur_ind = None, 0
             in_nonmono_region = False
             for ln in fin.readlines():
@@ -265,6 +265,6 @@ if __name__ == "__main__":
         new_dec_elements = [x for x in monomers if not x.id.endswith("'")] + non_mono
         print("Saving new set of elements to decompose to ", new_monomer_file)
         save_fasta(new_monomer_file, new_dec_elements)
-        print("Saving new decomposition to ", args.out_file [:-len(".tsv")] + "_with_masking.tsv")
-        form_nm_decomposition(non_mono, clusters, reads, args.out_file)
+        print("Saving new decomposition to ", args.out_file[:-len(".tsv")] + "_with_masking.tsv")
+        form_nm_decomposition(non_mono, clusters, reads, args.out_file, args.out_file[:-len(".tsv")] + "_with_masking.tsv")
         #print("Rerunning SD on reads with non-monomeric regions and new set of elements to decompose..")
