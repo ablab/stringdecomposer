@@ -5,6 +5,8 @@
 #include <set>
 #include <algorithm>
 #include <cstring>
+#include <sstream>
+#include <iterator>
 #include <omp.h>
 
 using namespace std;
@@ -299,7 +301,11 @@ vector<Seq> load_fasta(string filename) {
     vector<Seq> seqs;
     while (getline(input_file, s)) {
         if (s[0] == '>') {
-            seqs.push_back(Seq(s.substr(1, s.size() - 1), ""));
+            string header = s.substr(1, s.size() - 1);
+            istringstream iss(header);
+            vector<std::string> header_v((istream_iterator<string>(iss)),
+                                             istream_iterator<string>());
+            seqs.push_back(Seq(header_v[0], ""));
         } else {
             seqs[seqs.size()-1].seq += s;
         }
