@@ -98,36 +98,47 @@ def classify(reads_mapping):
             reads_mapping[i]["q"] = "?" 
     return reads_mapping
 
-def convert_read(decomposition, read, monomers):
+def convert_read(decomposition, read, monomers, light = False):
     res = []
     for d in decomposition:
         monomer, start, end = d["m"], d["start"], d["end"]
-        scores = {}
-        for m in monomers:
-            score = aai([read.seq[start:end + 1], m.seq])
-            scores[m.name] = score
-        
-        if monomer == None:
-            for s in scores:
-                if monomer == None or scores[s] > scores[monomer]:
-                    monomer = s
-        secondbest, secondbest_score = None, -1 
-        for m in scores:
-            if m != monomer: # and abs(scores[m] - scores[monomer]) < 5:
-                if not secondbest or secondbest_score < scores[m]:
-                    secondbest, secondbest_score = m, scores[m]
+        if light:
+            scores = {}
+            for m in monomers:
+                if m.name == monomer:
+                    score = aai([read.seq[start:end + 1], m.seq])
+                    scores[m.name] = score
+            res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
+                                    "second_best": "None", "second_best_score": -1,\
+                                    "homo_best": "None", "homo_best_score": -1,\
+                                    "homo_second_best": "None", "homo_second_best_score": -1,\
+                                    "alt": {}, "q": "+"})
+        else:
+            scores = {}
+            for m in monomers:
+                score = aai([read.seq[start:end + 1], m.seq])
+                scores[m.name] = score
+            if monomer == None:
+                for s in scores:
+                    if monomer == None or scores[s] > scores[monomer]:
+                        monomer = s
+            secondbest, secondbest_score = None, -1
+            for m in scores:
+                if m != monomer: # and abs(scores[m] - scores[monomer]) < 5:
+                    if not secondbest or secondbest_score < scores[m]:
+                        secondbest, secondbest_score = m, scores[m]
 
-        homo_scores = []
-        homo_subseq = convert_to_homo(read.seq[start:end + 1])
-        for m in monomers:
-            score = aai([homo_subseq, convert_to_homo(m.seq)])
-            homo_scores.append([m.name, score])
-        homo_scores = sorted(homo_scores, key = lambda x: -x[1])
-        res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
-                                "second_best": str(secondbest), "second_best_score": secondbest_score,\
-                                "homo_best": homo_scores[0][0], "homo_best_score": homo_scores[0][1],\
-                                "homo_second_best": homo_scores[1][0], "homo_second_best_score": homo_scores[1][1],\
-                                "alt": scores, "q": "+"})
+            homo_scores = []
+            homo_subseq = convert_to_homo(read.seq[start:end + 1])
+            for m in monomers:
+                score = aai([homo_subseq, convert_to_homo(m.seq)])
+                homo_scores.append([m.name, score])
+            homo_scores = sorted(homo_scores, key = lambda x: -x[1])
+            res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
+                                    "second_best": str(secondbest), "second_best_score": secondbest_score,\
+                                    "homo_best": homo_scores[0][0], "homo_best_score": homo_scores[0][1],\
+                                    "homo_second_best": homo_scores[1][0], "homo_second_best_score": homo_scores[1][1],\
+                                    "alt": scores, "q": "+"})
 
     res = classify(res)
     return res
