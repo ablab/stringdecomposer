@@ -4,3 +4,4 @@ argparse
 joblib
 numpy
 pandas
+setuptools
