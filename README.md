@@ -16,6 +16,7 @@ Requirements:
     - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
     - [numpy](https://scipy.org/install.html)
     - [pandas](https://pypi.org/project/pandas/)
+    - [setuptools](https://pypi.org/project/setuptools/)
 - g++ (version 5.3.1 or higher)
 
 Requirements can be installed through Conda as ```conda install --file requirements.txt```.
