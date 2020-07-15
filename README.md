@@ -6,8 +6,8 @@ StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone
 ## Installation
 
     git clone https://github.com/TanyaDvorkina/stringdecomposer.git
-    cd src && g++ -o dp main.cpp -fopenmp --std=c++11 && cd ..
-    
+    make
+
 Requirements:
 - Python3.5
     - [biopython](https://biopython.org/wiki/Download)
