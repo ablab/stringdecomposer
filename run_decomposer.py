@@ -63,7 +63,7 @@ def load_fasta(filename, tp = "list"):
     if tp == "map":
         records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
         for r in records:
-            records[r] = records[r].upper() 
+            records[r] = records[r].upper()
     else:
         records = list(SeqIO.parse(filename, "fasta"))
         for i in range(len(records)):
@@ -95,7 +95,7 @@ def classify(reads_mapping):
     y_pred = list(clf.predict(X_scaled))
     for i in range(len(reads_mapping)):
         if y_pred[i] != 1:
-            reads_mapping[i]["q"] = "?" 
+            reads_mapping[i]["q"] = "?"
     return reads_mapping
 
 def convert_read(decomposition, read, monomers, light = False):
@@ -178,7 +178,7 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
-    sd_exec_file = p[:-len("run_decomposer.py")] + "/src/dp"
+    sd_exec_file = p[:-len("run_decomposer.py")] + "/bin/dp"
     print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
     with open(raw_file, 'w') as f:
         subprocess.run([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match], stdout = f, check = True)
