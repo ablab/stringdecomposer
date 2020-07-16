@@ -23,7 +23,7 @@ Requirements can be installed through Conda as ```conda install --file requireme
 
 ## Quick start
 
-    run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -r
+    sd/run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -r
 
 Testing run results:
 
