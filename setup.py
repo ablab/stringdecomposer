@@ -51,6 +51,8 @@ setup(
     author='Tatiana Dvorkina',
     author_email='tanunia@gmail.com',
     license='BSD-3-Clause',
+    install_requires=['biopython', 'edlib', 'joblib', 'numpy', 'pandas',
+                      'setuptools'],
     packages=['sd'],
     package_dir={'sd': 'sd'},
     package_data={'sd': ['**/*']},
