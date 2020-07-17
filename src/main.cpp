@@ -208,10 +208,12 @@ private:
         int i = read.seq.size() - 1;
         int j = best_m;
         int k = dp[i][j].size() - 1;
+        bool monomer_changed = true;
         MonomerAlignment cur_aln;
         while (i >= 0) {
-            if (k == dp[i][j].size() - 1 && j != monomers_num) {
-                cur_aln = MonomerAlignment(monomers_[j].read_id.name, read.read_id.name, i, i, dp[i][j][k], true); 
+            if (k == dp[i][j].size() - 1 && j != monomers_num && monomer_changed) {
+                cur_aln = MonomerAlignment(monomers_[j].read_id.name, read.read_id.name, i, i, dp[i][j][k], true);
+                monomer_changed = false;
             } 
             if (j == monomers_num) {
                 if (i != 0) {
@@ -237,6 +239,7 @@ private:
                         if (i != 0 && k != 0 && dp[i][j][k] == dp[i-1][j][k-1] + mm_score) {
                             --i; --k;
                         } else {
+                            monomer_changed = true;
                             if (i != 0 && dp[i][monomers_num][0] + k*del + mm_score ==  dp[i][j][k]) {
                                 cur_aln.start_pos = i;
                                 cur_aln.identity = cur_aln.identity - dp[i][monomers_num][0];
@@ -257,12 +260,16 @@ private:
     }
 
     void SaveBatch(vector<MonomerAlignment> &batch) {
+        int prev_end = 0;
         for (auto a: batch) {
             string s = a.read_name + "\t" 
                        + a.monomer_name + "\t" 
                        + to_string(a.start_pos) + "\t"
                        + to_string(a.end_pos) + "\t"
-                       + to_string(a.identity);
+                       + to_string(a.identity) + "\t"
+                       + to_string(a.start_pos - prev_end) + "\t"
+                       + to_string(a.end_pos - a.start_pos);
+            prev_end = a.end_pos;
             cout << s << "\n";
         }
     }

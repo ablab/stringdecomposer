@@ -1,4 +1,4 @@
-# String decomposition into monomers
+# StringDecomposer
 
 StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone read (or a genomic segment) and partitions this read into distinct monomers, providing an accurate translation of each read from a nucleotide alphabet into a monomer alphabet.
 
@@ -22,7 +22,7 @@ Requirements can be installed through Conda as ```conda install --file requireme
 
 ## Quick start
 
-    run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -r
+    run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
 
 Testing run results:
 
@@ -34,12 +34,12 @@ Each line in final_decomposition.tsv file has the following form:
 
     <read-name> <best-monomer> <start-pos> <end-pos> <identity> <second-best-monomer> <second-best-monomer-identity> <homo-best-monomer> <homo-identity> <homo-second-best-monomer> <homo-second-best-monomer-identity> <reliability>
 
-_homo_-related columns represent statistics of the best-scoring (second-best-scoring) monomer after homopolymer collapsing in both monomer and the target read.
+_homo_-related columns represent statistics of the best-scoring (second-best-scoring) monomer after homopolymer collapsing in both monomer and the target read. Reliability is either equal to ? (if StringDecomposer suggests that it is a potential gap) or + (if the alignment is reliable).
 
 
 ## Synopsis
 
-    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] sequences monomers
+    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
 
 Required arguments:
 
@@ -60,10 +60,28 @@ Optional arguments:
 
     -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
 
+    --fast                                             SD won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
+
+
+
+## Scripts folder
+
+The set of scripts help to solve decomposition-related problems.
+
+Script `extract_centromere_related_regions.py` extracts reads (or assembly segment) that are covered by the given set monomers.
+Synopsis:
+
+    extract_centromere_related_regions.py  -s <sequences> -m <monomers> -o <output file> [-d <edit-distance>]
+
+
+Script `convert_identities.py` converts decomposition with arbitrary scores to final_decomposition.tsv (with identites instead of scores).
+Synopsis:
+
+    convert_identities.py -s <sequences> -m <monomers> -d <decomposition> [-o <output file>]
 
 ## Citation
 
-The String Decomposition Problem and its Applications to Centromere Assembly. *Tatiana Dvorkina, Andrey V. Bzikadze, Pavel A. Pevzner* bioRxiv 2019.12.26.888685; doi: [https://doi.org/10.1101/2019.12.26.888685](https://doi.org/10.1101/2019.12.26.888685)
+The String Decomposition Problem and its Applications to Centromere Analysis and Assembly. *Tatiana Dvorkina, Andrey V. Bzikadze, Pavel A. Pevzner* Bioinformatics, Volume 36, Issue Supplement_1, July 2020, Pages i93–i101; doi: [https://doi.org/10.1093/bioinformatics/btaa454](https://doi.org/10.1093/bioinformatics/btaa454)
 
 ## Contact
 

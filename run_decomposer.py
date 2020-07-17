@@ -98,42 +98,53 @@ def classify(reads_mapping):
             reads_mapping[i]["q"] = "?" 
     return reads_mapping
 
-def convert_read(decomposition, read, monomers):
+def convert_read(decomposition, read, monomers, light = False):
     res = []
     for d in decomposition:
         monomer, start, end = d["m"], d["start"], d["end"]
-        scores = {}
-        for m in monomers:
-            score = aai([read.seq[start:end + 1], m.seq])
-            scores[m.name] = score
-        
-        if monomer == None:
-            for s in scores:
-                if monomer == None or scores[s] > scores[monomer]:
-                    monomer = s
-        secondbest, secondbest_score = None, -1 
-        for m in scores:
-            if m != monomer: # and abs(scores[m] - scores[monomer]) < 5:
-                if not secondbest or secondbest_score < scores[m]:
-                    secondbest, secondbest_score = m, scores[m]
+        if light:
+            scores = {}
+            for m in monomers:
+                if m.name == monomer:
+                    score = aai([read.seq[start:end + 1], m.seq])
+                    scores[m.name] = score
+            res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
+                                    "second_best": "None", "second_best_score": -1,\
+                                    "homo_best": "None", "homo_best_score": -1,\
+                                    "homo_second_best": "None", "homo_second_best_score": -1,\
+                                    "alt": {}, "q": "+"})
+        else:
+            scores = {}
+            for m in monomers:
+                score = aai([read.seq[start:end + 1], m.seq])
+                scores[m.name] = score
+            if monomer == None:
+                for s in scores:
+                    if monomer == None or scores[s] > scores[monomer]:
+                        monomer = s
+            secondbest, secondbest_score = None, -1
+            for m in scores:
+                if m != monomer: # and abs(scores[m] - scores[monomer]) < 5:
+                    if not secondbest or secondbest_score < scores[m]:
+                        secondbest, secondbest_score = m, scores[m]
 
-        homo_scores = []
-        homo_subseq = convert_to_homo(read.seq[start:end + 1])
-        for m in monomers:
-            score = aai([homo_subseq, convert_to_homo(m.seq)])
-            homo_scores.append([m.name, score])
-        homo_scores = sorted(homo_scores, key = lambda x: -x[1])
-        res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
-                                "second_best": str(secondbest), "second_best_score": secondbest_score,\
-                                "homo_best": homo_scores[0][0], "homo_best_score": homo_scores[0][1],\
-                                "homo_second_best": homo_scores[1][0], "homo_second_best_score": homo_scores[1][1],\
-                                "alt": scores, "q": "+"})
+            homo_scores = []
+            homo_subseq = convert_to_homo(read.seq[start:end + 1])
+            for m in monomers:
+                score = aai([homo_subseq, convert_to_homo(m.seq)])
+                homo_scores.append([m.name, score])
+            homo_scores = sorted(homo_scores, key = lambda x: -x[1])
+            res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
+                                    "second_best": str(secondbest), "second_best_score": secondbest_score,\
+                                    "homo_best": homo_scores[0][0], "homo_best_score": homo_scores[0][1],\
+                                    "homo_second_best": homo_scores[1][0], "homo_second_best_score": homo_scores[1][1],\
+                                    "alt": scores, "q": "+"})
 
     res = classify(res)
     return res
 
-def print_read(fout, fout_alt, dec, read, monomers, identity_th):
-    dec = convert_read(dec, read, monomers)
+def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
+    dec = convert_read(dec, read, monomers, light)
     for d in dec:
         if d["score"] >= identity_th:
             fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
@@ -146,7 +157,7 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th):
                     star = "*"
                 fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
 
-def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
+def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
         with open(outfile, "w") as fout:
             cur_dec = []
@@ -156,13 +167,13 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th):
                 read = read.split()[0]
                 monomer = monomer.split()[0]
                 if read != prev_read and prev_read != None:
-                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
+                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
                     cur_dec = []
                 prev_read = read
                 start, end = int(start), int(end)
                 cur_dec.append({"m": monomer, "start": start, "end": end})
             if len(cur_dec) > 0:
-                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th)
+                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
 
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
@@ -186,6 +197,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
+    parser.add_argument('--fast',  help='doesn\'t generate second best monomer and homopolymer scores', action="store_true")
 
     args = parser.parse_args()
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
@@ -195,5 +207,5 @@ if __name__ == "__main__":
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity))
+    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
     print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
