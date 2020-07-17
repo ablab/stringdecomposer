@@ -9,4 +9,5 @@ all: sd
 	g++ -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp -fopenmp --std=c++11
 
 clean:
-	-rm -r $(BIN_DIR)
+	-rm -rf $(BIN_DIR)
+	-rm -rf build
