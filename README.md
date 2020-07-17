@@ -5,18 +5,6 @@ StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone
 
 ## Installation
 
-### Local Building (without installation)
-
-    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
-    cd stringdecomposer
-    make
-
-### Installing from source
-
-    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
-    cd stringdecomposer
-    python setup.py install
-
 Requirements:
 - Python3.5
     - [biopython](https://biopython.org/wiki/Download)
@@ -29,6 +17,18 @@ Requirements:
 - g++ (version 5.3.1 or higher)
 
 Requirements can be installed through Conda as ```conda install --file requirements.txt```.
+
+### Local Building (without installation)
+
+    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    cd stringdecomposer
+    make
+
+### Installing from source
+
+    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    cd stringdecomposer
+    python setup.py install
 
 ## Quick start
 
