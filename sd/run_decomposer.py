@@ -23,7 +23,9 @@ import edlib
 import joblib
 
 p = os.path.abspath(__file__)
-logreg_file = p[:-len("run_decomposer.py")] + "/models/new_ont_logreg_model.sav"
+logreg_file = os.path.join(os.path.dirname(p),
+                           'models',
+                           'new_ont_logreg_model.sav')
 clf = joblib.load(logreg_file)
 
 def edist(lst):
