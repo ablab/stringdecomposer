@@ -188,7 +188,8 @@ def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
         raw_decomposition = "".join(f.readlines())
     return raw_decomposition
 
-if __name__ == "__main__":
+
+def main():
     parser = argparse.ArgumentParser(description='Decomposes string into blocks alphabet')
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
@@ -211,3 +212,7 @@ if __name__ == "__main__":
     print("Transforming raw alignments...", file=sys.stderr)
     convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
     print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
