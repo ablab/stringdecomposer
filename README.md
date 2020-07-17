@@ -5,8 +5,17 @@ StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone
 
 ## Installation
 
+### Local Building (without installation)
+
     git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    cd stringdecomposer
     make
+
+### Installing from source
+
+    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    cd stringdecomposer
+    python setup.py install
 
 Requirements:
 - Python3.5
