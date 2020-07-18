@@ -3,6 +3,8 @@
 # see LICENSE file
 
 from Bio import SeqIO
+import edlib
+import re
 
 
 def read_bio_seq(filename):
@@ -41,3 +43,57 @@ def write_bio_seqs(filename, seqs, width=60):
                 print(seq[start:start+width], file=f)
                 start += width
             print(seq[start:], file=f)
+
+
+def parse_cigar(cigar, s1=None, s2=None):
+    parsed_cigar = []
+    st = 0
+    cnt = dict.fromkeys(list("=XID"), 0)
+    for mo in re.finditer(r'=|X|I|D', cigar):
+        group = mo.group()
+        pos = mo.start()
+        region_len = int(cigar[st:pos])
+        parsed_cigar.append((region_len, group))
+        cnt[group] += region_len
+        st = pos + 1
+    if s1 is None or s2 is None:
+        return parsed_cigar, cnt
+
+    a1, a2 = [], []
+    i1, i2 = 0, 0
+    for region_len, group in parsed_cigar:
+        if group in '=X':
+            new_s1 = s1[i1:i1+region_len]
+            new_s2 = s2[i2:i2+region_len]
+            # if group == '=':
+            #     assert new_s1 == new_s2
+            a1 += new_s1
+            a2 += new_s2
+            i1 += region_len
+            i2 += region_len
+        elif group == 'D':
+            a1 += '-' * region_len
+            a2 += s2[i2:i2+region_len]
+            i2 += region_len
+        elif group == 'I':
+            a2 += '-' * region_len
+            a1 += s1[i1:i1+region_len]
+            i1 += region_len
+
+    # a1 = ''.join(a1)
+    # a2 = ''.join(a2)
+    return parsed_cigar, cnt, a1, a2
+
+
+assert parse_cigar('89=1X6=3X76=') == \
+    ([(89, '='), (1, 'X'), (6, '='), (3, 'X'), (76, '=')],
+     {'=': 171, 'X': 4, 'I': 0, 'D': 0})
+
+
+def calc_identity(a, b, mode='NW'):
+    alignment = edlib.align(a, b, task='path', mode=mode)
+    cigar, cigar_stats = parse_cigar(alignment['cigar'])
+    alignment_len = sum(cigar_stats.values())
+    identity = 1 - alignment['editDistance'] / alignment_len
+    assert 0 <= identity <= 1
+    return identity
