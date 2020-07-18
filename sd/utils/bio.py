@@ -3,19 +3,6 @@
 # see LICENSE file
 
 from Bio import SeqIO
-import numpy as np
-import edlib
-from itertools import groupby
-import os
-import re
-import textwrap
-
-from joblib import Parallel, delayed
-
-from utils.various import weighted_random_by_dct
-
-
-script_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 def read_bio_seq(filename):
