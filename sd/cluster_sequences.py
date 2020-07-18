@@ -12,11 +12,11 @@ import networkx as nx
 import pandas as pd
 import seaborn as sns
 
-from standard_logger import get_logger
-from utils.bio import read_bio_seqs, calc_identity
-from utils.git import get_git_revision_short_hash
-from utils.os_utils import smart_makedirs
-from utils.various import list2str
+from sd.standard_logger import get_logger
+from sd.utils.bio import read_bio_seqs, calc_identity
+from sd.utils.git import get_git_revision_short_hash
+from sd.utils.os_utils import smart_makedirs
+from sd.utils.various import list2str
 
 
 logger = logging.getLogger("SD.cluster_sequences")

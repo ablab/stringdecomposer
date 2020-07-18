@@ -7,8 +7,8 @@ import logging
 
 import numpy as np
 
-from monomers.monostring import MonoString
-from utils.bio import compress_homopolymer
+from sd.monomers.monostring import MonoString
+from sd.utils.bio import compress_homopolymer
 
 logger = logging.getLogger("SD.monomers.monostring_set")
 
