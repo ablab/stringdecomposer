@@ -67,7 +67,8 @@ setup(
     package_dir={'sd': 'sd'},
     package_data={'sd': ['**/*']},
     entry_points={
-        'console_scripts': ['run_decomposer=sd.run_decomposer:main']
+        'console_scripts': ['sd=sd.run_decomposer:main',
+                            'sd_cluster_sequences=sd.cluster_sequences:main']
     },
     cmdclass={'build': MakeBuild}
 )
