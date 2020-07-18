@@ -19,24 +19,30 @@ class Monomer:
         self.seq = seq
 
     def __repr__(self):
-        return f'monomer_id={self.monomer_id}, mono_index={self.mono_index}, seq={self.seq}'
+        return f'monomer_id={self.monomer_id}, '\
+               f'mono_index={self.mono_index}, '\
+               f'seq={self.seq}'
 
 
 class MonomerDB:
-    def __init__(self, id2index, index2id, monomers, id2list_coord):
+    def __init__(self, id2index, index2id, monomers, id2list_coord, clustered):
         self.id2index = id2index
         self.index2id = index2id
         self.monomers = monomers
         self.id2list_coord = id2list_coord
+        self.clustered = clustered
+
+    def __repr__(self):
+        return f'size={self.get_size()}, ids={self.get_ids()}'
 
     @classmethod
-    def from_fasta_file(cls, fn, cluster_max_ident=0.95, cluster=True):
+    def from_fasta_file(cls, fn, cluster_max_ident=0.95, tocluster=False):
         fn = expandpath(fn)
         logger.info(f'Creating Monomer DataBase from {fn}')
         raw_monomers = read_bio_seqs(fn)
         logger.info(f'Clustering monomers.'
                     f'Identity thresh {cluster_max_ident}')
-        if cluster:
+        if tocluster:
             monomer_clusters, _ = \
                 cluster_sequences(sequences=raw_monomers,
                                   max_ident=cluster_max_ident)
@@ -64,23 +70,39 @@ class MonomerDB:
         monomer_db = cls(id2index=id2index,
                          index2id=index2id,
                          monomers=monomers,
-                         id2list_coord=id2list_coord)
+                         id2list_coord=id2list_coord,
+                         clustered=tocluster)
 
         logger.info(f'Finished Creating Monomer DataBase')
         return monomer_db
+
+
+    def get_ids(self):
+        return self.id2index.keys()
 
     def get_monomer_by_id(self, mono_id):
         return self.monomers[self.id2index[mono_id]]
 
     def get_monomers_by_index(self, mono_index):
+        monomers = []
         for mono_id in self.index2id[mono_index]:
             list_coord = self.id2list_coord[mono_id]
-            yield self.monomers[list_coord]
+            monomers.append(self.monomers[list_coord])
+        if not self.clustered:
+            assert len(monomers) == 1
+            monomer = monomers[0]
+            return monomer
+        return monomers
 
     def get_seqs_by_index(self, mono_index):
         assert 0 <= mono_index <= max(self.index2id)
+        if not self.clustered:
+            monomer = self.get_monomers_by_index(mono_index)
+            return monomer.seq
+        seqs = []
         for monomer in self.get_monomers_by_index(mono_index):
-            yield monomer.seq
+            seqs.append(monomer.seq)
+        return seqs
 
     def get_seq_by_id(self, monomer_id):
         mono_index = self.id2index[monomer_id]
@@ -89,26 +111,9 @@ class MonomerDB:
     def get_monoindexes(self):
         return self.index2id.keys()
 
-    def get_ids(self):
-        return self.id2index.keys()
-
     def get_size(self):
         return 1 + max(self.index2id)
 
     def get_monomers_dict(self):
         return {monomer.monomer_id: monomer.seq
                 for monomer in self.monomers}
-
-    def extend_db(self, extra_monomers):
-        index = max(self.index2id)
-        for monomer_id, seq in extra_monomers.items():
-            if monomer_id in self.id2index:
-                continue
-            index += 1
-            monomer = Monomer(monomer_id=monomer_id,
-                              mono_index=index,
-                              seq=seq)
-            self.id2index[monomer_id] = index
-            self.index2id[index].append(monomer_id)
-            self.monomers.append(monomer)
-            self.id2list_coord[monomer_id] = len(self.monomers) - 1
