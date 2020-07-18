@@ -2,16 +2,13 @@
 # This file is a part of SD program.
 # see LICENSE file
 
-from collections import Counter
-from config.config import config
 from enum import Enum
 from itertools import count
 import logging
 
 import numpy as np
 
-from utils.bio import RC
-from utils.kmers import get_kmer_index_seq
+from sd.utils.bio import RC
 
 logger = logging.getLogger("SD.monomers.monostring")
 
@@ -119,8 +116,7 @@ class MonoString:
         assert_monostring_validity(self)
 
     @classmethod
-    def from_sd_record(cls, seq_id, monomer_db, sd_record, nucl_sequence,
-                       min_ident_diff=config['sd_report_parsing']['min_ident_diff']):
+    def from_sd_record(cls, seq_id, monomer_db, sd_record, nucl_sequence):
         def get_monoinstances(sd_record):
             def id2index_strand(monomer_id, monomer_db=monomer_db):
                 if monomer_id == cls.none_monomer:
@@ -142,8 +138,6 @@ class MonoString:
                                                      identities,
                                                      sec_identities):
                     reliability = Reliability(raw_rel)
-                    if abs(ident - sec_ident) < min_ident_diff:
-                        reliability = Reliability.UNRELIABLE
                     reliabilities.append(reliability)
                 return reliabilities
 
@@ -229,9 +223,6 @@ class MonoString:
             string = tuple(string)
             return string
 
-        # Trim first and last monomer because they are often unreliable
-        # sd_record = sd_record[1:-1]
-
         monoinstances = get_monoinstances(sd_record=sd_record)
 
         monoinstances, nucl_sequence, is_reversed = \
@@ -302,12 +293,6 @@ class MonoString:
     def get_nucl_segment(self, st, en):
         assert 0 <= st < en < len(self.nucl_sequence)
         return self.nucl_sequence[st:en]
-
-    def get_kmer_index(self, mink, maxk, positions=True):
-        return get_kmer_index_seq(seq=self.raw_monostring,
-                                  mink=mink, maxk=maxk,
-                                  ignored_chars=set([self.gap_symb]),
-                                  positions=positions)
 
     def get_identities(self):
         identities = []
