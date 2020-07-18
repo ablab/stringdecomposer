@@ -2,6 +2,8 @@
 # This file is a part of the SD program.
 # see LICENSE file
 
+from itertools import groupby
+
 from Bio import SeqIO
 import edlib
 import re
@@ -97,3 +99,10 @@ def calc_identity(a, b, mode='NW'):
     identity = 1 - alignment['editDistance'] / alignment_len
     assert 0 <= identity <= 1
     return identity
+
+
+def compress_homopolymer(seq, return_list=False):
+    compressed_seq = [x[0] for x in groupby(list(seq))]
+    if return_list:
+        return compressed_seq
+    return ''.join(compressed_seq)
