@@ -5,9 +5,9 @@
 from collections import defaultdict
 import logging
 
-from utils.bio import read_bio_seqs
-from utils.cluster_sequences import cluster_sequences
-from utils.os_utils import expandpath
+from sd.cluster_sequences import cluster_sequences
+from sd.utils.bio import read_bio_seqs
+from sd.utils.os_utils import expandpath
 
 logger = logging.getLogger("SD.monomers.monomer_db")
 

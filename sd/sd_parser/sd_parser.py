@@ -6,10 +6,9 @@ import logging
 
 import pandas as pd
 
-from monomers.monomer_db import MonomerDB
-from monomers.monostring_set import MonoStringSet
-
-from utils.bio import read_bio_seqs
+from sd.monomers.monomer_db import MonomerDB
+from sd.monomers.monostring_set import MonoStringSet
+from sd.utils.bio import read_bio_seqs
 
 logger = logging.getLogger("SD.sd_parser.sd_parser")
 
@@ -57,7 +56,6 @@ class SD_Report:
         report.columns = names
         logger.info('Finished reading SD Report from csv')
 
-
         logger.info('Reading sequences')
         sequences = read_bio_seqs(sequences_fn)
         logger.info('Finished reading sequences')
@@ -65,8 +63,7 @@ class SD_Report:
             MonoStringSet.from_sd_report(report=report,
                                          sequences=sequences,
                                          monomer_db=monomer_db,
-                                         mode=mode,
-                                         correct_hybrids=correct_hybrids)
+                                         mode=mode)
 
         logger.info('Creating monostrings dict')
         logger.info('Finished creating monostrings dict')
