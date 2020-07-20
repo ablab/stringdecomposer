@@ -88,13 +88,14 @@ class MonoStringSet:
     def __len__(self):
         return len(self.monostrings)
 
-    def classify_monomerinstances(self, only_reliable=True):
+    def classify_monomerinstances_by_monoindex(self, only_reliable=True):
         monoindexes = self.monomer_db.get_monoindexes()
         all_monomerinstances_dict = \
             {monoindex: [] for monoindex in monoindexes}
         for ms in self.monostrings.values():
             mi_dict = \
-                ms.classify_monomerinstances(only_reliable=only_reliable)
+                ms.classify_monomerinstances_by_monoindex(
+                    only_reliable=only_reliable)
             for monoindex in monoindexes:
                 all_monomerinstances_dict[monoindex] += mi_dict[monoindex]
         return all_monomerinstances_dict
@@ -102,7 +103,8 @@ class MonoStringSet:
     def get_monomerinstances_by_monoindex(self, mono_index,
                                           only_reliable=True):
         all_monomerinstances_dict = \
-            self.classify_monomerinstances(only_reliable=only_reliable)
+            self.classify_monomerinstances_by_monoindex(
+                only_reliable=only_reliable)
         return all_monomerinstances_dict[mono_index]
 
     def get_stats(self, return_stats=False):
