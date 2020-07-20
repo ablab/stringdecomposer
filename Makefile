@@ -11,3 +11,4 @@ all: sd
 clean:
 	-rm -rf $(BIN_DIR)
 	-rm -rf build
+	-rm -f test.log
