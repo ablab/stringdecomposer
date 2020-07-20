@@ -8,13 +8,13 @@ import os
 import sys
 import unittest
 
-from test_monomer_db import TestMonomerDB
-
 this_dirname = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(this_dirname, os.path.pardir))
 
 from sd.standard_logger import get_logger
 from sd.utils.git import get_git_revision_short_hash
+
+from test_monomer_db import TestMonomerDB
 
 
 def main():
