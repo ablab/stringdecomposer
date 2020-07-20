@@ -8,6 +8,9 @@ all: sd
 	mkdir -p $(BIN_DIR)
 	g++ -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp -fopenmp --std=c++11
 
+test: all
+	python tests/_all_tests.py	
+
 clean:
 	-rm -rf $(BIN_DIR)
 	-rm -rf build
