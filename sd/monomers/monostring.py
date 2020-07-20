@@ -67,6 +67,13 @@ class MonoInstance:
         self.reliability = reliability
         self.identity = identity
         self.sec_identity = sec_identity
+        self.is_reversed = False
+
+    def get_monoid(self):
+        return self.monomer.monomer_id
+
+    def get_secmonoid(self):
+        return self.sec_monomer.monomer_id
 
     def get_monoindex(self):
         return self.monomer.mono_index
@@ -76,12 +83,6 @@ class MonoInstance:
 
     def get_ref_seq(self):
         return self.monomer.seq
-
-    def get_monoid(self):
-        return self.monomer.monomer_id
-
-    def get_secmonoid(self):
-        return self.sec_monomer.monomer_id
 
     def is_lowercase(self):
         return self.strand == Strand.REVERSE
@@ -95,11 +96,12 @@ class MonoInstance:
         self.sec_strand = Strand.switch(self.sec_strand)
         # [st; en)
         self.st, self.en = self.seq_len - self.en, self.seq_len - self.st
+        self.is_reversed = not self.is_reversed
 
 
 class MonoString:
     # monostring is stored as a tuple because
-    # |monomer_db| often exceeds |ascii|
+    # |monomer_db| can exceed |ascii|
     gap_symb = '?'
     reverse_symb = "'"
     none_monomer = 'None'
@@ -253,8 +255,31 @@ class MonoString:
         self.corrections[sub] = (self.raw_monostring[sub], item)
         self.raw_monostring[sub] = item
 
-    def is_corrected(self):
-        return len(self.corrections)
+    def classify_monomerinstances_by_monoindex(self, only_reliable=True):
+        monoindexes = self.monomer_db.get_monoindexes()
+        monomerinstances_dict = {monoindex: [] for monoindex in monoindexes}
+        for mi in self.monoinstances:
+            if (not only_reliable) or (only_reliable and mi.is_reliable()):
+                monoindex = mi.get_monoindex()
+                monomerinstances_dict[monoindex].append(mi)
+        return monomerinstances_dict
+
+    def get_monomerinstances_by_monoindex(self, mono_index,
+                                          only_reliable=True):
+        monomerinstances_dict = \
+            self.classify_monomerinstances_by_monoindex(
+                only_reliable=only_reliable)
+        return monomerinstances_dict[mono_index]
+
+    def get_nucl_segment(self, st, en):
+        assert 0 <= st < en < len(self.nucl_sequence)
+        return self.nucl_sequence[st:en]
+
+    def get_identities(self):
+        identities = []
+        for mi in self.monoinstances:
+            identities.append(mi.identity)
+        return identities
 
     def get_perc_reliable(self):
         is_reliable = [monoinstance.is_reliable()
@@ -275,27 +300,5 @@ class MonoString:
     def get_perc_uppercase(self):
         return 1 - self.get_perc_lowercase()
 
-    def classify_monomerinstances(self, only_reliable=True):
-        monoindexes = self.monomer_db.get_monoindexes()
-        monomerinstances_dict = {monoindex: [] for monoindex in monoindexes}
-        for mi in self.monoinstances:
-            if (not only_reliable) or (only_reliable and mi.is_reliable()):
-                monoindex = mi.get_monoindex()
-                monomerinstances_dict[monoindex].append(mi)
-        return monomerinstances_dict
-
-    def get_monomerinstances_by_monoindex(self, mono_index,
-                                          only_reliable=True):
-        monomerinstances_dict = \
-            self.classify_monomerinstances(only_reliable=only_reliable)
-        return monomerinstances_dict[mono_index]
-
-    def get_nucl_segment(self, st, en):
-        assert 0 <= st < en < len(self.nucl_sequence)
-        return self.nucl_sequence[st:en]
-
-    def get_identities(self):
-        identities = []
-        for mi in self.monoinstances:
-            identities.append(mi.identity)
-        return identities
+    def is_corrected(self):
+        return len(self.corrections)
