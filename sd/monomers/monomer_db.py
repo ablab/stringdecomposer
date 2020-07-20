@@ -76,9 +76,11 @@ class MonomerDB:
         logger.info(f'Finished Creating Monomer DataBase')
         return monomer_db
 
-
     def get_ids(self):
         return self.id2index.keys()
+
+    def get_monoindexes(self):
+        return self.index2id.keys()
 
     def get_monomer_by_id(self, mono_id):
         return self.monomers[self.id2index[mono_id]]
@@ -94,6 +96,14 @@ class MonomerDB:
             return monomer
         return monomers
 
+    def get_monomers_dict(self):
+        return {monomer.monomer_id: monomer.seq
+                for monomer in self.monomers}
+
+    def get_seq_by_id(self, monomer_id):
+        mono_index = self.id2index[monomer_id]
+        return self.monomers[mono_index].seq
+
     def get_seqs_by_index(self, mono_index):
         assert 0 <= mono_index <= max(self.index2id)
         if not self.clustered:
@@ -104,16 +114,5 @@ class MonomerDB:
             seqs.append(monomer.seq)
         return seqs
 
-    def get_seq_by_id(self, monomer_id):
-        mono_index = self.id2index[monomer_id]
-        return self.monomers[mono_index].seq
-
-    def get_monoindexes(self):
-        return self.index2id.keys()
-
     def get_size(self):
         return 1 + max(self.index2id)
-
-    def get_monomers_dict(self):
-        return {monomer.monomer_id: monomer.seq
-                for monomer in self.monomers}
