@@ -80,10 +80,10 @@ class MonomerDB:
         return monomer_db
 
     def get_ids(self):
-        return self.id2index.keys()
+        return sorted(self.id2index.keys())
 
     def get_monoindexes(self):
-        return self.index2id.keys()
+        return sorted(self.index2id.keys())
 
     def get_monomer_by_id(self, mono_id):
         return self.monomers[self.id2index[mono_id]]
