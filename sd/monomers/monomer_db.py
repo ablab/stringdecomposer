@@ -19,9 +19,11 @@ class Monomer:
         self.seq = seq
 
     def __repr__(self):
-        return f'monomer_id={self.monomer_id}, '\
-               f'mono_index={self.mono_index}, '\
-               f'seq={self.seq}'
+        return 'monomer_id={self.monomer_id}, '\
+               'mono_index={self.mono_index}, '\
+               'seq={self.seq}'.format(self.monomer_id,
+                                       self.mono_index,
+                                       self.seq)
 
 
 class MonomerDB:
@@ -33,7 +35,7 @@ class MonomerDB:
         self.clustered = clustered
 
     def __repr__(self):
-        return f'size={self.get_size()}, ids={self.get_ids()}'
+        return 'size={}, ids={}'.format(self.get_size(), self.get_ids())
 
     @classmethod
     def from_fasta_file(cls, fn, cluster_max_ident=0.95, tocluster=False):
