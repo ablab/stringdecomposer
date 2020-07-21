@@ -38,10 +38,10 @@ class MonomerDB:
     @classmethod
     def from_fasta_file(cls, fn, cluster_max_ident=0.95, tocluster=False):
         fn = expandpath(fn)
-        logger.info(f'Creating Monomer DataBase from {fn}')
+        logger.info('Creating Monomer DataBase from {}'.format(fn))
         raw_monomers = read_bio_seqs(fn)
-        logger.info(f'Clustering monomers.'
-                    f'Identity thresh {cluster_max_ident}')
+        logger.info('Clustering monomers.'
+                    'Identity thresh {}'.format(cluster_max_ident))
         if tocluster:
             monomer_clusters, _ = \
                 cluster_sequences(sequences=raw_monomers,
@@ -64,8 +64,9 @@ class MonomerDB:
                 id2index[monomer_id] = i
                 index2id[i].append(monomer_id)
                 id2list_coord[monomer_id] = len(monomers) - 1
-                logger.debug(f'Monomer: index = {i} id = {monomer_id}')
-                logger.debug(f'         monomer sequence = {monomer_seq}')
+                logger.debug('Monomer: index = {} id = {}'.format(i,
+                                                                  monomer_id))
+                logger.debug('         monomer seq = {}'.format(monomer_seq))
 
         monomer_db = cls(id2index=id2index,
                          index2id=index2id,
@@ -73,7 +74,7 @@ class MonomerDB:
                          id2list_coord=id2list_coord,
                          clustered=tocluster)
 
-        logger.info(f'Finished Creating Monomer DataBase')
+        logger.info('Finished Creating Monomer DataBase')
         return monomer_db
 
     def get_ids(self):
