@@ -21,11 +21,11 @@ class SD_Report:
         if mode is not None:
             assert mode in ['ont', 'hifi', 'assembly']
 
-        logger.info(f'Mode is {mode}')
+        logger.info('Mode is {}'.format(mode))
 
-        logger.info(f'    sd_report_fn = {sd_report_fn}')
-        logger.info(f'    monomers_fn  = {monomers_fn}')
-        logger.info(f'    sequences_fn = {sequences_fn}')
+        logger.info('    sd_report_fn = {}'.format(sd_report_fn))
+        logger.info('    monomers_fn  = {}'.format(monomers_fn))
+        logger.info('    sequences_fn = {}'.format(sequences_fn))
         monomer_db = MonomerDB.from_fasta_file(monomers_fn,
                                                tocluster=tocluster)
 
