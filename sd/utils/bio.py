@@ -2,6 +2,7 @@
 # This file is a part of the SD program.
 # see LICENSE file
 
+from collections import OrderedDict
 from itertools import groupby
 
 from Bio import SeqIO
@@ -20,8 +21,10 @@ def read_bio_seqs(filename):
         form = 'fasta'
     elif form == 'fq':
         form = 'fastq'
-    seqs = SeqIO.parse(filename, format=form)
-    seqs = {seq.id: str(seq.seq) for seq in seqs}
+    raw_seqs = SeqIO.parse(filename, format=form)
+    seqs = OrderedDict()
+    for seq in raw_seqs:
+        seqs[seq.id] = str(seq.seq)
     return seqs
 
 
