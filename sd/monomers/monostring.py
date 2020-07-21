@@ -84,8 +84,11 @@ class MonoInstance:
     def get_ref_seq(self):
         return self.monomer.seq
 
-    def is_lowercase(self):
+    def is_reverse(self):
         return self.strand == Strand.REVERSE
+
+    def is_forward(self):
+        return self.strand == Strand.FORWARD
 
     def is_reliable(self):
         return self.reliability is Reliability.RELIABLE
@@ -194,20 +197,20 @@ class MonoString:
             return monoinstances
 
         def reverse_if_needed(monoinstances, nucl_sequence,
-                              max_lowercase=0.5):
-            is_lowercase = [monoinstance.is_lowercase()
-                            for monoinstance in monoinstances
-                            if monoinstance.is_reliable()]
-            perc_lower_case = np.mean(is_lowercase)
-            is_reversed = perc_lower_case > max_lowercase
-            if is_reversed:
+                              max_reverse=0.5):
+            is_reverse = [monoinstance.is_reverse()
+                           for monoinstance in monoinstances
+                           if monoinstance.is_reliable()]
+            perc_reverse = np.mean(is_reverse)
+            to_reverse = perc_reverse > max_reverse
+            if to_reverse:
                 # reverse monoinstance
                 monoinstances.reverse()
                 for monoinstance in monoinstances:
                     monoinstance.reverse()
                 # reverse nucl_sequence
                 nucl_sequence = RC(nucl_sequence)
-            return monoinstances, nucl_sequence, is_reversed
+            return monoinstances, nucl_sequence, to_reverse
 
         def get_string(monoinstance):
             string = []
@@ -290,15 +293,15 @@ class MonoString:
     def get_perc_unreliable(self):
         return 1 - self.get_perc_reliable()
 
-    def get_perc_lowercase(self):
-        is_lowercase = [monoinstance.is_lowercase()
-                        for monoinstance in self.monoinstances
-                        if monoinstance.is_reliable()]
-        perc_lowercase = np.mean(is_lowercase)
-        return perc_lowercase
+    def get_perc_forward_strand(self):
+        is_forward = [monoinstance.is_forward()
+                      for monoinstance in self.monoinstances
+                      if monoinstance.is_reliable()]
+        perc_forward = np.mean(is_forward)
+        return perc_forward
 
-    def get_perc_uppercase(self):
-        return 1 - self.get_perc_lowercase()
+    def get_perc_reverse_strand(self):
+        return 1 - self.get_perc_forward_strand()
 
     def is_corrected(self):
         return len(self.corrections)
