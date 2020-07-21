@@ -26,7 +26,7 @@ Requirements can be installed through Conda as ```conda install --file requireme
 
 If you wish to run tests:
 
-    make tests
+    make test
 
 ### Installing from source
 
