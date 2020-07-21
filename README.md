@@ -32,7 +32,11 @@ Local building without installation:
     cd stringdecomposer
     make
 
-Installing from source:
+If you wish to run tests:
+
+    make tests
+
+### Installing from source
 
     git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
