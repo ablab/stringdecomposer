@@ -34,7 +34,7 @@ Local building without installation:
 
 If you wish to run tests:
 
-    make tests
+    make test
 
 ### Installing from source
 
