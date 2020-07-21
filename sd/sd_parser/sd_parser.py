@@ -3,12 +3,15 @@
 # see LICENSE file
 
 import logging
+import os
+from subprocess import check_call
 
 import pandas as pd
 
 from sd.monomers.monomer_db import MonomerDB
 from sd.monomers.monostring_set import MonoStringSet
 from sd.utils.bio import read_bio_seqs
+from sd.utils.os_utils import smart_makedirs
 
 logger = logging.getLogger("SD.sd_parser.sd_parser")
 
@@ -73,3 +76,26 @@ class SD_Report:
         self.report = report
         self.monostring_set = monostring_set
         self.has_hpc = has_hpc
+
+
+def run_SD(sequences_fn, monomers_fn, outdir='.',
+           outfn='final_decomposition.tsv',
+           n_threads=4):
+    logger.info(f'Running SD on')
+    logger.info(f'\tSequences = {sequences_fn}')
+    logger.info(f'\tMonomers = {monomers_fn}')
+    logger.info(f'\tOutdir = {outdir}')
+    smart_makedirs(outdir)
+    outfn = os.path.join(outdir, outfn)
+    if os.path.isfile(outfn):
+        logger.info(f'File {outfn} exists. Reusing')
+        return outfn
+
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    sd_bin = os.path.join(script_dir, os.pardir, 'run_decomposer.py')
+    cmd = f'{sd_bin} {sequences_fn} {monomers_fn} ' + \
+          f'-t {n_threads} -o {outfn}'
+    logger.info(cmd)
+    cmd = cmd.split(' ')
+    check_call(cmd)
+    return outfn

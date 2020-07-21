@@ -95,13 +95,15 @@ assert parse_cigar('89=1X6=3X76=') == \
      {'=': 171, 'X': 4, 'I': 0, 'D': 0})
 
 
-def calc_identity(a, b, mode='NW'):
-    alignment = edlib.align(a, b, task='path', mode=mode)
+def calc_identity(a, b, mode='NW', k=None):
+    alignment = edlib.align(a, b, task='path', mode=mode, k=k)
+    if alignment['editDistance'] == -1:
+        return 0, alignment
     cigar, cigar_stats = parse_cigar(alignment['cigar'])
     alignment_len = sum(cigar_stats.values())
     identity = 1 - alignment['editDistance'] / alignment_len
     assert 0 <= identity <= 1
-    return identity
+    return identity, alignment
 
 
 def compress_homopolymer(seq, return_list=False):

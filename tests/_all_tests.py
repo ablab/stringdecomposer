@@ -18,6 +18,9 @@ from test_monomer_db import TestMonomerDB
 from test_monostring import TestMonostring
 from test_monostring_set import TestMonostringSet
 from test_sd_report import TestSDReport
+from test_hor import TestHOR
+from test_hor_monosequence import TestHORMonoSequence
+from test_hor_extraction_report import TestHORExtractionReport
 
 
 def main():

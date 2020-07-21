@@ -27,3 +27,11 @@ def expandpath(path):
     real_path = os.path.realpath(expanduser_path)
     abs_path = os.path.abspath(real_path)
     return abs_path
+
+
+def cat(infns, outfile):
+    with open(outfile, 'w') as o:
+        for fn in infns:
+            with open(fn) as i:
+                for line in i:
+                    o.write(line)

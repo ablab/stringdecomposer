@@ -199,8 +199,8 @@ class MonoString:
         def reverse_if_needed(monoinstances, nucl_sequence,
                               max_reverse=0.5):
             is_reverse = [monoinstance.is_reverse()
-                           for monoinstance in monoinstances
-                           if monoinstance.is_reliable()]
+                          for monoinstance in monoinstances
+                          if monoinstance.is_reliable()]
             perc_reverse = np.mean(is_reverse)
             to_reverse = perc_reverse > max_reverse
             if to_reverse:
@@ -305,3 +305,6 @@ class MonoString:
 
     def is_corrected(self):
         return len(self.corrections)
+
+    def get_seq_len(self):
+        return len(self.nucl_sequence)
