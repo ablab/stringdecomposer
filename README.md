@@ -24,6 +24,10 @@ Requirements can be installed through Conda as ```conda install --file requireme
     cd stringdecomposer
     make
 
+If you wish to run tests:
+
+    make tests
+
 ### Installing from source
 
     git clone https://github.com/TanyaDvorkina/stringdecomposer.git
