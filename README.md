@@ -19,10 +19,18 @@ conda install -c bioconda stringdecomposer
 Alternatively, StringDecomposer can be installed from source.
 
 Requirements:
-- Linux (OSX is currently not supported)
-- Python 3.6 or 3.7
-- C++ compliler with C++11 support (g++ version 5.3.1 or higher)
-- GNU make
+- Python3.5
+    - [biopython](https://biopython.org/wiki/Download)
+    - [argparse](https://pypi.org/project/argparse/)
+    - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
+    - [networkx](https://pypi.org/project/networkx)
+    - [numpy](https://scipy.org/install.html)
+    - [matplotlib](https://pypi.org/project/matplotlib/)
+    - [pandas](https://pypi.org/project/pandas/)
+    - [python-edlib](https://pypi.org/project/edlib/)
+    - [seaborn](https://pypi.org/project/seaborn/)
+    - [setuptools](https://pypi.org/project/setuptools/)
+- g++ (version 5.3.1 or higher)
 
 The required python packages can be installed through conda using ```conda install --file requirements.txt```.
 

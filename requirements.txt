@@ -1,7 +1,10 @@
 biopython
+argparse
 joblib
+networkx
 numpy
+matplotlib
 pandas
 python-edlib
-scikit-learn
+seaborn
 setuptools
