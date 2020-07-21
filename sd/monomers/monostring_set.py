@@ -19,7 +19,6 @@ class MonoStringSet:
         self.monostrings_filt_out = monostrings_filt_out
         self.monomer_db = monomer_db
         self.mode = mode
-        self.hybrids_corrected = False
         self.get_stats()
 
     @classmethod
