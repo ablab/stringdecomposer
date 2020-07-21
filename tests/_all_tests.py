@@ -15,6 +15,9 @@ from sd.standard_logger import get_logger
 from sd.utils.git import get_git_revision_short_hash
 
 from test_monomer_db import TestMonomerDB
+from test_monostring import TestMonostring
+from test_monostring_set import TestMonostringSet
+from test_sd_report import TestSDReport
 
 
 def main():
