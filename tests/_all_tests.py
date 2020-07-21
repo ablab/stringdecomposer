@@ -26,8 +26,8 @@ def main():
                         level=logging.DEBUG,
                         filemode='w',
                         stdout=False)
-    logger.info(f'cmd: {sys.argv}')
-    logger.info(f'git hash: {get_git_revision_short_hash()}')
+    logger.info('cmd: {}'.format(sys.argv))
+    logger.info('git hash: {}'.format(get_git_revision_short_hash()))
 
     unittest.main()
 
