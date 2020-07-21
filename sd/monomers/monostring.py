@@ -146,21 +146,21 @@ class MonoString:
                     reliabilities.append(reliability)
                 return reliabilities
 
-            starts = sd_record.s_st.to_list()
+            starts = list(sd_record.s_st)
             ends = [en + 1 for en in sd_record.s_en]
 
-            ids = sd_record.monomer.to_list()
+            ids = list(sd_record.monomer)
             indexes_strands = map(id2index_strand, ids)
             indexes, strands = zip(*indexes_strands)
 
-            sec_ids = sd_record.sec_monomer.to_list()
+            sec_ids = list(sd_record.sec_monomer)
             sec_indexes_strands = map(id2index_strand, sec_ids)
             sec_indexes, sec_strands = zip(*sec_indexes_strands)
 
             identities = [ident / 100
-                          for ident in sd_record.identity.to_list()]
+                          for ident in sd_record.identity]
             sec_identities = [ident / 100
-                              for ident in sd_record.sec_identity.to_list()]
+                              for ident in sd_record.sec_identity]
 
             reliabilities = get_reliablities(sd_record=sd_record,
                                              identities=identities,
