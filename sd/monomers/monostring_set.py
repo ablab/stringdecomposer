@@ -122,7 +122,7 @@ class MonoStringSet:
         monostrings_filt_out = self.monostrings_filt_out
         monostrings_lens = [len(monostr) for monostr in monostrings.values()]
         stats['nmonostrings'] = len(monostrings_lens)
-        stats['nfiltered_out'] = len(monostrings_filt_out)
+        stats['nfilt_out'] = len(monostrings_filt_out)
         stats['min_len'] = np.min(monostrings_lens)
         stats['max_len'] = np.max(monostrings_lens)
         stats['mean_len'] = np.mean(monostrings_lens)
@@ -131,15 +131,16 @@ class MonoStringSet:
         stats['pgaps'] = stats['ngaps'] / stats['tot_len']
         stats['ngap_runs'] = get_ngap_symbols(monostrings, compr_hmp=True)
 
-        logger.info(f'# monostrings: {stats["nmonostrings"]}')
-        logger.info(f'# filtered monostrings: {stats["nfiltered_out"]}')
-        logger.info(f'Min length = {stats["min_len"]}')
-        logger.info(f'Mean length = {stats["mean_len"]}')
-        logger.info(f'Max length = {stats["max_len"]}')
-        logger.info(f'Total length = {stats["tot_len"]}')
+        logger.info('# monostrings: {}'.format(stats["nmonostrings"]))
+        logger.info('# filtered monostrings: {}'.format(stats["nfilt_out"]))
+        logger.info('Min length = {}'.format(stats["min_len"]))
+        logger.info('Mean length = {}'.format(stats["mean_len"]))
+        logger.info('Max length = {}'.format(stats["max_len"]))
+        logger.info('Total length = {}'.format(stats["tot_len"]))
 
-        logger.info(f'#(%) Gap symbols = {stats["ngaps"]} ({stats["pgaps"]})')
-        logger.info(f'#Gap runs = {stats["ngap_runs"]}')
+        logger.info('#(%) Gap symbols = {} ({})'.format(stats["ngaps"],
+                                                        stats["pgaps"]))
+        logger.info('# Gap runs = {}'.format(stats["ngap_runs"]))
         if return_stats:
             return stats
 

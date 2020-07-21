@@ -44,11 +44,13 @@ def cluster_sequences(sequences, max_ident):
             identities[(s_id2, s_id1)] = ident
             if ident > max_ident:
                 graph.add_edge(s_id1, s_id2)
-                logger.info(f'Ident {ident:0.2} b/w {s_id1} and {s_id2}')
+                logger.info('Ident {:.2f} b/w {} and {}'.format(ident,
+                                                                s_id1,
+                                                                s_id2))
     clusters = list(nx.connected_components(graph))
-    logger.info(f'Extracted {len(clusters)} clusters')
-    n_nontrivial_clusters = sum(len(cluster) > 1 for cluster in clusters)
-    logger.info(f'Extracted {n_nontrivial_clusters} clusters of size > 1')
+    logger.info('Extracted {} clusters'.format(len(clusters)))
+    n_nontriv_clusters = sum(len(cluster) > 1 for cluster in clusters)
+    logger.info('Extracted {} clusters of size > 1'.format(n_nontriv_clusters))
     return clusters, identities
 
 
@@ -87,8 +89,8 @@ def main():
     logger = get_logger(logfn,
                         logger_name='SD: cluster sequences')
 
-    logger.info(f'cmd: {sys.argv}')
-    logger.info(f'git hash: {get_git_revision_short_hash()}')
+    logger.info('cmd: {}'.format(sys.argv))
+    logger.info('git hash: {}'.format(get_git_revision_short_hash()))
 
     sequences = read_bio_seqs(params.sequences)
     clusters, identities = \
