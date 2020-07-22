@@ -74,9 +74,16 @@ Optional arguments:
 
 
 
-## Scripts folder
+## `sd/scripts` folder
 
 The set of scripts help to solve decomposition-related problems.
+
+Script `extract_hors.py` converts monomer decomposition to HOR decomposition.
+Synopsis:
+
+    extract_hors.py <sequences> <monomers>  <decomposition> <output file> [--canonical <txt-file>] [--min-idnt MIN_IDNT] [--min-reliable MIN_RELIABLE] [--min-cnt MIN_CNT] [--min-weight MIN_WEIGHT] [--min-len MIN_LEN] [--max-len MAX_LEN]
+
+File in `--canonical` option represents a list of canonical HORs. Each line represents one HOR, HOR has to be represented as a list of monomer ids from `<monomers>` file, separated by ",".
 
 Script `extract_centromere_related_regions.py` extracts reads (or assembly segment) that are covered by the given set monomers.
 Synopsis:
