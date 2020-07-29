@@ -10,20 +10,13 @@ from os import listdir
 from os.path import isfile, isdir, join
 import argparse
 
-import re
-import edlib
+import logging
 
+sd_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sys.path.append(sd_path)
+from sd.utils.bio import read_bio_seqs
 
-def load_fasta(filename, tp = "list"):
-    if tp == "map":
-        records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
-        for r in records:
-            records[r] = records[r].upper() 
-    else:
-        records = list(SeqIO.parse(filename, "fasta"))
-        for i in range(len(records)):
-            records[i] = records[i].upper()
-    return records
+logger = logging.getLogger("SD.scripts.extract_hors")
 
 def load_dec(filename, min_idnt, min_reliable):
     reads_mapping = {}
@@ -59,7 +52,6 @@ def load_dec(filename, min_idnt, min_reliable):
                 left = i
             if reads_mapping[r][i]["idnt"] > min_reliable:
                 right = i
-        print(reads_mapping[r][left]["s"], reads_mapping[r][right]["e"])
         if len(reads_mapping[r][left: right + 1]) > 36:
             new_reads_mapping[r] = sorted(reads_mapping[r][left: right + 1], key = lambda x: x["s"])
             cnt += right -left+ 1
@@ -414,8 +406,8 @@ if __name__ == "__main__":
     parser.add_argument('--max-len',  help='maximum length of HOR in monomers (30 by default)', type=int, default=30, required = False)
     args = parser.parse_args()
 
-    reads = load_fasta(args.sequences, "map")
-    monomers = load_fasta(args.monomers, "map")
+    reads = read_bio_seqs(args.sequences)
+    monomers = read_bio_seqs(args.monomers)
     dec, monomers_mp, monomers_mp_r = convert_dec_to_internal_monomers(load_dec(args.decomposition, args.min_idnt, args.min_reliable), monomers)
     filename = args.output
 
