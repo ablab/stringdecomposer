@@ -4,10 +4,6 @@ from Bio import SeqIO
 from Bio import SearchIO
 from Bio.SeqRecord import SeqRecord
 
-import numpy as np; np.random.seed(123)
-import seaborn as sns; sns.set()
-import pandas as pd
-
 import sys
 import os
 from os import listdir
@@ -197,8 +193,9 @@ def collapse_annotation(annotation):
     new_annotation.append([prev, cnt, {"s": start, "e": end}])
     return new_annotation
 
-def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, hors, potential_hors_all, set_size):
+def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, hors, potential_hors_all, potential_hors_names_all, set_size):
     potential_hors = {}
+    potential_hors_names = []
     annotation_str = "_".join(annotation_seq)
     for i in range(len(annotation)):
         end_ind = i
@@ -226,6 +223,7 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
 
                     new_set_size = len(annotation_new_str.split("_"))
                     potential_hors[subseq_str] = {"set_size": new_set_size, "cnt": len(annotation_new_lst) - 1}
+                    potential_hors_names.append(subseq_str)
     for h in potential_hors_all:
         if h not in potential_hors:
             potential_hors_all[h]["set_size"] += len(annotation)
@@ -233,20 +231,24 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
             potential_hors_all[h]["set_size"] += potential_hors[h]["set_size"]
             potential_hors_all[h]["cnt"] += potential_hors[h]["cnt"]
 
-    for h in potential_hors:
+    for h in potential_hors_names:
         if h not in potential_hors_all:
+            potential_hors_names_all.append(h)
             potential_hors_all[h] = {}
             potential_hors_all[h]["set_size"] = potential_hors[h]["set_size"] + set_size
             potential_hors_all[h]["cnt"] = potential_hors[h]["cnt"]
-    return potential_hors_all
+    return potential_hors_all, potential_hors_names_all
 
 
 def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_hor_len, max_hor_len):
     hors = {}
     hors_lst = []
     h_cnt = 0
+    reads = []
     for r in annotation:
         annotation[r] = collapse_annotation(annotation[r])
+        reads.append(r)
+    reads = sorted(reads)
 
     hors_log = []
     if len(known_hors) > 0:
@@ -254,18 +256,19 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
 
     while True:
         potential_hors = {}
+        potential_hors_names = []
         set_size = 0
-        for r in annotation:
+        for r in reads:
             annotation_seq = []
             for a in annotation[r]:
                 annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
             if h_cnt == 0:
                 print("_".join(annotation_seq).replace("[1]", ""))
-            potential_hors = find_potential_hors(annotation[r], annotation_seq, min_hor_len, max_hor_len, hors, potential_hors, set_size)
+            potential_hors, potential_hors_names = find_potential_hors(annotation[r], annotation_seq, min_hor_len, max_hor_len, hors, potential_hors, potential_hors_names, set_size)
             set_size += len(annotation[r])
 
         potential_hors_lst = []
-        for h in potential_hors:
+        for h in potential_hors_names:
             if potential_hors[h]["cnt"] > min_cnt:
                 potential_hors_lst.append([h, potential_hors[h]])
         potential_hors_lst = sorted(potential_hors_lst, key=lambda x: x[1]["set_size"])
@@ -278,7 +281,7 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
         hors_log.append([name, potential_hors_lst[0][0].replace("[1]",""), hors[name].replace("[1]",""), str(len(hors[name].split("_"))), str(potential_hors_lst[0][1]["cnt"]), \
                                                      str(set_size - potential_hors_lst[0][1]["set_size"]), str(potential_hors_lst[0][1]["set_size"]) ])
         print("\t".join(hors_log[-1]), flush=True)
-        for r in annotation:
+        for r in reads:
             annotation_seq = []
             for a in annotation[r]:
                 annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
