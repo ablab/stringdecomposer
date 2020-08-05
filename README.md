@@ -1,3 +1,5 @@
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/stringdecomposer/badges/installer/conda.svg)](https://anaconda.org/bioconda/stringdecomposer)
+
 # StringDecomposer
 
 StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone read (or a genomic segment) and partitions this read into distinct monomers, providing an accurate translation of each read from a nucleotide alphabet into a monomer alphabet.
