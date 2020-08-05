@@ -74,7 +74,12 @@ Optional arguments:
 
     --fast                                             SD won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
 
+## Latest updates
 
+### StringDecomposer 0.1.0 release (?? August 2020)
+* initial StringDecomposer release
+* conda support
+* results of StringDecomposer for centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at ZENODO (ADD LINK)
 
 ## `sd/scripts` folder
 
