@@ -20,7 +20,7 @@ Alternatively, StringDecomposer can be installed from source.
 
 Requirements:
 - Linux (OSX is currently not supported)
-- Python 3.6
+- Python 3.6 or 3.7
 - C++ compliler with C++11 support (g++ version 5.3.1 or higher)
 - GNU make
 
