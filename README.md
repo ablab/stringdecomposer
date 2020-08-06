@@ -2,23 +2,27 @@
 
 # StringDecomposer
 
+## Version X.X
+
 StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone read (or a genomic segment) and partitions this read into distinct monomers, providing an accurate translation of each read from a nucleotide alphabet into a monomer alphabet.
 
 
 ## Installation
 
-Requirements:
-- Python3.5
-    - [biopython](https://biopython.org/wiki/Download)
-    - [edlib](https://pypi.org/project/edlib/)
-    - [argparse](https://pypi.org/project/argparse/)
-    - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
-    - [numpy](https://scipy.org/install.html)
-    - [pandas](https://pypi.org/project/pandas/)
-    - [setuptools](https://pypi.org/project/setuptools/)
-- g++ (version 5.3.1 or higher)
+The recommended way to install SD is using conda package manager:
+```
+conda install -c bioconda stringdecomposer
+```
 
-Requirements can be installed through Conda as ```conda install --file requirements.txt```.
+Alternatively, SD can be installed from source.
+
+Requirements:
+- Linux (OSX is currently not supported)
+- Python 3.6
+- C++ compliler with C++11 support (g++ version 5.3.1 or higher)
+- GNU make
+
+The required python packages can be installed through conda using ```conda install --file requirements.txt```.
 
 ### Local Building (without installation)
 
@@ -81,9 +85,9 @@ Optional arguments:
 * conda support
 * results of StringDecomposer for centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at ZENODO (ADD LINK)
 
-## `sd/scripts` folder
+## SD+
 
-The set of scripts help to solve decomposition-related problems.
+The set of scripts help to solve decomposition-related problems are placed in `sd/scripts` directory.
 
 Script `extract_hors.py` converts monomer decomposition to HOR decomposition.
 Synopsis:
