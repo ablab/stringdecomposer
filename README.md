@@ -14,6 +14,7 @@ The recommended way to install SD is using conda package manager:
 conda install -c bioconda stringdecomposer
 ```
 
+
 Alternatively, SD can be installed from source.
 
 Requirements:
@@ -24,21 +25,26 @@ Requirements:
 
 The required python packages can be installed through conda using ```conda install --file requirements.txt```.
 
-### Local Building (without installation)
+Local Building (without installation):
 
     git clone https://github.com/TanyaDvorkina/stringdecomposer.git
     cd stringdecomposer
     make
 
-### Installing from source
+Installing from source:
 
     git clone https://github.com/TanyaDvorkina/stringdecomposer.git
     cd stringdecomposer
-    python setup.py install
+    python setup.py install --record files.txt
+
+To remove SD:
+
+    xargs rm -rf < files.txt
 
 ## Quick start
+The following guide assumes that SD was either installed through conda or installed from source.
 
-    sd/run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
+    run_decomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
 
 Testing run results:
 
