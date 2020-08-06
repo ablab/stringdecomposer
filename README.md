@@ -58,7 +58,7 @@ Each line in final_decomposition.tsv file has the following form:
     <read-name> <best-monomer> <start-pos> <end-pos> <identity> <second-best-monomer> <second-best-monomer-identity> <homo-best-monomer> <homo-identity> <homo-second-best-monomer> <homo-second-best-monomer-identity> <reliability>
 
 `homo`-related columns represent statistics of the best-scoring (second-best-scoring) monomer after compression of homopolymer runs in both the monomer and the target read.
-Reliability is either equal to `?` (signifies unreliable alignmen which can be caused by a retrotransposon insertion or a poor quality segment of a read) or `+` (if the alignment is reliable).
+Reliability is either equal to `?` (signifies unreliable alignment which can be caused by a retrotransposon insertion or a poor quality segment of a read) or `+` (if the alignment is reliable).
 
 
 ## Synopsis
