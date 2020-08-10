@@ -89,9 +89,11 @@ Optional arguments:
 ## Latest updates
 
 ### StringDecomposer 0.1.0 release (?? August 2020)
+
 * initial StringDecomposer release
 * conda support
-* results of StringDecomposer for centromere assemblies and ONT and HiFi reads of cen6, cen8, and cenX can be found at ZENODO (ADD LINK)
+* results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://figshare.com/s/f007c621a5210a6b7ebf)
+
 
 ## StringDecomposer+
 
