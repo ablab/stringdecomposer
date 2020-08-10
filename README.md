@@ -28,13 +28,13 @@ The required python packages can be installed through conda using ```conda insta
 
 Local building without installation:
 
-    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
     make
 
 Installing from source:
 
-    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
     python setup.py install --record files.txt
 
