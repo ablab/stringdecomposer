@@ -2,7 +2,7 @@
 
 # StringDecomposer
 
-## Version X.X
+## Version 1.0
 
 As an input StringDecomposer (SD) algorithm takes the set of monomers (typically, alpha satellites) and a genomic segment (assembly, Oxford Nanopore or a PacBio HiFi read) that contains a tandem repeat constituted by the given monomers.
 StringDecomposer partitions this segment into distinct monomers, providing an accurate translation from the nucleotide alphabet into the monomer alphabet.
@@ -88,11 +88,11 @@ Optional arguments:
 
 ## Latest updates
 
-### StringDecomposer 0.1.0 release (?? August 2020)
+### StringDecomposer 1.0 release (11 August 2020)
 
 * initial StringDecomposer release
 * conda support
-* results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://figshare.com/s/f007c621a5210a6b7ebf)
+* results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://doi.org/10.6084/m9.figshare.12783371)
 
 
 ## StringDecomposer+
