@@ -63,7 +63,7 @@ Reliability is either equal to `?` (signifies unreliable alignment which can be 
 
 ## Synopsis
 
-    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
+    run_decomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
 
 Required arguments:
 
