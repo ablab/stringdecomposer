@@ -12,6 +12,8 @@ import argparse
 
 import logging
 
+import re
+
 sd_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 sys.path.append(sd_path)
 from sd.utils.bio import read_bio_seqs
@@ -211,7 +213,7 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
                 if subseq_str not in potential_hors:
                     annotation_new_lst = annotation_str.split(subseq_str)
                     annotation_new_str = annotation_str.replace(subseq_str, "X")
-                    annotation_new_str = annotation_new_str.replace("X_X", "X")
+                    annotation_new_str = re.sub(r'(X_)\1+', r'\1', (annotation_new_str + "_"))[:-1]
 
                     new_set_size = len(annotation_new_str.split("_"))
                     potential_hors[subseq_str] = {"set_size": new_set_size, "cnt": len(annotation_new_lst) - 1}
@@ -254,8 +256,8 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
             annotation_seq = []
             for a in annotation[r]:
                 annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
-            if h_cnt == 0:
-                print("_".join(annotation_seq).replace("[1]", ""))
+            # if h_cnt == 0:
+            #     print("_".join(annotation_seq).replace("[1]", ""))
             potential_hors, potential_hors_names = find_potential_hors(annotation[r], annotation_seq, min_hor_len, max_hor_len, hors, potential_hors, potential_hors_names, set_size)
             set_size += len(annotation[r])
 
