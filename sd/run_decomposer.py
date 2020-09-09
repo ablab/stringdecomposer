@@ -142,16 +142,13 @@ def convert_decomposition(d, read, monomers, light=False):
                     "alt": scores, "q": "+"}
 
 
-def convert_read(decomposition, read, monomers, light = False):
-    res = []
-    for d in decomposition:
-        res.append(convert_decomposition(d, read, monomers, light))
-
+def convert_read(decomposition, read, monomers, light = False, num_threads=1):
+    res = joblib.Parallel(n_jobs=num_threads)(joblib.delayed(convert_decomposition)(d, read, monomers, light) for d in decomposition)
     res = classify(res)
     return res
 
-def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
-    dec = convert_read(dec, read, monomers, light)
+def print_read(fout, fout_alt, dec, read, monomers, identity_th, light, num_threads):
+    dec = convert_read(dec, read, monomers, light, num_threads)
     for d in dec:
         if d["score"] >= identity_th:
             fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
@@ -164,7 +161,7 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
                     star = "*"
                 fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
 
-def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
+def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light, num_threads):
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
         with open(outfile, "w") as fout:
             cur_dec = []
@@ -174,13 +171,13 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
                 read = read.split()[0]
                 monomer = monomer.split()[0]
                 if read != prev_read and prev_read != None:
-                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
+                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light, num_threads)
                     cur_dec = []
                 prev_read = read
                 start, end = int(start), int(end)
                 cur_dec.append({"m": monomer, "start": start, "end": end})
             if len(cur_dec) > 0:
-                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
+                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light, num_threads)
 
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
@@ -215,7 +212,7 @@ def main():
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
+    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast, int(args.threads))
     print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
 
 
