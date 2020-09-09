@@ -82,7 +82,7 @@ def save_fasta(filename, orfs):
 def load_regions(filename):
     reads_regions = {}
     with open(filename, "r") as fin:
-        for ln in fin.readlines():
+        for ln in fin.readlines()[1:]:
             sseqid, qseqid, sstart, send, idnt  = ln.strip().split("\t")[:5]
             sseqid = sseqid.split()[0]
             if sseqid not in reads_regions:
@@ -314,7 +314,7 @@ def form_nm_decomposition(non_mono, clusters, reads, decomposition_file, outfile
         with open(decomposition_file, "r") as fin:
             cur_read, cur_ind = None, 0
             in_nonmono_region = False
-            for ln in fin.readlines():
+            for ln in fin.readlines()[1:]:
                 read, monomer, start, end = ln.split("\t")[:4]
                 read = read.split()[0]
                 monomer = monomer.split()[0]

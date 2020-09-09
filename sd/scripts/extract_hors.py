@@ -25,7 +25,7 @@ def load_dec(filename, min_idnt, min_reliable):
     ss = ""
     monomers = set()
     with open(filename, "r") as fin:
-        for ln in fin.readlines():
+        for ln in fin.readlines()[1:]:
             sseqid, qseqid, sstart, send, idnt  = ln.strip().split("\t")[:5]
             sseqid = sseqid.split()[0]
             if sseqid not in reads_mapping:

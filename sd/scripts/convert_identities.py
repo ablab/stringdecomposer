@@ -95,7 +95,7 @@ def convert_tsv(filename, reads, monomers, outfile):
             with open(filename, "r") as fin:
                 cur_dec = []
                 prev_read = None
-                for ln in fin.readlines():
+                for ln in fin.readlines()[1:]:
                     read, monomer, start, end = ln.split("\t")[:4]
                     if read != prev_read and prev_read != None:
                         print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers)

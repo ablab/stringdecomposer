@@ -72,6 +72,8 @@ public:
     }
 
     void AlignReadsSet(vector<Seq> &reads, int threads, int part_size) {
+        std::cout << "READ_NAME\tMONOMER_NAME\tSTART_POS\tEND_POS\tIDENTITY\tGAP_BETWEEN_ALIGNMENTS\tALIGNMENT_LENGTH\n";
+
         vector<Seq> new_reads;
         vector<int> save_steps;
         for (auto r: reads) {

@@ -161,6 +161,8 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
 
 def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
+        fout_alt.write("\t".join(["READ_NAME", "MONOMER_NAME", "START", "END", "IDENTITY", "RELIABILITY"])+ "\n")
+
         with open(outfile, "w") as fout:
             fout.write("\t".join(["READ_NAME", "MONOMER_NAME", "START", "END", "IDENTITY", \
                                   "SECOND_BEST_MONOMER_NAME", "SECOND_BEST_IDENTITY", \
@@ -189,7 +191,7 @@ def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     with open(raw_file, 'w') as f:
         subprocess.run([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match], stdout = f, check = True)
     with open(raw_file, 'r') as f:
-        raw_decomposition = "".join(f.readlines())
+        raw_decomposition = "".join(f.readlines()[1:])
     return raw_decomposition
 
 
