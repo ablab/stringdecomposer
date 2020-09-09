@@ -162,6 +162,10 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
 def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
         with open(outfile, "w") as fout:
+            fout.write("\t".join(["READ_NAME", "MONOMER_NAME", "START", "END", "IDENTITY", \
+                                  "SECOND_BEST_MONOMER_NAME", "SECOND_BEST_IDENTITY", \
+                                  "HOMO_BEST_MONOMER_NAME", "HOMO_BEST_IDENTITY", \
+                                  "HOMO_SECOND_BEST_MONOMER_NAME", "HOMO_SECOND_BEST_IDENTITY", "RELIABILITY"])+ "\n")
             cur_dec = []
             prev_read = None
             for ln in decomposition.split("\n")[:-1]:
