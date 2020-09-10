@@ -31,47 +31,6 @@ logreg_file = os.path.join(os.path.dirname(p),
                            'new_ont_logreg_model.sav')
 clf = joblib.load(logreg_file)
 
-def add_rc_monomers(monomers):
-    res = []
-    for m in monomers:
-        res.append(m)
-        res.append(futils.make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
-    return res
-
-
-def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
-    dec = icu.convert_read(dec, read, monomers, clf, light)
-    for d in dec:
-        if d["score"] >= identity_th:
-            fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
-                                                    d["second_best"], "{:.2f}".format(d["second_best_score"]), \
-                                                    d["homo_best"], "{:.2f}".format(d["homo_best_score"]), \
-                                                    d["homo_second_best"], "{:.2f}".format(d["homo_second_best_score"]), d["q"]]) + "\n")
-            for a in d["alt"]:
-                star = "-"
-                if a == d["m"]:
-                    star = "*"
-                fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
-
-
-def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
-    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
-        with open(outfile, "w") as fout:
-            cur_dec = []
-            prev_read = None
-            for ln in decomposition.split("\n")[:-1]:
-                read, monomer, start, end = ln.split("\t")[:4]
-                read = read.split()[0]
-                monomer = monomer.split()[0]
-                if read != prev_read and prev_read != None:
-                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
-                    cur_dec = []
-                prev_read = read
-                start, end = int(start), int(end)
-                cur_dec.append({"m": monomer, "start": start, "end": end})
-            if len(cur_dec) > 0:
-                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
-
 
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
@@ -104,9 +63,9 @@ def main():
 
     reads = futils.load_fasta(args.sequences, "map")
     monomers = futils.load_fasta(args.monomers)
-    monomers = add_rc_monomers(monomers)
+    monomers = icu.add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
+    icu.convert_tsv(raw_decomposition, reads, monomers, args.out_file, clf, int(args.min_identity), args.fast)
     print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
 
 

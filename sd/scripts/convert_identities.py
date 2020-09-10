@@ -25,62 +25,6 @@ logreg_file = os.path.join(os.path.dirname(p), "..",
                            'new_ont_logreg_model.sav')
 clf = joblib.load(logreg_file)
 
-def add_rc_monomers(monomers):
-    res = []
-    for m in monomers:
-        res.append(m)
-        res.append(futils.make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
-    return res
-
-
-def print_read(fout, fout_alt, dec, read, monomers):
-    dec = icu.convert_read(dec, read, monomers, clf)
-    for d in dec:
-        fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
-                                                d["second_best"], "{:.2f}".format(d["second_best_score"]), d["q"]]) + "\n")
-        for a in d["alt"]:
-            star = "-"
-            if a == d["m"]:
-                star = "*"
-            fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
-
-
-def convert_tsv(filename, reads, monomers, outfile):
-    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
-        with open(outfile, "w") as fout:
-            with open(filename, "r") as fin:
-                cur_dec = []
-                prev_read = None
-                for ln in fin.readlines():
-                    read, monomer, start, end = ln.split("\t")[:4]
-                    if read != prev_read and prev_read != None:
-                        print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers)
-                        cur_dec = []
-                    prev_read = read
-                    start, end = int(start), int(end)
-                    cur_dec.append({"m": monomer, "start": start, "end": end})
-                if len(cur_dec) > 0:
-                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers)
-                    
-def convert_fasta(filename, reads, monomers, outfile):
-    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
-        with open(outfile, "w") as fout:
-            with open(filename, "r") as fin:
-                cur_dec = []
-                prev_read = None
-                for ln in fin.readlines():
-                    if ln.startswith(">"):
-                        read = ln.split("/")[0][1:]
-                        if read != prev_read and prev_read != None:
-                            print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers)
-                            cur_dec = []
-                        prev_read = read
-                        start, end = [int(x) for x in ln.split("/")[1].split("_")]
-                        cur_dec.append({"m": None, "start": start, "end": end})
-                if len(cur_dec) > 0:
-                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Convert decomposition scores into identities')
     parser.add_argument('-s', '--sequences', help='fasta-file with long reads sequences', required=True)
@@ -95,8 +39,10 @@ if __name__ == "__main__":
 
     reads = futils.load_fasta(args.sequences, "map")
     monomers = futils.load_fasta(args.monomers)
-    monomers = add_rc_monomers(monomers)
+    monomers = icu.add_rc_monomers(monomers)
     if args.decomposition.endswith("tsv"):
-        convert_tsv(args.decomposition, reads, monomers, outfile)
+        with open(args.decomposition, 'r') as f:
+            raw_decomposition = "".join(f.readlines())
+            icu.convert_tsv(raw_decomposition, reads, monomers, outfile, clf, identity_th=0, light=False)
     else:
-        convert_fasta(args.decomposition, reads, monomers, outfile)
+        icu.convert_fasta(args.decomposition, reads, monomers, outfile, clf)

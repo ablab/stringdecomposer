@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from . import files_utils as futils
+
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
@@ -21,6 +23,14 @@ import re
 import edlib
 
 import joblib
+
+
+def add_rc_monomers(monomers):
+    res = []
+    for m in monomers:
+        res.append(m)
+        res.append(futils.make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
+    return res
 
 
 def edist(lst):
@@ -121,3 +131,56 @@ def convert_read(decomposition, read, monomers, clf, light = False):
 
     res = classify(res, clf)
     return res
+
+
+def print_read(fout, fout_alt, dec, read, monomers, clf, identity_th, light):
+    dec = convert_read(dec, read, monomers, clf, light)
+    for d in dec:
+        if d["score"] >= identity_th:
+            fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
+                                                    d["second_best"], "{:.2f}".format(d["second_best_score"]), \
+                                                    d["homo_best"], "{:.2f}".format(d["homo_best_score"]), \
+                                                    d["homo_second_best"], "{:.2f}".format(d["homo_second_best_score"]), d["q"]]) + "\n")
+            for a in d["alt"]:
+                star = "-"
+                if a == d["m"]:
+                    star = "*"
+                fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
+
+
+def convert_tsv(decomposition, reads, monomers, outfile, clf, identity_th, light):
+    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
+        with open(outfile, "w") as fout:
+            cur_dec = []
+            prev_read = None
+            for ln in decomposition.split("\n")[:-1]:
+                read, monomer, start, end = ln.split("\t")[:4]
+                read = read.split()[0]
+                monomer = monomer.split()[0]
+                if read != prev_read and prev_read != None:
+                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, clf, identity_th, light)
+                    cur_dec = []
+                prev_read = read
+                start, end = int(start), int(end)
+                cur_dec.append({"m": monomer, "start": start, "end": end})
+            if len(cur_dec) > 0:
+                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, clf, identity_th, light)
+
+
+def convert_fasta(filename, reads, monomers, outfile, clf):
+    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
+        with open(outfile, "w") as fout:
+            with open(filename, "r") as fin:
+                cur_dec = []
+                prev_read = None
+                for ln in fin.readlines():
+                    if ln.startswith(">"):
+                        read = ln.split("/")[0][1:]
+                        if read != prev_read and prev_read != None:
+                            print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, clf, 0, False)
+                            cur_dec = []
+                        prev_read = read
+                        start, end = [int(x) for x in ln.split("/")[1].split("_")]
+                        cur_dec.append({"m": None, "start": start, "end": end})
+                if len(cur_dec) > 0:
+                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, clf, 0, False)
