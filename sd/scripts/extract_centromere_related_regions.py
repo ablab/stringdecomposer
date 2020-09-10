@@ -1,6 +1,8 @@
 import sys
 import subprocess
 
+import common.files_utils as futils
+
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
@@ -10,23 +12,6 @@ from Bio.SeqRecord import SeqRecord
 import edlib
 import argparse
 
-def load_fasta(filename, tp = "list"):
-    if tp == "map":
-        records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
-        for r in records:
-            records[r] = records[r].upper() 
-    else:
-        records = list(SeqIO.parse(filename, "fasta"))
-        for i in range(len(records)):
-            records[i] = records[i].upper()
-    return records
-
-def make_record(seq, name, sid, d=""):
-    return SeqRecord(seq, id=sid, name=name, description = d)
-
-def save_fasta(filename, orfs):
-    with open(filename, "w") as output_handle:
-        SeqIO.write(orfs, output_handle, "fasta")
 
 def edist_hw(lst):
     if len(str(lst[0])) == 0:
@@ -66,7 +51,7 @@ if __name__ == "__main__":
 
     reads_path = args.sequences
     mono_file = args.monomers
-    monomers = load_fasta(mono_file)
+    monomers = futils.load_fasta(mono_file)
     centromeric_reads = []
 
     total_len, centromeric_len, total_reads, centromeric_reads_num = 0, 0, 0, 0
@@ -81,8 +66,8 @@ if __name__ == "__main__":
             centromeric_reads_num += 1
             centromeric_len += end - start + 1
             print(read.id, " Full read len=", len(read.seq), "Centromere start=", start, " Centromere end=", end, "Centromere part len=", end - start)
-            centromeric_reads.append(make_record(read.seq[start:end + 1], read.id + ":" + str(start) + "-" + str(end), read.id + ":" + str(start) + "-" + str(end)))
+            centromeric_reads.append(futils.make_record(read.seq[start:end + 1], read.id + ":" + str(start) + "-" + str(end), read.id + ":" + str(start) + "-" + str(end)))
     print("Total number of reads ", total_reads, " Total reads length ", total_len)
     print("Number of centromeric reads ", total_reads, " Centromeric reads length ", total_len)
-    save_fasta(args.out, centromeric_reads)
+    futils.save_fasta(args.out, centromeric_reads)
     print("New seqeunces saved to ", args.out)

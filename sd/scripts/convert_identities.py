@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import common.identities_count_utils as icu
+import common.files_utils as futils
+
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
@@ -14,72 +17,24 @@ import argparse
 
 import edlib
 
-def cnt_edist(lst):
-    if len(str(lst[0])) == 0:
-        return -1
-    if len(str(lst[1])) == 0:
-        return -1
-    result = edlib.align(str(lst[0]), str(lst[1]), mode="NW", task="locations")
-    if result["editDistance"] == -1:
-        return -1
-    return 100 - result["editDistance"]*100//max(len(lst[0]), len(lst[1]))
+import joblib
 
-def load_fasta(filename, tp = "list"):
-    if tp == "map":
-        records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
-        for r in records:
-            records[r] = records[r].upper() 
-    else:
-        records = list(SeqIO.parse(filename, "fasta"))
-        for i in range(len(records)):
-            records[i] = records[i].upper()
-    return records
-
-def make_record(seq, name, sid, d=""):
-    return SeqRecord(seq, id=sid, name=name, description = d)
+p = os.path.abspath(__file__)
+logreg_file = os.path.join(os.path.dirname(p), "..",
+                           'models',
+                           'new_ont_logreg_model.sav')
+clf = joblib.load(logreg_file)
 
 def add_rc_monomers(monomers):
     res = []
     for m in monomers:
         res.append(m)
-        res.append(make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
+        res.append(futils.make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
     return res
 
-def convert_read(decomposition, read, monomers):
-    res = []
-    for d in decomposition:
-        monomer, start, end = d["m"], d["start"], d["end"]
-        scores = {}
-        for m in monomers:
-            score = cnt_edist([read.seq[start:end + 1], m.seq])
-            scores[m.name] = score
-        
-        if monomer == None:
-            for s in scores:
-                if monomer == None or scores[s] > scores[monomer]:
-                    monomer = s
-        secondbest, secondbest_score = None, -1 
-        for m in scores:
-            if m != monomer and abs(scores[m] - scores[monomer]) < 5:
-                if not secondbest or secondbest_score < scores[m]:
-                    secondbest, secondbest_score = m, scores[m]
-        res.append({"m": monomer, "start": str(d["start"]), "end": str(d["end"]), "score": scores[monomer], \
-                                "second_best": str(secondbest), "second_best_score": secondbest_score, "alt": scores, "q": "+"})
-
-    window = 2
-    for i in range(len(res)):
-        sm, cnt = 0, 0
-        for j in range(i - window, i + window + 1):
-            if j >= 0 and j < len(res):
-                sm += res[j]["score"]
-                cnt += 1
-        if sm/cnt < 80:
-            res[i]["q"] = "?"
-
-    return res
 
 def print_read(fout, fout_alt, dec, read, monomers):
-    dec = convert_read(dec, read, monomers)
+    dec = icu.convert_read(dec, read, monomers, clf)
     for d in dec:
         fout.write("\t".join([read.name, d["m"], d["start"], d["end"], "{:.2f}".format(d["score"]), \
                                                 d["second_best"], "{:.2f}".format(d["second_best_score"]), d["q"]]) + "\n")
@@ -88,6 +43,7 @@ def print_read(fout, fout_alt, dec, read, monomers):
             if a == d["m"]:
                 star = "*"
             fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
+
 
 def convert_tsv(filename, reads, monomers, outfile):
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
@@ -137,14 +93,10 @@ if __name__ == "__main__":
     if outfile == None:
         outfile = "./decomposition.tsv"
 
-    reads = load_fasta(args.sequences, "map")
-    monomers = load_fasta(args.monomers)
+    reads = futils.load_fasta(args.sequences, "map")
+    monomers = futils.load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     if args.decomposition.endswith("tsv"):
         convert_tsv(args.decomposition, reads, monomers, outfile)
     else:
         convert_fasta(args.decomposition, reads, monomers, outfile)
-
-    
-    
-

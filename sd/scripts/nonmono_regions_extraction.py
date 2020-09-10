@@ -1,6 +1,8 @@
 import sys
 import edlib
 
+import common.files_utils as futils
+
 from Bio.Seq import Seq
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
@@ -59,24 +61,6 @@ def aai(ar):
         aai += int(m[:-1])
     aai /= total_length
     return aai*100
-
-def load_fasta(filename, tp = "list"):
-    if tp == "map":
-        records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
-        for r in records:
-            records[r] = records[r].upper() 
-    else:
-        records = list(SeqIO.parse(filename, "fasta"))
-        for i in range(len(records)):
-            records[i] = records[i].upper()
-    return records
-
-def make_record(seq, name, sid, d=""):
-    return SeqRecord(seq, id=sid, name=name, description = d)
-
-def save_fasta(filename, orfs):
-    with open(filename, "w") as output_handle:
-        SeqIO.write(orfs, output_handle, "fasta")
 
 
 def load_regions(filename):
@@ -232,7 +216,7 @@ def construct_representative(clusters, reads, monomers):
             name = "NM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))
         else:
             name = "CM_" + str(i + 1) + "_" + str(len(cl)) + "_"  + str(len(cl[best_ind]["seq"]))
-        res.append(make_record(cl[best_ind]["seq"], name, name))
+        res.append(futils.make_record(cl[best_ind]["seq"], name, name))
         if rev:
             for j in range(len(cl)):
                 clusters[i][j]["rev"] = not clusters[i][j]["rev"]
@@ -243,7 +227,7 @@ def save_clusters(clusters, prefix):
     for i in range(len(clusters)):
         sequences = []
         for j in range(len(clusters[i])):
-            sequences.append(make_record(clusters[i][j], "cl" + str(i) + "it" + str(j), "cl" + str(i) + "it" + str(j)))
+            sequences.append(futils.make_record(clusters[i][j], "cl" + str(i) + "it" + str(j), "cl" + str(i) + "it" + str(j)))
         num = len(sequences)
         if len(sequences) == 1:
             sequences.append(sequences[0])
@@ -366,8 +350,8 @@ if __name__ == "__main__":
         else:
             params["th_mono"] = 70
 
-    reads = load_fasta(args.sequences, "map")
-    monomers = load_fasta(args.monomers)
+    reads = futils.load_fasta(args.sequences, "map")
+    monomers = futils.load_fasta(args.monomers)
     all_regions = load_regions(args.decomposition)
     non_mono, clusters = identify_nm(all_regions, params, reads, monomers)
     # if args.use_clustal:
@@ -379,6 +363,6 @@ if __name__ == "__main__":
     new_monomer_file = args.output[:-len(".tsv")] + "_monomers_with_nm_regions.fasta"
     new_dec_elements = monomers + non_mono
     print("Saving new set of elements to decompose to ", new_monomer_file)
-    save_fasta(new_monomer_file, new_dec_elements)
+    futils.save_fasta(new_monomer_file, new_dec_elements)
     print("Saving new decomposition to ", args.output)
     form_nm_decomposition(non_mono, clusters, reads, args.decomposition, args.output)
