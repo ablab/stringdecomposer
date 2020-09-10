@@ -28,6 +28,10 @@ logreg_file = os.path.join(os.path.dirname(p),
                            'new_ont_logreg_model.sav')
 clf = joblib.load(logreg_file)
 
+final_out_filename = "final_decomposition.tsv"
+raw_out_filename = "final_decomposition_raw.tsv"
+alt_out_filename = "final_decomposition_alt.tsv"
+
 def edist(lst):
     if len(str(lst[0])) == 0:
         return -1, ""
@@ -160,7 +164,7 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
                 fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
 
 def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
-    with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
+    with open(alt_out_filename, "w") as fout_alt:
         fout_alt.write("\t".join(["READ_NAME", "MONOMER_NAME", "START", "END", "IDENTITY", "RELIABILITY"])+ "\n")
 
         with open(outfile, "w") as fout:
@@ -194,13 +198,24 @@ def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
         raw_decomposition = "".join(f.readlines()[1:])
     return raw_decomposition
 
+def update_filename(dirname):
+    global final_out_filename
+    global raw_out_filename
+    global alt_out_filename
+
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    final_out_filename = os.path.join(dirname, final_out_filename)
+    raw_out_filename = os.path.join(dirname, raw_out_filename)
+    alt_out_filename = os.path.join(dirname, alt_out_filename)
 
 def main():
     parser = argparse.ArgumentParser(description='Decomposes string into blocks alphabet')
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
     parser.add_argument('-t', '--threads',  help='number of threads (by default 1)', default="1", required=False)
-    parser.add_argument('-o', '--out-file',  help='output tsv-file (by default final_decomposition.tsv)', default="./final_decomposition.tsv", required=False)
+    parser.add_argument('-o', metavar="OUTPUT_DIR", help='directory to store all the resulting files (by default OUTPUT_DIR=".")', default=".", dest="output_dir", required=False)
     parser.add_argument('-i', '--min-identity',  \
                          help='only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0)', type=int, default=0, required=False)
     parser.add_argument('-s', '--scoring', \
@@ -209,15 +224,17 @@ def main():
     parser.add_argument('--fast',  help='doesn\'t generate second best monomer and homopolymer scores', action="store_true")
 
     args = parser.parse_args()
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
-    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
+    update_filename(args.output_dir)
+
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_out_filename)
+    print("Saved raw decomposition to " + raw_out_filename, file=sys.stderr)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
-    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+    convert_tsv(raw_decomposition, reads, monomers, final_out_filename, int(args.min_identity), args.fast)
+    print("Transformation finished. Results can be found in " + final_out_filename, file=sys.stderr)
 
 
 if __name__ == "__main__":
