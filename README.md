@@ -56,7 +56,7 @@ _homo_-related columns represent statistics of the best-scoring (second-best-sco
 
 ## Synopsis
 
-    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
+    run_decomposer.py [-h] [-t THREADS] [-o OUTPUT_DIR] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
 
 Required arguments:
 
@@ -69,7 +69,7 @@ Optional arguments:
 
     -t THREADS, --threads THREADS                      number of threads (by default 1)
 
-    -o OUT_FILE, --out-file OUT_FILE                   output tsv-file (by default final_decomposition.tsv)
+    -o OUTPUT_DIR                                      directory to store all the resulting files (by default OUTPUT_DIR=".")
 
     -i MIN_IDENTITY, --min-identity MIN_IDENTITY       only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0%)
 
