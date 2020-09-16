@@ -477,7 +477,7 @@ def process_hors(hor_svs, monomers, distance = 12):
 
 def print_cross_pos_hist(cr_pos):
     plt.figure()
-    plt.hist(cr_pos, 100, density=True, histtype='bar', color="blue")
+    plt.hist(cr_pos, 100, histtype='bar', color="blue")
     plt.savefig(os.path.join(out_dir, "cross_pos_hist.png"))
     plt.close()
 
