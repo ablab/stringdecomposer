@@ -20,14 +20,14 @@ from graphviz import Digraph
 INF = 1000000000
 identity_th = 90
 cen = "cenX"
-tp = "chimera"
+tp = "monomer"
 freq_id, freq_num = 2, 50
 path = "/Sid/tdvorkina/monomers/sdplus_paper/variants/"
 cen_fasta = "cenX_0727.fasta"
 cen_monomers = "cenX_monomers_hybrids.fasta"
 cen_dec = "cenX_decomposition.tsv"
 cen_hordec = "cenX_hordecomposition.tsv"
-out_dir = "./evolution_tree_result_hors"
+out_dir = "./evolution_tree_result_monomers"
 
 import os
 if not os.path.exists(out_dir):
@@ -406,11 +406,11 @@ def dfs(r, level, level_str, tree, runs, clusters, clusters_depth, prev, min_run
 def construct_clusters(item_id, tree, alns, all_runs):
     res = []
     clusters = [[len(all_runs)] for _ in range(len(alns))]
-    clusters_depth = [["0"] for _ in range(len(alns))]
+    clusters_depth = [[str(len(all_runs))] for _ in range(len(alns))]
     min_run_len = 0
     maxlevel = INF
     for r in tree[len(all_runs)]:     
-        dfs(r, 1, "1-0", tree, all_runs, clusters, clusters_depth, len(all_runs), min_run_len, maxlevel)
+        dfs(r, 1, str(len(all_runs)), tree, all_runs, clusters, clusters_depth, len(all_runs), min_run_len, maxlevel)
     print_clusters(clusters, alns, all_runs)
     for i in range(len(alns)):
         res.append([item_id, alns[i][0], clusters[i], clusters_depth[i]])
@@ -488,7 +488,7 @@ def find_chimeric(alns, freq_map, number=10):
         for j in range(max(0, i - number), min(i + number + 1, len(alns))):
             if i != j:
                 for k in range(max(0, i - number), min(i + number + 1, len(alns))):
-                    if j != k and k != i: 
+                    if j != k and k != i and j != i:
                         pair_score = max(mul(aln_vecs[i], aln_vecs[j]), mul(aln_vecs[i], aln_vecs[k]))
                         if (aln_vecs[j] == aln_vecs[k]).all():
                             best_p, best_score = 0, pair_score
