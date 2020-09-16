@@ -448,8 +448,8 @@ def process_item(item_id, item, seq, distance):
     print_runs(all_runs)
     cross_runs_pos = get_cross_runs_pos(all_runs)
     print("AVG CROSS RUNS POS: ", cross_runs_pos)
-    tree = construct_arborescence(item_id.replace("/", "_"), all_runs, len(alns))
-    clusters = construct_clusters(item_id, tree, alns, all_runs)
+    tree = ""#construct_arborescence(item_id.replace("/", "_"), all_runs, len(alns))
+    clusters = ""#construct_clusters(item_id, tree, alns, all_runs)
     return clusters, tree, cross_runs_pos
 
 def form_consensus(mono_lst, monomers):
@@ -477,7 +477,7 @@ def process_hors(hor_svs, monomers, distance = 12):
 
 def print_cross_pos_hist(cr_pos):
     plt.figure()
-    plt.hist(cr_pos, 100, density=True, histtype='bar')
+    plt.hist(cr_pos, 100, density=True, histtype='bar', color="blue")
     plt.savefig(os.path.join(out_dir, "cross_pos_hist.png"))
     plt.close()
 
@@ -489,8 +489,8 @@ def process_monomers(monomers_map, monomers, distance = 12*12):
         if "/" in m:
             continue
         clusters, tree, cross_runs_pos = process_item(m, monomers_map[m], monomers[m], distance)
-        cr_pos.append(cross_runs_pos)
-        res.extend(clusters)
+        cr_pos += cross_runs_pos
+        #res.extend(clusters)
     res = sorted(res, key = lambda x: x[1])
 
     print_cross_pos_hist(cr_pos)
