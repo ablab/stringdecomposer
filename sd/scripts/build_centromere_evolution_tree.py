@@ -20,7 +20,7 @@ from graphviz import Digraph
 INF = 1000000000
 identity_th = 90
 cen = "cenX"
-tp = "chimera"
+tp = "monomer"
 freq_id, freq_num = 2, 50
 path = "/Sid/tdvorkina/monomers/sdplus_paper/variants/"
 cen_fasta = "cenX_0727.fasta"
@@ -352,6 +352,29 @@ def extract_runs(alns, freq_map, distance):
     runs = collapse_runs(runs)
     return runs
 
+
+def get_cross_runs_pos(runs):
+    cross_run_pos = []
+
+    def is_crossing(run1, run2):
+        if len(run1[0] & run2[0]) > 0:
+            if len(run1[0] & run2[0]) < min(len(run1[0]), len(run2[0])):
+                return True
+        return False
+
+    def cross_avg_pos(run1, run2):
+        cross_run = run1[0]&run2[0]
+        return sum(cross_run)/len(cross_run)
+
+    for i in range(len(runs)):
+        for j in range(i + 1, len(runs)):
+            if is_crossing(runs[i],  runs[j]):
+                cross_run_pos.append(cross_avg_pos(runs[i], runs[j]))
+
+    cross_run_pos.sort()
+    return cross_run_pos
+
+
 def construct_arborescence(item_id, runs, num):
     edges_num = 0
     vertex_num = len(runs) + 1
@@ -423,6 +446,7 @@ def process_item(item_id, item, seq, distance):
     alns, freq_map, isolates = identify_isolates(item_id, alns, freq_map, distance)
     all_runs = extract_runs(alns, freq_map, distance)
     print_runs(all_runs)
+    print("AVG CROSS RUNS POS: ", get_cross_runs_pos(all_runs))
     tree = construct_arborescence(item_id.replace("/", "_"), all_runs, len(alns))
     clusters = construct_clusters(item_id, tree, alns, all_runs)
     return clusters, tree
