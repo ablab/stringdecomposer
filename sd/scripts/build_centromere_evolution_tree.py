@@ -28,7 +28,7 @@ cen_monomers = "cenX_monomers_hybrids.fasta"
 cen_dec = "cenX_decomposition.tsv"
 cen_hordec = "cenX_hordecomposition.tsv"
 out_dir = "./evolution_tree_result_monomers"
-print_stats = set(["chimeras"]) #full list: "chimeras", "runs", "isolates", "clusters", "tree", "separated", "joinedhor"
+print_stats = set(["chimeras", "joinedhor"]) #full list: "chimeras", "runs", "isolates", "clusters", "tree", "separated", "joinedhor"
 
 import os
 if not os.path.exists(out_dir):
@@ -141,8 +141,8 @@ def distribute_clusters(dec, clusters):
     i = 0
     for r in dec:
         for j in range(len(dec[r])):
-            if i < len(clusters):
-                print(j, dec[r][j], i, clusters[i])
+            # if i < len(clusters):
+            #     print(j, dec[r][j], i, clusters[i])
             if "id" in dec[r][j] and i < len(clusters) and dec[r][j]["id"] == clusters[i][1]:
                 dec[r][j]["cluster"] = clusters[i][2]
                 dec[r][j]["cluster_level"] = clusters[i][3]
@@ -251,10 +251,10 @@ def print_clusters(item_id, clusters, alns, all_runs):
 def form_alns(m_instances, m):
     alns = []
     for mi in m_instances:
-        if mi["rev"]:
-            nice_align, cigar, ed = cnt_edist([mi["seq"], m.seq.reverse_complement()])
-        else:
-            nice_align, cigar, ed = cnt_edist([mi["seq"], m.seq])
+        nice_align_rev, cigar_rev, ed_rev = cnt_edist([mi["seq"], m.seq.reverse_complement()])
+        nice_align, cigar, ed = cnt_edist([mi["seq"], m.seq])
+        if ed_rev < ed:
+            nice_align, cigar, ed = nice_align_rev, cigar_rev, ed_rev
         m_aln = ""
         for i in range(len(nice_align["target_aligned"])):
             if nice_align["target_aligned"][i] != "-":
