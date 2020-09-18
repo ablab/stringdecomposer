@@ -28,6 +28,7 @@ cen_monomers = "cenX_monomers_hybrids.fasta"
 cen_dec = "cenX_decomposition.tsv"
 cen_hordec = "cenX_hordecomposition.tsv"
 out_dir = "./evolution_tree_result_monomers"
+print_stats = set(["chimeras"]) #full list: "chimeras", "runs", "isolates", "clusters", "tree", "separated", "joinedhor"
 
 import os
 if not os.path.exists(out_dir):
@@ -128,11 +129,12 @@ def distribute_clusters_byhors(hordec, dec):
                 m = dec[r][i]["qseqid"]
                 hordec[r][j]["mono"].append([m, dec[r][i]["id"], dec[r][i]["rev"], dec[r][i]["cluster"], dec[r][i]["s"], dec[r][i]["e"], dec[r][i]["cluster_level"]])
                 i += 1
-            if hordec[r][j]["qseqid"].endswith("H1L"):
-                print(hordec[r][j]["qseqid"], aln_id)
-                aln_id += 1
-                for m in hordec[r][j]["mono"]:
-                    print(" ", m[0], m[3], m[6], m[4]-hordec[r][j]["s"], "-", m[5] - hordec[r][j]["s"], m[1])
+            if "joinedhor" in print_stats:
+                if hordec[r][j]["qseqid"].endswith("H1L"):
+                    print(hordec[r][j]["qseqid"], aln_id)
+                    aln_id += 1
+                    for m in hordec[r][j]["mono"]:
+                        print(" ", m[0], m[3], m[6], m[4]-hordec[r][j]["s"], "-", m[5] - hordec[r][j]["s"], m[1])
     return hordec
 
 def distribute_clusters(dec, clusters):
@@ -232,55 +234,19 @@ def print_arborescence(item_id, tree, runs, num):
         else:
             cur_dot.render(os.path.join(out_dir, "subtree_" + item_id + "_dots", "test-dot_" + item_id + "_" + str(s) + "_" + str(e) + "_id" + str(r) + "_empty_INF.gv"))
 
-def print_clusters(item_id, clusters, clusters_depth, clusters_mutations, alns, all_runs):
+def print_clusters(item_id, clusters, alns, all_runs):
     cnt = 0
     print("InstanceId, (final) tree nodes it belongs")
     for i in range(len(clusters)):
-        print(i, alns[i][0], clusters[i], clusters_mutations[i])
-        if len(clusters[i]) > 1:
+        print(i, alns[i][0], clusters[i][2], clusters[i][4])
+        if len(clusters[i][2]) > 1:
             cnt += 1
-            for it in clusters[i]:
+            for it in clusters[i][2]:
                 if len(all_runs[it][0]) < 20:
                     print(" ", sorted(list(all_runs[it][0])), len(all_runs[it][0]), all_runs[it][1])
                 else:
                     print(" ", sorted(list(all_runs[it][0]))[0], "-", sorted(list(all_runs[it][0]))[-1], len(all_runs[it][0]), all_runs[it][1])
     print("Total: ", len(clusters), " Potentially Chimeric: ", cnt)
-
-    s, e = 404, 414
-    added_nodes = set()
-    added_edges = set()
-    cur_dot = Digraph(comment='Edmonds Result')
-    for j in range(s, e):
-        nodes_lst = clusters_depth[j]
-        final_nodes_lst = clusters[j]
-        print(final_nodes_lst)
-        print(nodes_lst)
-        prev_n = str(len(all_runs) + j)
-        if not prev_n in added_nodes:
-            cur_dot.node(str(prev_n), "Monomer=" + str(j), color="red")
-            added_nodes.add(prev_n)
-        for k in range(len(final_nodes_lst)):
-            prev_n = str(len(all_runs) + j)
-            n = str(final_nodes_lst[k])
-            if not n in added_nodes:
-                cur_dot.node(str(n), "node=" + n)
-                added_nodes.add(n)
-            if not prev_n + "-" + n in added_edges and prev_n != n:
-                cur_dot.edge(n, prev_n)
-                added_edges.add(prev_n + "-" + n)
-            prev_n = n
-            for n in nodes_lst[k].split("-"):
-                if not n in added_nodes:
-                    cur_dot.node(n, "node=" + n)
-                    added_nodes.add(n)
-                if not prev_n + "-" + n in added_edges and prev_n != n:
-                    cur_dot.edge(n, prev_n)
-                    added_edges.add(prev_n + "-" + n)
-                prev_n = n
-    if not os.path.exists(os.path.join(out_dir, "subtree_" + item_id + "_dots")):
-        os.makedirs(os.path.join(out_dir, "subtree_" + item_id + "_dots"))
-    cur_dot.render(os.path.join(out_dir, "subtree_" + item_id + "_dots",  "test-dot_" + str(s) + "_" + str(e) + "_INF.gv"))
-
 
 def form_alns(m_instances, m):
     alns = []
@@ -318,44 +284,8 @@ def build_freq_map(total_alns):
         #     print(i, pos_scores)
     return monomer_pos
 
-# def identify_isolates(item_id, alns, freq_map, distance):
-#     isolates = [set() for _ in range(len(alns))]
-#     prehistoric_alns = [alns[i][:] for i in range(len(alns))]
-#     new_freq_map = []
-#     num_isolates = 0
-#     for i in range(len(freq_map)):
-#         new_freq_map.append(freq_map[i])
-#         pos_lst = sorted([[c, freq_map[i][c]] for c in freq_map[i]], key=lambda x: -x[1])
-#         for it in pos_lst[1:]:
-#             nuc, freq = it
-#             left = [-INF for _ in range(len(alns))]
-#             nearest = -INF
-#             for j in range(len(alns)):
-#                 left[j] = nearest
-#                 h = alns[j]
-#                 if h[1][i] == nuc:
-#                     nearest = h[0]
-#             right = [INF for _ in range(len(alns))]
-#             nearest = INF
-#             for j in range(len(alns)-1, -1, -1):
-#                 right[j] = nearest
-#                 h = alns[j]
-#                 if h[1][i] == nuc:
-#                     nearest = h[0]
-#             for j in range(len(alns)):
-#                 h = alns[j]
-#                 if h[1][i] == nuc and h[0] - left[j] > distance and right[j] - h[0] > distance:
-#                     num_isolates += 1
-#                     isolates[j].add(str(i) + "_" + str(nuc))
-#                     prehistoric_alns[j][1] = prehistoric_alns[j][1][:i] + pos_lst[0][0] + prehistoric_alns[j][1][i+1:]
-#                     new_freq_map[i][pos_lst[0][0]] += 1
-#                     new_freq_map[i][nuc] -= 1
-#     print_isolates(item_id.replace("/","_"), isolates, num_isolates)
-#     return prehistoric_alns, new_freq_map, isolates
-
 def identify_isolates(item_id, alns, freq_map, distance):
     isolates = [set() for _ in range(len(alns))]
-    div_pos = [set() for _ in range(len(alns))]
     prehistoric_alns = [alns[i][:] for i in range(len(alns))]
     new_freq_map = []
     num_isolates = 0
@@ -364,32 +294,29 @@ def identify_isolates(item_id, alns, freq_map, distance):
         pos_lst = sorted([[c, freq_map[i][c]] for c in freq_map[i]], key=lambda x: -x[1])
         for it in pos_lst[1:]:
             nuc, freq = it
-            left = [-100500 for _ in range(len(alns))]
-            nearest = -100500
+            left = [-INF for _ in range(len(alns))]
+            nearest = -INF
             for j in range(len(alns)):
                 left[j] = nearest
                 h = alns[j]
                 if h[1][i] == nuc:
-                    nearest = j
-            right = [100500 for _ in range(len(alns))]
-            nearest = 100500
+                    nearest = h[0]
+            right = [INF for _ in range(len(alns))]
+            nearest = INF
             for j in range(len(alns)-1, -1, -1):
                 right[j] = nearest
                 h = alns[j]
                 if h[1][i] == nuc:
-                    nearest = j
+                    nearest = h[0]
             for j in range(len(alns)):
                 h = alns[j]
-                if (h[1][i] == nuc and j - left[j] > distance and right[j] - j > distance):
+                if h[1][i] == nuc and h[0] - left[j] > distance and right[j] - h[0] > distance:
                     num_isolates += 1
                     isolates[j].add(str(i) + "_" + str(nuc))
                     prehistoric_alns[j][1] = prehistoric_alns[j][1][:i] + pos_lst[0][0] + prehistoric_alns[j][1][i+1:]
                     new_freq_map[i][pos_lst[0][0]] += 1
                     new_freq_map[i][nuc] -= 1
-
-    #print_isolates(item_id.replace("/","_"), isolates, num_isolates)
-    return prehistoric_alns, new_freq_map, isolates
-
+    return prehistoric_alns, new_freq_map, isolates, num_isolates
 
 def collapse_runs(runs):
     collapsed_runs = []
@@ -467,7 +394,6 @@ def construct_arborescence(item_id, runs, num):
                     if int(n1)-1 not in tree:
                         tree[int(n1)-1] = []
                     tree[int(n1)-1].append(int(n2)-1)
-    #print_arborescence(item_id, tree, runs, num)
     return tree
 
 def dfs(r, level, level_str, mutations_lst, tree, runs, clusters, clusters_depth, clusters_mutations, prev, min_run_len, maxlevel):
@@ -498,7 +424,6 @@ def construct_clusters(item_id, tree, alns, all_runs):
     for r in tree[len(all_runs)]:
         mutations_lst = all_runs[r][1][:]
         dfs(r, 1, str(len(all_runs)), mutations_lst, tree, all_runs, clusters, clusters_depth, clusters_mutations, len(all_runs), min_run_len, maxlevel)
-    #print_clusters(item_id.replace("/","_"), clusters, clusters_depth, clusters_mutations, alns, all_runs)
     for i in range(len(alns)):
         res.append([item_id, alns[i][0], clusters[i], clusters_depth[i], clusters_mutations[i]])
     return res
@@ -574,24 +499,32 @@ def process_item(item_id, item, seq, distance):
     print(item_id, distance)
     alns = form_alns(item, seq)
     freq_map = build_freq_map(alns)
-    alns, freq_map, isolates = identify_isolates(item_id, alns, freq_map, distance)
+    alns, freq_map, isolates, num_isolates = identify_isolates(item_id, alns, freq_map, distance)
+    if "isolates" in print_stats:
+        print_isolates(item_id.replace("/","_"), isolates, num_isolates)
     all_runs = extract_runs(alns, freq_map, distance)
-    #print_runs(all_runs)
-    tree = construct_arborescence(item_id.replace("/", "_"), all_runs, len(alns))
+    if "runs" in print_stats:
+        print_runs(all_runs)
+    tree = construct_arborescence(item_id, all_runs, len(alns))
+    if "tree" in print_stats:
+        print_arborescence(item_id.replace("/", "_"), tree, all_runs, len(alns))
     clusters = construct_clusters(item_id, tree, alns, all_runs)
-    print("")
-    dist = 20
-    print("Distance=", dist)
-    for i in range(len(clusters)):
-        if len(clusters[i][2]) > 1:
-            print(item_id, " Chimeric MonomerId=", clusters[i][1], " mutations", printable_mutations(order_mutations(clusters[i][-1], clusters[i][2])))
-        else:
-            print(item_id, " MonomerId=", clusters[i][1], " mutations", printable_mutations(order_mutations(clusters[i][-1], clusters[i][2])))
-        if len(clusters[i][2]) > 1:
-            is_chimera = check_chimerism(i, clusters, alns, dist)
-            print(is_chimera)
-            print("")
-    print("")
+    if "clusters" in print_stats:
+        print_clusters(item_id.replace("/","_"), clusters, alns, all_runs)
+    if "chimeras" in print_stats:
+        print("")
+        dist = 20
+        print("Distance=", dist)
+        for i in range(len(clusters)):
+            if len(clusters[i][2]) > 1:
+                print(item_id, " Chimeric MonomerId=", clusters[i][1], " mutations", printable_mutations(order_mutations(clusters[i][-1], clusters[i][2])))
+            else:
+                print(item_id, " MonomerId=", clusters[i][1], " mutations", printable_mutations(order_mutations(clusters[i][-1], clusters[i][2])))
+            if len(clusters[i][2]) > 1:
+                is_chimera = check_chimerism(i, clusters, alns, dist)
+                print(is_chimera)
+                print("")
+        print("")
     return clusters, tree
 
 def form_consensus(mono_lst, monomers):
@@ -625,9 +558,9 @@ def process_monomers(monomers_map, monomers, distance = 12*12):
         clusters, tree = process_item(m, monomers_map[m], monomers[m], distance)
         res.extend(clusters)
     res = sorted(res, key = lambda x: x[1])
-    exit(-1)
-    for i in range(len(res)):
-        print(res[i])
+    if "separated" in print_stats:
+        for i in range(len(res)):
+            print(res[i])
     return res
 
 ##chimeric HORs begin
