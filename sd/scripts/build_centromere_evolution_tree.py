@@ -28,7 +28,7 @@ cen_monomers = "cenX_monomers_hybrids.fasta"
 cen_dec = "cenX_decomposition.tsv"
 cen_hordec = "cenX_hordecomposition.tsv"
 out_dir = "./evolution_tree_result_monomers"
-print_stats = set(["chimeras", "joinedhor"]) #full list: "chimeras", "runs", "isolates", "clusters", "tree", "separated", "joinedhor"
+print_stats = set(["chimeras", "clusters", "joinedhor"]) #full list: "chimeras", "runs", "isolates", "clusters", "tree", "separated", "joinedhor"
 
 import os
 if not os.path.exists(out_dir):
@@ -238,14 +238,15 @@ def print_clusters(item_id, clusters, alns, all_runs):
     cnt = 0
     print("InstanceId, (final) tree nodes it belongs")
     for i in range(len(clusters)):
-        print(i, alns[i][0], clusters[i][2], clusters[i][4])
+        print(i, alns[i][0], clusters[i][2], clusters[i][3])
         if len(clusters[i][2]) > 1:
             cnt += 1
             for it in clusters[i][2]:
-                if len(all_runs[it][0]) < 20:
-                    print(" ", sorted(list(all_runs[it][0])), len(all_runs[it][0]), all_runs[it][1])
+                leaf = int(it.split("-")[0])
+                if len(all_runs[leaf][0]) < 20:
+                    print(" ", sorted(list(all_runs[leaf][0])), len(all_runs[leaf][0]), all_runs[leaf][1])
                 else:
-                    print(" ", sorted(list(all_runs[it][0]))[0], "-", sorted(list(all_runs[it][0]))[-1], len(all_runs[it][0]), all_runs[it][1])
+                    print(" ", sorted(list(all_runs[leaf][0]))[0], "-", sorted(list(all_runs[leaf][0]))[-1], len(all_runs[leaf][0]), all_runs[leaf][1])
     print("Total: ", len(clusters), " Potentially Chimeric: ", cnt)
 
 def form_alns(m_instances, m):
@@ -396,36 +397,33 @@ def construct_arborescence(item_id, runs, num):
                     tree[int(n1)-1].append(int(n2)-1)
     return tree
 
-def dfs(r, level, level_str, mutations_lst, tree, runs, clusters, clusters_depth, clusters_mutations, prev, min_run_len, maxlevel):
+def dfs(r, level, level_str, mutations_lst, tree, runs, clusters, clusters_mutations, prev, min_run_len, maxlevel):
     run = sorted(list(runs[r][0]))
     for h in run:
         if clusters[h][-1] == prev:
-            clusters[h][-1] = r
-            clusters_depth[h][-1] = level_str
+            clusters[h][-1] = str(r) + "-" + level_str
             clusters_mutations[h][-1] = mutations_lst
         else:
-            clusters[h].append(r)
-            clusters_depth[h].append(level_str)
+            clusters[h].append(str(r) + "-" + level_str)
             clusters_mutations[h].append(mutations_lst)
     if r in tree and level + 1 <= maxlevel:
         for n in tree[r]:
             if len(runs[n][0]) > min_run_len:
                 new_mutations_lst = mutations_lst[:]
-                dfs(n, level + 1, str(r) + "-" + level_str, new_mutations_lst + runs[n][1], tree, runs, clusters, clusters_depth, clusters_mutations, r, min_run_len, maxlevel)
+                dfs(n, level + 1, str(r) + "-" + level_str, new_mutations_lst + runs[n][1], tree, runs, clusters, clusters_mutations, str(r) + "-" + level_str, min_run_len, maxlevel)
 
 
 def construct_clusters(item_id, tree, alns, all_runs):
     res = []
-    clusters = [[len(all_runs)] for _ in range(len(alns))]
-    clusters_depth = [[str(len(all_runs))] for _ in range(len(alns))]
+    clusters = [[str(len(all_runs))] for _ in range(len(alns))]
     clusters_mutations = [[[]] for _ in range(len(alns))]
     min_run_len = 0
     maxlevel = INF
     for r in tree[len(all_runs)]:
         mutations_lst = all_runs[r][1][:]
-        dfs(r, 1, str(len(all_runs)), mutations_lst, tree, all_runs, clusters, clusters_depth, clusters_mutations, len(all_runs), min_run_len, maxlevel)
+        dfs(r, 1, str(len(all_runs)), mutations_lst, tree, all_runs, clusters, clusters_mutations, str(len(all_runs)), min_run_len, maxlevel)
     for i in range(len(alns)):
-        res.append([item_id, alns[i][0], clusters[i], clusters_depth[i], clusters_mutations[i]])
+        res.append([item_id, alns[i][0], clusters[i], clusters_mutations[i]])
     return res
 
 def union_runs(j_mutations, k_mutations, pos):
@@ -496,7 +494,7 @@ def printable_mutations(s):
     return "[ " + ", ".join(res) + " ]"
 
 def process_item(item_id, item, seq, distance):
-    print(item_id, distance)
+    print(item_id)
     alns = form_alns(item, seq)
     freq_map = build_freq_map(alns)
     alns, freq_map, isolates, num_isolates = identify_isolates(item_id, alns, freq_map, distance)
@@ -522,7 +520,6 @@ def process_item(item_id, item, seq, distance):
                 print(item_id, " MonomerId=", clusters[i][1], " mutations", printable_mutations(order_mutations(clusters[i][-1], clusters[i][2])))
             if len(clusters[i][2]) > 1:
                 is_chimera = check_chimerism(i, clusters, alns, dist)
-                print(is_chimera)
                 print("")
         print("")
     return clusters, tree
