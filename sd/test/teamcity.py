@@ -48,13 +48,27 @@ def load_info(info_filename):
     info = yaml.load(open(info_filename, 'r'))
     return info
 
+
+def compile():
+    print("Current working dir: ", os.getcwd())
+
+    os.chdir(os.path.join(os.getcwd(), ".."))
+    err_code = os.system('make')
+    os.chdir(os.path.join(os.getcwd(), "sd"))
+    return err_code
+
 try:
     sys.stderr = sys.stdout
     exit_code = 0
     args = parse_args()
     dataset_info = load_info(args.info)
     log.log(str(dataset_info))
-    working_dir = os.getcwd()
+
+    # compile
+    ecode = compile()
+    if ecode != 0:
+        log.err("Compilation finished abnormally with exit code " + str(ecode))
+        sys.exit(3)
 
 except:
     log.err("The following unexpected error occured during the run:")
