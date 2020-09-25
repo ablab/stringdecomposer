@@ -50,11 +50,17 @@ def load_info(info_filename):
 
 
 def compile():
-    print("Current working dir: ", os.getcwd())
+    log.log("Current working dir: " + str(os.getcwd()))
 
     os.chdir(os.path.join(os.getcwd(), ".."))
     err_code = os.system('make')
     os.chdir(os.path.join(os.getcwd(), "sd"))
+    return err_code
+
+
+def run_script(dataset_info):
+    log.log("Running script " + dataset_info["script"] + " with args: " + str(dataset_info["args"]))
+    err_code = subprocess.run([sys.executable, dataset_info["script"]] + dataset_info["args"]).returncode
     return err_code
 
 try:
@@ -69,6 +75,11 @@ try:
     if ecode != 0:
         log.err("Compilation finished abnormally with exit code " + str(ecode))
         sys.exit(3)
+
+    ecode = run_script(dataset_info)
+    if ecode != 0:
+        log.err("Running script finished abnormally with exit code " + str(ecode))
+        sys.exit(2)
 
 except:
     log.err("The following unexpected error occured during the run:")
