@@ -86,17 +86,18 @@ def convert_dec_to_internal_monomers(reads_mapping, monomers):
     
     return reads_mapping, monomers_mp, monomers_mp_r
 
-
 def build_known_hors(filename, monomers_mp):
     known_hors = []
+    known_hors_initial = set()
     with open(filename, "r") as fin:
         for ln in fin.readlines():
+            known_hors_initial.add(ln.strip())
             lst = ln.strip().split(",")
             kh = []
             for c in lst:
                 kh.append(monomers_mp[c] + "[1]")
             known_hors.append("_".join(kh))
-    return known_hors
+    return known_hors, known_hors_initial
 
 def build_full_hor(new_hor, hors, name):
     new_hor_represent = []
@@ -174,8 +175,8 @@ def collapse_annotation(annotation):
         c, c_cnt = annotation[i][:2]
         if c == prev:
             cnt += c_cnt
-            start.append(annotation[i][2]["s"])
-            end.append(annotation[i][2]["e"])
+            start.extend(annotation[i][2]["s"])
+            end.extend(annotation[i][2]["e"])
         else:
             if prev != "":
                 new_annotation.append([prev, cnt, {"s": start, "e": end}])
@@ -283,28 +284,52 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
             annotation[r] = collapse_annotation(annotation[r])
     return annotation, hors_lst, hors_log
 
-def expand(h, hors_mp):
-    h_rep = hors_mp[h]
-    if "h" in h_rep:
-        new_h = []
-        for it in h_rep.split("_"):
-            if it.startswith("h"):
-                h_id, h_cnt = it.split("[")[0], int(it.split("[")[1][:-1])
-                h_seq = expand(h_id, hors_mp)
-                for _ in range(h_cnt):
-                    new_h.append(h_seq)
-            else:
-                new_h.append(it)
-        return "_".join(new_h)
-    else:
-        return h_rep
+def build_graph(known_hors):
+    graph = {}
+    graph_rev = {}
+    for kh in known_hors:
+        chain = kh.replace("[1]", "").split("_")
+        for i in range(len(chain)-1):
+            if chain[i] not in graph:
+                graph[chain[i]] = {}
+            graph[chain[i]][chain[i+1]] = 1
+            if chain[i+1]+"'" not in graph_rev:
+                graph_rev[chain[i+1] + "'"] = {}
+            graph_rev[chain[i+1] + "'"][chain[i]+"'"] = 1
+    return graph, graph_rev
 
-def form_hor_dec(annotation, seq, hors_lst):
+def run_naive_hor_annotation(annotation, known_hors):
+    hors_lst, hors_log = [], []
+    kh_graph, kh_graph_rev = build_graph(known_hors)
+    new_annotation = {}
+    for r in annotation:
+        new_annotation[r] = []
+        prev_m, prev_cnt, prev_coords = None, None, {}
+        for i in range(len(annotation[r])):
+            cur_m, cur_cnt, coords = annotation[r][i]
+            if (prev_m not in kh_graph and prev_m not in kh_graph_rev) \
+                or (prev_m in kh_graph and cur_m not in kh_graph[prev_m]) \
+                or (prev_m in kh_graph_rev and cur_m not in kh_graph_rev[prev_m]):
+                new_annotation[r].append(annotation[r][i])
+            elif (prev_m in kh_graph and cur_m in kh_graph[prev_m]) or (prev_m in kh_graph_rev and cur_m in kh_graph_rev[prev_m]):
+                rec = new_annotation[r][-1]
+                new_annotation[r][-1] = [rec[0] + "_" + cur_m, 1, {"s": [rec[2]["s"][0]], "e": [coords["e"][-1]] }]
+            prev_m, prev_cnt, prev_coords = cur_m, cur_cnt, coords
+
     hors_mp = {}
-    for name, repres in hors_lst:
-        hors_mp[name] = repres
+    cnt = 0
+    for r in new_annotation:
+        for i in range(len(new_annotation[r])):
+            if "_" in new_annotation[r][i][0]:
+                if new_annotation[r][i][0] not in hors_mp:
+                    print("h" + str(cnt + 1), new_annotation[r][i][0])
+                    hors_mp[new_annotation[r][i][0]] = "h" + str(cnt + 1)
+                    cnt += 1
+                new_annotation[r][i][0] = hors_mp[new_annotation[r][i][0]]
+        new_annotation[r] = collapse_annotation(new_annotation[r])
+    return new_annotation, hors_lst, hors_log
 
-    hors_mono_mp = {}
+def form_hor_dec(annotation, seq):
     new_seq = {}
     for r in reads:
         r_ann, r_seq = annotation[r], seq[r]
@@ -316,35 +341,30 @@ def form_hor_dec(annotation, seq, hors_lst):
                     new_seq[r].append(r_seq[i])
                     i += 1
             elif h[0].startswith("h"):
-                if h[0] not in hors_mono_mp:
-                    mono_h = expand(h[0], hors_mp)
-                    mono_h_lst = mono_h.split("_")
-                    hors_mono_mp[h[0]] = mono_h_lst
-                    print(h[0], mono_h_lst)
-                else:
-                    mono_h_lst = hors_mono_mp[h[0]]
                 for p in range(h[1]):
                     sum_idnt = 0
-                    for j in range(i, i + len(mono_h_lst)):
+                    mono_h_lst = []
+                    j = i
+                    while j < len(r_seq) and r_seq[j]["e"] <= h[2]["e"][p]:
                         sum_idnt += r_seq[j]["idnt"]
-                    start, end = r_seq[i]["s"], r_seq[i + len(mono_h_lst) - 1]["e"]
-                    new_seq[r].append({"qid": h[0], "len": len(mono_h_lst), "s": start, "e": end, "idnt": sum_idnt/len(mono_h_lst)})
+                        mono_h_lst.append(r_seq[j]["qid"])
+                        j += 1
+                    start, end = h[2]["s"][p], h[2]["e"][p] #r_seq[i]["s"], r_seq[i + len(mono_h_lst) - 1]["e"]
+                    new_seq[r].append({"qid": h[0], "len": len(mono_h_lst), "monomers_lst": mono_h_lst, "s": start, "e": end, "idnt": sum_idnt/len(mono_h_lst)})
                     i += len(mono_h_lst)
-    return new_seq, hors_mono_mp
+    return new_seq
 
 def convert_to_initial_mono(qid, monomers_mp):
     return monomers_mp[qid].split("_")[0]
 
-def convert_to_list_of_monomers(qid, hors_mp, monomers_mp):
+def convert_to_list_of_monomers(monomers_lst, monomers_mp):
     res = []
-    for m in hors_mp[qid]:
-        m_name, m_cnt = convert_to_initial_mono(m.split("[")[0], monomers_mp), int(m.split("[")[1][:-1])
-        for _ in range(m_cnt):
-            res.append(m_name)
+    for m in monomers_lst:
+        m_name = convert_to_initial_mono(m, monomers_mp)
+        res.append(m_name)
     return ",".join(res)
 
-
-def print_hor_dec(filename, seq, hors_mp, monomers_mp):
+def print_hor_dec(filename, seq, monomers_mp, known_hors_initial):
     prev, prev_qid, start = 0, "", 0
     with open(filename, "w") as fout:
         for r in seq:
@@ -359,7 +379,7 @@ def print_hor_dec(filename, seq, hors_mp, monomers_mp):
                     if c["qid"] in monomers_mp:
                         fout.write("\t".join([r, convert_to_initial_mono(c["qid"], monomers_mp), str(c["len"]) if not c["qid"].startswith("f") else "-1", "{0:.2f}".format(c["idnt"]), str(c["s"]), str(c["e"]), str(c["e"] - c["s"] + 1), str(c["s"] - prev)]) + "\n")
                     else:
-                        fout.write("\t".join([r, convert_to_list_of_monomers(c["qid"], hors_mp, monomers_mp), str(c["len"]), "{0:.2f}".format(c["idnt"]), str(c["s"]), str(c["e"]), str(c["e"] - c["s"] + 1),  str(c["s"] - prev)]) + "\n")
+                        fout.write("\t".join([r, convert_to_list_of_monomers(c["monomers_lst"], monomers_mp), str(c["len"]), "{0:.2f}".format(c["idnt"]), str(c["s"]), str(c["e"]), str(c["e"] - c["s"] + 1),  str(c["s"] - prev)]) + "\n")
                 prev = c["e"]
                 prev_qid = c["qid"]
         if prev_qid == "NM":
@@ -367,7 +387,7 @@ def print_hor_dec(filename, seq, hors_mp, monomers_mp):
     print("Saved to ", filename)
 
 
-def build_hor_annotation(reads_dec, min_cnt, min_weight, min_len, max_len, monomers_mp, output, known_hors):
+def build_hor_annotation(reads_dec, min_cnt, min_weight, min_len, max_len, monomers_mp, monomers_mp_r, output, canonical, naive_dec):
     annotation = {}
     seq = {}
     for read in reads_dec:
@@ -378,7 +398,16 @@ def build_hor_annotation(reads_dec, min_cnt, min_weight, min_len, max_len, monom
             annotation[read].append([dec[i]["qid"], 1, {"s": [dec[i]["s"]], "e": [dec[i]["e"]], "idnt": dec[i]["idnt"]}])
             seq[read].append({"qid": dec[i]["qid"], "len": 1, "s": dec[i]["s"], "e": dec[i]["e"], "idnt": dec[i]["idnt"]})
 
-    annotation, hors_lst, hors_log = run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_len, max_len)
+    known_hors = []
+    known_hors_initial = set()
+    if canonical != None:
+        print("Canonical HORs identified")
+        known_hors, known_hors_initial = build_known_hors(canonical, monomers_mp)
+
+    if naive_dec:
+        annotation, hors_lst, hors_log = run_naive_hor_annotation(annotation, known_hors)
+    else:
+        annotation, hors_lst, hors_log = run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_len, max_len)
 
     for r in annotation:
         annotation_seq = []
@@ -390,8 +419,8 @@ def build_hor_annotation(reads_dec, min_cnt, min_weight, min_len, max_len, monom
         print(r)
         print("_".join(annotation_seq))
 
-    seq, hors_mp = form_hor_dec(annotation, seq, hors_lst)
-    print_hor_dec(output, seq, hors_mp, monomers_mp)
+    seq = form_hor_dec(annotation, seq)
+    print_hor_dec(output, seq, monomers_mp_r, known_hors_initial)
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Build HOR decomposition')
@@ -400,6 +429,7 @@ if __name__ == "__main__":
     parser.add_argument('decomposition', help='tsv-file with monomer decomposition')
     parser.add_argument('output', help='tsv-file to save HOR decomposition')
     parser.add_argument('--canonical', help='txt-file with list of canonical HORs', required = False)
+    parser.add_argument('--naive',  help='run naive decomposition using canonical HORs (divides into canonical HORs and their subsequences, --canonical is required)', action="store_true")
     parser.add_argument('--min-idnt',  help='minimum identity of monomer (75 by default)', type=int, default=75, required = False)
     parser.add_argument('--min-reliable',  help='minimum identity of reliable monomer (95, by default)', type=int, default=95, required = False)
     parser.add_argument('--min-cnt',  help='minimum number of potential HOR occurrences to be considered (5 by default)', type=int, default=5, required = False)
@@ -408,16 +438,15 @@ if __name__ == "__main__":
     parser.add_argument('--max-len',  help='maximum length of HOR in monomers (30 by default)', type=int, default=30, required = False)
     args = parser.parse_args()
 
+    if args.naive and args.canonical == None:
+        print("Naive decomposition requires --canonical to be set")
+        exit(-1)
+
     reads = read_bio_seqs(args.sequences)
     monomers = read_bio_seqs(args.monomers)
     dec, monomers_mp, monomers_mp_r = convert_dec_to_internal_monomers(load_dec(args.decomposition, args.min_idnt, args.min_reliable), monomers)
     filename = args.output
 
-    known_hors = []
-    if args.canonical != None:
-        print("Canonical HORs identified")
-        known_hors = build_known_hors(args.canonical, monomers_mp)
-
-    build_hor_annotation(dec, args.min_cnt, args.min_weight, args.min_len, args.max_len, monomers_mp_r, args.output, known_hors)
+    build_hor_annotation(dec, args.min_cnt, args.min_weight, args.min_len, args.max_len, monomers_mp, monomers_mp_r, args.output, args.canonical, args.naive)
 
 
