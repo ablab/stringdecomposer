@@ -180,7 +180,8 @@ def build_HOR_pick_matrix(mx_dist, mxVert=2000):
  
 monoName = prefix_monomer_name + sys.argv[1]
 pick_h = 0
-if monoName == "HOR":
+if sys.argv[1] == "HOR":
+    monoName = "HOR"
     pick_h = build_HOR_pick_matrix(1550, mxVert=20)
 else:
     pick_h = build_pick_matrix(monoName, 1505, 20)
