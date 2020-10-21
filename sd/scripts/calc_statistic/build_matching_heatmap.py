@@ -24,6 +24,28 @@ with open(log_path) as fr:
             monomers_list[monomerName].append((monomerId, mutationList))
 
 
+horInfoPath = "data/cenX_hordecomposition.tsv"
+horPos = []
+monomers_cnt = 0
+cur_line = 0
+with open(horInfoPath) as f:
+    for line in f:
+        cur_line += 1
+        if cur_line < 4:
+            continue
+        parts = line.split('\t')
+        if (int(parts[2]) != -1):
+            horPos.append((monomers_cnt, monomers_cnt + int(parts[2]) - 1))
+            monomers_cnt += int(parts[2])
+
+
+MonomerTypeId = [0]*1600*12
+for monomerName in monomers_list:
+    print(monomerName)
+    for i in range(len(monomers_list[monomerName])):
+        MonomerTypeId[int(monomers_list[monomerName][i][0])] = (monomerName, i)
+
+
 def get_mutation_graph(MonomerName, Pos, Len, Delta, MxVertCnt=2000):
     global monomers_list
     G = [[] for i in range(min(MxVertCnt, Len))]
@@ -42,6 +64,47 @@ def get_mutation_graph(MonomerName, Pos, Len, Delta, MxVertCnt=2000):
             if len(set(monomers_list[MonomerName][real_pos][1]) & set(monomers_list[MonomerName][real_pos2][1])) > 0:
                 G[i].append((real_pos2 - Pos - Len + Delta, 1))
     return G
+
+
+def toMonomerId(horId, monomerType):
+    global horPos
+    global MonomerTypeId
+    for i in range(horPos[horId][0], horPos[horId][1] + 1):
+        if MonomerTypeId[i] == 0:
+            continue
+        if MonomerTypeId[i][0] == monomerType:
+            return MonomerTypeId[i][1]
+    return -1
+
+def HORs_has_same_mut(hor1, hor2):
+    for monomerName in monomers_list:
+        real_pos = toMonomerId(hor1, monomerName)
+        real_pos2 = toMonomerId(hor2, monomerName)
+        if real_pos > -1 and real_pos2 > -1:
+            if len(set(monomers_list[monomerName][real_pos][1]) & set(monomers_list[monomerName][real_pos2][1])) > 0:
+                return 1
+    return 0
+
+def get_HOR_mutation_graph(Pos, Len, Delta, MxVertCnt=2000):
+    global monomers_list
+    global MonomerTypeId
+    global horPos
+    G = [[] for i in range(min(MxVertCnt, Len))]
+    for i in range(min(Len, MxVertCnt)):
+        for j in range(-Delta, Delta + 1):
+            real_pos = Pos + i
+            real_pos2 = Pos + i + Len + j
+            
+            if real_pos < 0 or real_pos >= len(horPos):
+                continue
+                
+            if real_pos2 < 0 or real_pos2 >= len(horPos):
+                continue
+                
+            if HORs_has_same_mut(real_pos, real_pos2):
+                G[i].append((real_pos2 - Pos - Len + Delta, 1))
+    return G
+
     
     
 def get_max_matching_w(G):
@@ -104,9 +167,23 @@ def build_pick_matrix(MonomerName, mx_dist, mxVert=2000):
             delta = min(int(0.2*Len), int(0.2*mxVert))
             pick_h[i][Len] = get_max_matching_w(get_mutation_graph(MonomerName, i, Len, delta, mxVert))
     return pick_h
+    
+
+def build_HOR_pick_matrix(mx_dist, mxVert=2000):
+    pick_h = [[0]*mx_dist for i in range(len(horPos))]
+    for i in range(len(horPos)):
+        print(i)
+        for Len in range(1, mx_dist):
+            delta = min(int(0.2*Len), int(0.2*mxVert))
+            pick_h[i][Len] = get_max_matching_w(get_HOR_mutation_graph(i, Len, delta, mxVert))
+    return pick_h
  
 monoName = prefix_monomer_name + sys.argv[1]
-pick_h = build_pick_matrix(monoName, 1505, 20)
+pick_h = 0
+if monoName == "HOR":
+    pick_h = build_HOR_pick_matrix(1550, mxVert=20)
+else:
+    pick_h = build_pick_matrix(monoName, 1505, 20)
 output_file += monoName + ".txt"
 
 original_stdout = sys.stdout
