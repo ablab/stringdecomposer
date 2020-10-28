@@ -148,7 +148,7 @@ def clustering(blocks, args):
     bst_cluster_id = 0
     cluster_size = 0
     for i in range(len(z)):
-        if z[i][2] > args.resDiv/2:
+        if z[i][2] > args.resDiv:
             continue
 
         if z[i][3] > cluster_size:
@@ -197,7 +197,8 @@ def get_consensus_seq(cluster_seqs_path):
     #print(align.format("fasta"))
 
     summary_align = AlignInfo.SummaryInfo(align)
-    consensus = summary_align.dumb_consensus(threshold=0, ambiguous='N')
+    consensus = summary_align.gap_consensus(threshold=0, ambiguous='N')
+    consensus = str(consensus).replace('-', '')
     log.log("New consensus monomer: " + str(consensus))
     return consensus
 
@@ -267,7 +268,7 @@ def main():
         save_seqs(max_cluster, cluster_seqs_path)
 
         new_monomer = get_consensus_seq(cluster_seqs_path)
-        new_monomer_record = SeqRecord(new_monomer, id="new_monomer_" + str(iter_id))
+        new_monomer_record = SeqRecord(Seq(new_monomer), id="new_monomer_" + str(iter_id))
 
         with open(args.monomers, "a") as fa:
             SeqIO.write(new_monomer_record, fa, "fasta")
