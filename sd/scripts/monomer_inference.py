@@ -248,16 +248,26 @@ def main():
         # parse output csv file
         res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
         unresolved_blocks = []
+        non_monomeric_cnt = 0
+        resolved_cnt = 0
         with open(res_tsv, "r") as f:
             csv_reader = csv.reader(f, delimiter='\t')
             for row in csv_reader:
                 if row[2] == "start":
                     continue
                 identity = float(row[4])
+                if identity >= 100 - args.resDiv:
+                    resolved_cnt += 1
+                if identity <= 100 - args.maxDiv:
+                    non_monomeric_cnt += 1
+
                 if (identity > 100 - args.maxDiv) and (identity < 100 - args.resDiv):
                     unresolved_blocks.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
 
         log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
+        log.log("Number of resolved blocks: " + str(resolved_cnt))
+        log.log("Number of non-monomeric blocks: " + str(non_monomeric_cnt))
+
         set_blocks_seq(args.sequences, unresolved_blocks)
         max_cluster = clustering(unresolved_blocks, args)
         if (len(max_cluster) == 1):
