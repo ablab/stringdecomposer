@@ -1,8 +1,17 @@
 #!/usr/bin/env python
 
+# requirements: clustalw2
 import os
 import sys
+import csv
 import argparse
+import shutil
+import edlib
+
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio.Alphabet import generic_dna
+from Bio import SeqIO
 
 #Log class, use it, not print
 class Log:
@@ -33,6 +42,12 @@ class Log:
 log = Log()
 
 
+def process_readline(line, is_python3=sys.version.startswith("3.")):
+    if is_python3:
+        return str(line, "utf-8").rstrip()
+    return line.rstrip()
+
+
 def sys_call(cmd):
     import shlex
     import subprocess
@@ -44,28 +59,20 @@ def sys_call(cmd):
 
     proc = subprocess.Popen(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
-    output = ""
     while not proc.poll():
         line = process_readline(proc.stdout.readline())
         if line:
-            if log:
-                log.info(line)
-            else:
-                output += line + "\n"
+            log.log(line)
         if proc.returncode is not None:
             break
 
     for line in proc.stdout.readlines():
         line = process_readline(line)
         if line:
-            if log:
-                log.info(line)
-            else:
-                output += line + "\n"
+            log.log(line)
 
     if proc.returncode:
-        log.error("system call for: \"%s\" finished abnormally, OS return value: %d" % (cmd, proc.returncode))
-    return output
+        log.err("system call for: \"%s\" finished abnormally, OS return value: %d" % (cmd, proc.returncode))
 
 
 def parse_args():
@@ -78,10 +85,121 @@ def parse_args():
                         help='the maximum differ from length (default= 0.02*len)',
                         type=int, default=-1, required=False)
     parser.add_argument('--resDiv', '--max-resolved-divergence', help='max divergence in identity for resolve block (default=5%)',
-                        type=float, default=5, required=False)
+                        type=float, default=10, required=False)
     parser.add_argument('--maxDiv','--max-divergence', help='max divergence in identity for monomeric-block (default=25%)',
-                        type=float, default=25, required=False)
+                        type=float, default=40, required=False)
     return parser.parse_args()
+
+
+class MonomericBlock(object):
+    read_name = ""
+    lft = 0
+    rgh = 0
+    seq = ""
+
+    def __init__(self, read_name="", lft=0, rgh=0, seq=""):
+        self.read_name = read_name
+        self.lft = lft
+        self.rgh = rgh
+        self.seq = seq
+
+
+def load_fasta(filename, tp = "list"):
+    if tp == "map":
+        records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
+        for r in records:
+            print("Read_name in map: ", r)
+            records[r] = records[r].upper()
+    else:
+        records = list(SeqIO.parse(filename, "fasta"))
+        for i in range(len(records)):
+            records[i] = records[i].upper()
+    return records
+
+
+def set_blocks_seq(sequences, blocks):
+    log.log("Get block seqs")
+    records = load_fasta(sequences, tp="map")
+    for i in range(len(blocks)):
+        #print("Block read name:", blocks[i].read_name)
+        #print(records[blocks[i].read_name])
+        #print(records[blocks[i].read_name][2:6])
+        blocks[i].seq = records[blocks[i].read_name][blocks[i].lft:blocks[i].rgh + 1]
+        #print("Set seq: " + blocks[i].seq)
+
+
+def clustering(blocks, args):
+    from scipy.cluster.hierarchy import linkage
+
+    def seq_identity(a, b):
+        result = edlib.align(str(a.seq.seq), str(b.seq.seq), mode="NW", task="locations")
+        if result["editDistance"] == -1:
+            return -1
+        return result["editDistance"] * 100 / max(len(a.seq), len(b.seq))
+
+    y = []
+    for i in range(len(blocks)):
+        for j in range(i + 1, len(blocks)):
+            y.append(seq_identity(blocks[i], blocks[j]))
+
+    z = linkage(y, 'single')
+    #[[cluster1, cluster2, dist, size]]
+    #choose the biggest cluster with dist <= args.resDiv/2
+    bst_cluster_id = 0
+    cluster_size = 0
+    for i in range(len(z)):
+        if z[i][2] > args.resDiv/2:
+            continue
+
+        if z[i][3] > cluster_size:
+            cluster_size = z[i][3]
+            bst_cluster_id = i + len(blocks)
+
+    #print(z)
+    #generate list of blocks in bigest cluster
+    max_cluster = []
+
+    def add_blocks_to_cluster(cid):
+        if (cid < len(blocks)):
+            max_cluster.append(blocks[cid])
+        else:
+            add_blocks_to_cluster(int(z[cid - len(blocks)][0]))
+            add_blocks_to_cluster(int(z[cid - len(blocks)][1]))
+
+    add_blocks_to_cluster(int(bst_cluster_id))
+    log.log("Max cluster is found! Cluster size: " + str(len(max_cluster)))
+    return max_cluster
+
+
+def save_seqs(max_cluster, cluster_seqs_path):
+    with open(cluster_seqs_path, "w") as fa:
+        for i in range(len(max_cluster)):
+            name = "block" + str(i) + "_" + str(max_cluster[i].lft) + "_" + str(max_cluster[i].rgh)
+            new_record = SeqRecord(max_cluster[i].seq.seq, id=name, description="")
+            SeqIO.write(new_record, fa, "fasta")
+    log.log("Seqs from biggest cluster saved to " + cluster_seqs_path)
+
+
+def get_consensus_seq(cluster_seqs_path):
+    from Bio.Align.Applications import ClustalwCommandline
+    from Bio import AlignIO
+    from Bio.Align import AlignInfo
+    from Bio.Align import MultipleSeqAlignment
+
+    cmd = ClustalwCommandline("clustalw2", infile=cluster_seqs_path)
+    log.log("Run clustalw2: " + str(cmd))
+    stdout, stderr = cmd()
+    aln_file = '.'.join(cluster_seqs_path.split('.')[:-1]) + ".aln"
+    log.log("Get Multiply alignment: " + aln_file)
+
+    log.log("Start search for consensus monomer")
+    align = AlignIO.read(aln_file, "clustal")
+    #print(align.format("fasta"))
+
+    summary_align = AlignInfo.SummaryInfo(align)
+    consensus = summary_align.dumb_consensus(threshold=0, ambiguous='N')
+    log.log("New consensus monomer: " + str(consensus))
+    return consensus
 
 
 def main():
@@ -93,7 +211,7 @@ def main():
     args.monomers = os.path.abspath(args.monomers)
 
     #get path to current script
-    current_script_path = os.path.abspath(__file__)
+    current_script_path = os.path.abspath(os.path.dirname(__file__))
 
     #path to the run_decomposer script
     sd_script_path = os.path.join(current_script_path, "..", "run_decomposer.py")
@@ -106,6 +224,9 @@ def main():
 
     #switch working directory to output dir
     os.chdir(args.outdir)
+    local_monmers_path = os.path.join(args.outdir, "monomers.fa")
+    shutil.copyfile(args.monomers, local_monmers_path)
+    args.monomers = local_monmers_path
 
     monomer_set_complete = False
     iter_id = 0
@@ -116,14 +237,43 @@ def main():
         if not os.path.exists(iter_outdir):
             os.makedirs(iter_outdir)
         os.chdir(iter_outdir)
+        local_monmers_path = os.path.join(iter_outdir, "monomers.fa")
+        shutil.copyfile(args.monomers, local_monmers_path)
 
         # run string decomposer
-        sys_call(["python3", sd_script_path, args.sequences, args.monomers])
+        sys_call(["python3", sd_script_path, args.sequences, local_monmers_path])
+        log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
         # parse output csv file
-        monomer_set_complete = True
-        iter_id += 1
+        res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
+        unresolved_blocks = []
+        with open(res_tsv, "r") as f:
+            csv_reader = csv.reader(f, delimiter='\t')
+            for row in csv_reader:
+                if row[2] == "start":
+                    continue
+                identity = float(row[4])
+                if (identity > 100 - args.maxDiv) and (identity < 100 - args.resDiv):
+                    unresolved_blocks.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
 
+        log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
+        set_blocks_seq(args.sequences, unresolved_blocks)
+        max_cluster = clustering(unresolved_blocks, args)
+        if (len(max_cluster) == 1):
+            monomer_set_complete = True
+            break
+
+        cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq.fa")
+        save_seqs(max_cluster, cluster_seqs_path)
+
+        new_monomer = get_consensus_seq(cluster_seqs_path)
+        new_monomer_record = SeqRecord(new_monomer, id="new_monomer_" + str(iter_id))
+
+        with open(args.monomers, "a") as fa:
+            SeqIO.write(new_monomer_record, fa, "fasta")
+
+        #monomer_set_complete = True
+        iter_id += 1
 
 if __name__ == "__main__":
     main()
