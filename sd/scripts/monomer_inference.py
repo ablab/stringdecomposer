@@ -128,19 +128,20 @@ def set_blocks_seq(sequences, blocks):
         #print("Set seq: " + blocks[i].seq)
 
 
+def seq_identity(a, b):
+    result = edlib.align(a, b, mode="NW", task="locations")
+    if result["editDistance"] == -1:
+        return 10**9
+    return result["editDistance"] * 100 / max(len(a), len(b))
+
+
 def clustering(blocks, args):
     from scipy.cluster.hierarchy import linkage
-
-    def seq_identity(a, b):
-        result = edlib.align(str(a.seq.seq), str(b.seq.seq), mode="NW", task="locations")
-        if result["editDistance"] == -1:
-            return -1
-        return result["editDistance"] * 100 / max(len(a.seq), len(b.seq))
 
     y = []
     for i in range(len(blocks)):
         for j in range(i + 1, len(blocks)):
-            y.append(seq_identity(blocks[i], blocks[j]))
+            y.append(seq_identity(str(blocks[i].seq.seq), str(blocks[j].seq.seq)))
 
     z = linkage(y, 'single')
     #[[cluster1, cluster2, dist, size]]
@@ -203,6 +204,36 @@ def get_consensus_seq(cluster_seqs_path):
     return consensus
 
 
+def get_rc(seq):
+    res_seq = ""
+    for i in range(len(seq) - 1, -1, -1):
+        if (seq[i] == 'A' or seq[i] == 'a'):
+            res_seq += 'T'
+        if (seq[i] == 'T' or seq[i] == 't'):
+            res_seq += 'A'
+        if (seq[i] == 'C' or seq[i] == 'c'):
+            res_seq += 'G'
+        if (seq[i] == 'G' or seq[i] == 'g'):
+            res_seq += 'C'
+    return res_seq
+
+
+def get_dist_to_exists_monomers(monomers_list, new_monomer):
+    mdist = 100
+    for i in range(len(monomers_list)):
+        mdist = min(mdist, seq_identity(str(monomers_list[i].seq), new_monomer))
+        mdist = min(mdist, seq_identity(get_rc(str(monomers_list[i].seq)), new_monomer))
+    return mdist
+
+
+def update_monomer(monomer_record, monomer_resolved_block, iter_outdir):
+    cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id + "_seqs.fa")
+    save_seqs(monomer_resolved_block, cluster_seqs_path)
+    new_monomer = get_consensus_seq(cluster_seqs_path)
+    monomer_record.seq = Seq(new_monomer)
+    return monomer_record
+
+
 def main():
     log.log("Start Monomer Inference")
     args = parse_args()
@@ -229,6 +260,11 @@ def main():
     shutil.copyfile(args.monomers, local_monmers_path)
     args.monomers = local_monmers_path
 
+    #save info about monomers
+    monomers_list = []
+    for record in SeqIO.parse(local_monmers_path, "fasta"):
+        monomers_list.append(record)
+
     monomer_set_complete = False
     iter_id = 0
     while (not monomer_set_complete):
@@ -250,6 +286,11 @@ def main():
         unresolved_blocks = []
         non_monomeric_cnt = 0
         resolved_cnt = 0
+
+        monomer_resolved = {}
+        for i in range(len(monomers_list)):
+            monomer_resolved[monomers_list[i].id] = []
+
         with open(res_tsv, "r") as f:
             csv_reader = csv.reader(f, delimiter='\t')
             for row in csv_reader:
@@ -258,15 +299,34 @@ def main():
                 identity = float(row[4])
                 if identity >= 100 - args.resDiv:
                     resolved_cnt += 1
+                    if row[1][-1] == "'":
+                        row[1] = row[1][:-1]
+                    monomer_resolved[row[1]].append(MonomericBlock(row[0], int(row[2]), int(row[3])))
+
                 if identity <= 100 - args.maxDiv:
                     non_monomeric_cnt += 1
 
                 if (identity > 100 - args.maxDiv) and (identity < 100 - args.resDiv):
                     unresolved_blocks.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
 
+        deleted_cnt = 0
+        i = 0
+        while (i < len(monomers_list)):
+            if len(monomer_resolved[monomers_list[i].id]) == 0:
+                deleted_cnt += 1
+                if (i + 1 < len(monomers_list)):
+                    monomers_list = monomers_list[:i] + monomers_list[i + 1:]
+                else:
+                    monomers_list = monomers_list[:i]
+            else:
+                set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
+                monomers_list[i] = update_monomer(monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
+                i += 1
+
         log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
         log.log("Number of resolved blocks: " + str(resolved_cnt))
         log.log("Number of non-monomeric blocks: " + str(non_monomeric_cnt))
+        log.log("Number of deleted monomers: " + str(deleted_cnt))
 
         set_blocks_seq(args.sequences, unresolved_blocks)
         max_cluster = clustering(unresolved_blocks, args)
@@ -278,10 +338,16 @@ def main():
         save_seqs(max_cluster, cluster_seqs_path)
 
         new_monomer = get_consensus_seq(cluster_seqs_path)
-        new_monomer_record = SeqRecord(Seq(new_monomer), id="new_monomer_" + str(iter_id))
 
-        with open(args.monomers, "a") as fa:
-            SeqIO.write(new_monomer_record, fa, "fasta")
+        dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
+        log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
+
+        new_monomer_record = SeqRecord(Seq(new_monomer), id="new_monomer_" + str(iter_id), description="")
+        monomers_list.append(new_monomer_record)
+
+        with open(args.monomers, "w") as fa:
+            for record in monomers_list:
+                SeqIO.write(record, fa, "fasta")
 
         #monomer_set_complete = True
         iter_id += 1
