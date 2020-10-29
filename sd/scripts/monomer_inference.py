@@ -227,7 +227,7 @@ def get_dist_to_exists_monomers(monomers_list, new_monomer):
 
 
 def update_monomer(monomer_record, monomer_resolved_block, iter_outdir):
-    cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id + "_seqs.fa")
+    cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
     save_seqs(monomer_resolved_block, cluster_seqs_path)
     new_monomer = get_consensus_seq(cluster_seqs_path)
     monomer_record.seq = Seq(new_monomer)
