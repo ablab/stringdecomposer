@@ -13,6 +13,8 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 
+from threading import Thread
+
 #Log class, use it, not print
 class Log:
     text = ""
@@ -235,6 +237,13 @@ def update_monomer(monomer_record, monomer_resolved_block, iter_outdir):
     return monomer_record
 
 
+def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_outdir):
+    for i in range(lft, rgh):
+        log.log("==== Update monomer " + str(monomers_list[i].id))
+        set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
+        monomers_list[i] = update_monomer(monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
+
+
 def main():
     log.log("Start Monomer Inference")
     args = parse_args()
@@ -320,9 +329,20 @@ def main():
                 else:
                     monomers_list = monomers_list[:i]
             else:
-                set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
-                monomers_list[i] = update_monomer(monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
                 i += 1
+
+        stp = (1 + (len(monomers_list) - 1)//args.threads)
+        lft = 0
+        threads = []
+        while lft < len(monomers_list):
+            threads.append(Thread(target=update_monomers_range, args=(lft, min(lft + stp, len(monomers_list)),
+                                                                      args, monomer_resolved, monomers_list, iter_outdir)))
+            lft += stp
+
+        for i in range(len(threads)):
+            threads[i].start()
+        for i in range(len(threads)):
+            threads[i].join()
 
         log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
         log.log("Number of resolved blocks: " + str(resolved_cnt))
