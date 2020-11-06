@@ -152,7 +152,7 @@ def clustering(blocks, args):
     bst_cluster_id = 0
     cluster_size = 0
     for i in range(len(z)):
-        if z[i][2] > args.resDiv:
+        if z[i][2] > args.resDiv/2:
             continue
 
         if z[i][3] > cluster_size:
