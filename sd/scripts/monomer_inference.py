@@ -80,6 +80,7 @@ def parse_args():
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
     parser.add_argument('-o', '--out-dir', dest="outdir", help='output directory (default=\'.\')', default=".", required=False)
+    parser.add_argument('-t', '--threads', dest="threads", help='number of threads (default=1)', default=1, type=int)
     parser.add_argument('--len', help='the monomer length (default=171)', type=int, default=171, required=False)
     parser.add_argument('--lenDiv', '--max-length-divergence',
                         help='the maximum differ from length (default= 0.02*len)',
@@ -268,7 +269,7 @@ def main():
     monomer_set_complete = False
     iter_id = 0
     while (not monomer_set_complete):
-        log.log("Start iteration " + str(iter_id))
+        log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
         iter_outdir = os.path.join(args.outdir, "iter_" + str(iter_id))
         if not os.path.exists(iter_outdir):
@@ -278,7 +279,7 @@ def main():
         shutil.copyfile(args.monomers, local_monmers_path)
 
         # run string decomposer
-        sys_call(["python3", sd_script_path, args.sequences, local_monmers_path])
+        sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
         log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
         # parse output csv file
