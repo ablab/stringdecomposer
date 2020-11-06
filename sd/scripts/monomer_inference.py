@@ -88,7 +88,7 @@ def parse_args():
                         help='the maximum differ from length (default= 0.02*len)',
                         type=int, default=-1, required=False)
     parser.add_argument('--resDiv', '--max-resolved-divergence', help='max divergence in identity for resolve block (default=5%)',
-                        type=float, default=10, required=False)
+                        type=float, default=5, required=False)
     parser.add_argument('--maxDiv','--max-divergence', help='max divergence in identity for monomeric-block (default=25%)',
                         type=float, default=40, required=False)
     return parser.parse_args()
@@ -270,6 +270,12 @@ def main():
     shutil.copyfile(args.monomers, local_monmers_path)
     args.monomers = local_monmers_path
 
+    summary_path = os.path.join(args.outdir, "summary.csv")
+    summary_fw = open(summary_path, "w")
+    summary_writer = csv.writer(summary_fw)
+    summary_writer.writerow(["IterationId", "Number of resolved blocks", "Number of unresolved blocks", "Number of non-monomeric blocks",
+                              "Size of the largest cluster", "Number of deleted monomers at this iteration"])
+
     #save info about monomers
     monomers_list = []
     for record in SeqIO.parse(local_monmers_path, "fasta"):
@@ -370,8 +376,10 @@ def main():
             for record in monomers_list:
                 SeqIO.write(record, fa, "fasta")
 
-        #monomer_set_complete = True
+        summary_writer.writerow([str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt), str(len(max_cluster)), str(deleted_cnt)])
         iter_id += 1
+
+    summary_fw.close()
 
 if __name__ == "__main__":
     main()
