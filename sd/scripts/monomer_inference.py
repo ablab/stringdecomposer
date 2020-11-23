@@ -112,7 +112,6 @@ def load_fasta(filename, tp = "list"):
     if tp == "map":
         records = SeqIO.to_dict(SeqIO.parse(filename, "fasta"))
         for r in records:
-            print("Read_name in map: ", r)
             records[r] = records[r].upper()
     else:
         records = list(SeqIO.parse(filename, "fasta"))
@@ -230,21 +229,6 @@ def get_dist_to_exists_monomers(monomers_list, new_monomer):
     return mdist
 
 
-def update_monomer(monomer_record, monomer_resolved_block, iter_outdir):
-    cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
-    save_seqs(monomer_resolved_block, cluster_seqs_path)
-    new_monomer = get_consensus_seq(cluster_seqs_path)
-    monomer_record.seq = Seq(new_monomer)
-    return monomer_record
-
-
-def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_outdir):
-    for i in range(lft, rgh):
-        log.log("==== Update monomer " + str(monomers_list[i].id))
-        set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
-        monomers_list[i] = update_monomer(monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
-
-
 def init_first_run(args):
     if args.lenDiv == -1:
         args.lenDiv = int(args.len * 0.02)
@@ -299,6 +283,70 @@ def init_monomers(monomers_path):
     for record in SeqIO.parse(monomers_path, "fasta"):
         monomers_list.append(record)
     return monomers_list
+
+
+need_reverse_monomers = -1
+
+
+def reverse_monomer(args):
+    global need_reverse_monomers
+    if need_reverse_monomers != -1:
+        return need_reverse_monomers
+    else:
+        res_tsv = os.path.join(args.outdir, "iter_0", "final_decomposition.tsv")
+        cnt_need_rev = 0
+        cnt_dont_need_rev = 0
+        with open(res_tsv, "r") as f:
+            csv_reader = csv.reader(f, delimiter='\t')
+            for row in csv_reader:
+                if row[2] == "start":
+                    continue
+                identity = float(row[4])
+
+                if identity >= 100 - args.maxDiv:
+                    if row[1][-1] == "'":
+                        cnt_need_rev += 1
+                    else:
+                        cnt_dont_need_rev += 1
+        if cnt_need_rev > cnt_dont_need_rev:
+            need_reverse_monomers = 1
+        else:
+            need_reverse_monomers = 0
+        return need_reverse_monomers
+
+
+def rc(seq):
+    res_seq = ""
+    for i in range(len(seq)):
+        pos = len(seq) - i - 1
+        if seq[pos] == 'A':
+            res_seq += "T"
+        elif seq[pos] == 'T':
+            res_seq += "A"
+        elif seq[pos] == 'C':
+            res_seq += "G"
+        elif seq[pos] == "G":
+            res_seq += "C"
+        else:
+            res_seq += seq[pos]
+    return res_seq
+
+
+def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir):
+    cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
+    save_seqs(monomer_resolved_block, cluster_seqs_path)
+    new_monomer = get_consensus_seq(cluster_seqs_path)
+    if reverse_monomer(args):
+        new_monomer = rc(new_monomer)
+    monomer_record.seq = Seq(new_monomer)
+    return monomer_record
+
+
+def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_outdir):
+    for i in range(lft, rgh):
+        log.log("==== Update monomer " + str(monomers_list[i].id))
+        set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
+        monomers_list[i] = update_monomer(args, monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
 
 
 def main():
@@ -406,6 +454,8 @@ def main():
         save_seqs(max_cluster, cluster_seqs_path)
 
         new_monomer = get_consensus_seq(cluster_seqs_path)
+        if reverse_monomer(args):
+            new_monomer = rc(new_monomer)
 
         dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
         log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
