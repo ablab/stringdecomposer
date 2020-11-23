@@ -444,24 +444,27 @@ def main():
         log.log("Number of non-monomeric blocks: " + str(non_monomeric_cnt))
         log.log("Number of deleted monomers: " + str(deleted_cnt))
 
-        set_blocks_seq(args.sequences, unresolved_blocks)
-        max_cluster = clustering(unresolved_blocks, args)
-        if (len(max_cluster) == 1):
+        if len(unresolved_blocks) > 0:
+            set_blocks_seq(args.sequences, unresolved_blocks)
+            max_cluster = clustering(unresolved_blocks, args)
+            if (len(max_cluster) == 1):
+                monomer_set_complete = True
+        else:
             monomer_set_complete = True
-            break
 
-        cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq.fa")
-        save_seqs(max_cluster, cluster_seqs_path)
+        if not monomer_set_complete:
+            cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq.fa")
+            save_seqs(max_cluster, cluster_seqs_path)
 
-        new_monomer = get_consensus_seq(cluster_seqs_path)
-        if reverse_monomer(args):
-            new_monomer = rc(new_monomer)
+            new_monomer = get_consensus_seq(cluster_seqs_path)
+            if reverse_monomer(args):
+                new_monomer = rc(new_monomer)
 
-        dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
-        log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
+            dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
+            log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
 
-        new_monomer_record = SeqRecord(Seq(new_monomer), id="new_monomer_" + str(iter_id), description="")
-        monomers_list.append(new_monomer_record)
+            new_monomer_record = SeqRecord(Seq(new_monomer), id="new_monomer_" + str(iter_id), description="")
+            monomers_list.append(new_monomer_record)
 
         with open(args.monomers, "w") as fa:
             for record in monomers_list:
