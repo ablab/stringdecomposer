@@ -447,8 +447,8 @@ def main():
         if len(unresolved_blocks) > 0:
             set_blocks_seq(args.sequences, unresolved_blocks)
             max_cluster = clustering(unresolved_blocks, args)
-            if (len(max_cluster) == 1):
-                monomer_set_complete = True
+            #if (len(max_cluster) == 1):
+            #    monomer_set_complete = True
         else:
             monomer_set_complete = True
 
