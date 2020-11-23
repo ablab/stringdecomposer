@@ -51,6 +51,22 @@ def parse_args():
     return parser.parse_args()
 
 
+def rc(seq):
+    res_seq = ""
+    for i in range(len(seq)):
+        pos = len(seq) - i - 1
+        if seq[pos] == 'A':
+            res_seq += "T"
+        elif seq[pos] == 'T':
+            res_seq += "A"
+        elif seq[pos] == 'C':
+            res_seq += "G"
+        elif seq[pos] == "G":
+            res_seq += "C"
+        else:
+            res_seq += seq[pos]
+    return res_seq
+
 def main():
     args = parse_args()
     origin_monomers = load_fasta(args.monomers, "map")
@@ -61,8 +77,8 @@ def main():
         writer.writerow(['OriginMonomerName', 'ReportedMonomerName', 'Distance', 'Alignment'])
         for omon in origin_monomers:
             for emon in reported_monomers:
-                a = str(origin_monomers[omon].seq)
-                b = str(reported_monomers[emon].seq)
+                a = rc(str(origin_monomers[omon].seq))
+                b = rc(str(reported_monomers[emon].seq))
                 result = edlib.align(a, b, mode="NW", task="locations")
                 dist = result["editDistance"] * 100 / max(len(a), len(b))
 
