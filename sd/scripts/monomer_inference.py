@@ -79,9 +79,10 @@ def sys_call(cmd):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Monomer Inference Problem: complement monomers set')
-    parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
-    parser.add_argument('monomers', help='fasta-file with monomers')
+    parser.add_argument('-seq', '--sequences', dest="sequences", help='fasta-file with long reads or genomic sequences')
+    parser.add_argument('-mon', '--monomers', dest='monomers', help='fasta-file with monomers')
     parser.add_argument('-o', '--out-dir', dest="outdir", help='output directory (default=\'.\')', default=".", required=False)
+    parser.add_argument("--continue", dest="restart", help="continue run from output dir", required=False, action='store_true')
     parser.add_argument('-t', '--threads', dest="threads", help='number of threads (default=1)', default=1, type=int)
     parser.add_argument('--len', help='the monomer length (default=171)', type=int, default=171, required=False)
     parser.add_argument('--lenDiv', '--max-length-divergence',
@@ -244,25 +245,11 @@ def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_
         monomers_list[i] = update_monomer(monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
 
 
-def main():
-    log.log("Start Monomer Inference")
-    args = parse_args()
+def init_first_run(args):
     if args.lenDiv == -1:
         args.lenDiv = int(args.len * 0.02)
     args.sequences = os.path.abspath(args.sequences)
     args.monomers = os.path.abspath(args.monomers)
-
-    #get path to current script
-    current_script_path = os.path.abspath(os.path.dirname(__file__))
-
-    #path to the run_decomposer script
-    sd_script_path = os.path.join(current_script_path, "..", "run_decomposer.py")
-    log.log("Path to run_decomposer: " + sd_script_path)
-
-    #create output_dir if not exists
-    args.outdir = os.path.abspath(args.outdir)
-    if not os.path.exists(args.outdir):
-        os.makedirs(args.outdir)
 
     #switch working directory to output dir
     os.chdir(args.outdir)
@@ -270,19 +257,73 @@ def main():
     shutil.copyfile(args.monomers, local_monmers_path)
     args.monomers = local_monmers_path
 
+    local_seq_path = os.path.join(args.outdir, 'sequence.fa')
+    shutil.copyfile(args.sequences, local_seq_path)
+    args.sequences = local_seq_path
+
     summary_path = os.path.join(args.outdir, "summary.csv")
     summary_fw = open(summary_path, "w")
     summary_writer = csv.writer(summary_fw)
     summary_writer.writerow(["IterationId", "Number of resolved blocks", "Number of unresolved blocks", "Number of non-monomeric blocks",
                               "Size of the largest cluster", "Number of deleted monomers at this iteration"])
+    iter_id = 0
+    return iter_id, summary_fw, summary_writer
 
+
+def get_lst_iter(outdir):
+    iter_id = 0
+    while (os.path.isdir(os.path.join(outdir, "iter_" + str(iter_id)))):
+        iter_id += 1
+    return iter_id - 1
+
+
+def init_continue(args):
+    #switch working directory to output dir
+    os.chdir(args.outdir)
+
+    iter_id = get_lst_iter(args.outdir)
+
+    args.monomers = os.path.join(args.outdir, "monomers.fa")
+    args.sequences = os.path.join(args.outdir, 'sequence.fa')
+
+    summary_path = os.path.join(args.outdir, "summary.csv")
+    summary_fw = open(summary_path, "a")
+    summary_writer = csv.writer(summary_fw)
+
+    return iter_id, summary_fw, summary_writer
+
+
+def init_monomers(monomers_path):
     #save info about monomers
     monomers_list = []
-    for record in SeqIO.parse(local_monmers_path, "fasta"):
+    for record in SeqIO.parse(monomers_path, "fasta"):
         monomers_list.append(record)
+    return monomers_list
+
+
+def main():
+    log.log("Start Monomer Inference")
+    args = parse_args()
+    # get path to current script
+    current_script_path = os.path.abspath(os.path.dirname(__file__))
+
+    # path to the run_decomposer script
+    sd_script_path = os.path.join(current_script_path, "..", "run_decomposer.py")
+    log.log("Path to run_decomposer: " + sd_script_path)
+
+    # create output_dir if not exists
+    args.outdir = os.path.abspath(args.outdir)
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+
+    if args.restart == False:
+        iter_id, summary_fw, summary_writer = init_first_run(args)
+    else:
+        iter_id, summary_fw, summary_writer = init_continue(args)
+
+    monomers_list = init_monomers(args.monomers)
 
     monomer_set_complete = False
-    iter_id = 0
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
