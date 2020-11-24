@@ -385,6 +385,74 @@ def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_
         monomers_list[i] = update_monomer(args, monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
 
 
+def final_iteration(args, sd_script_path, monomers_list):
+    log.log("====== Start final iteration======")
+    iter_outdir = os.path.join(args.outdir, "final")
+    if not os.path.exists(iter_outdir):
+        os.makedirs(iter_outdir)
+    os.chdir(iter_outdir)
+
+    local_monmers_path = os.path.join(iter_outdir, "monomers.fa")
+    shutil.copyfile(args.monomers, local_monmers_path)
+
+    # run string decomposer
+    sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
+    log.log("String decomposer is complete. Results save in: " + iter_outdir)
+
+    G = {}
+    gw = {}
+    for i in range(len(monomers_list)):
+        G[monomers_list[i].id] = []
+        for j in range(len(monomers_list)):
+            gw[(monomers_list[i].id, monomers_list[j].id)] = 0
+
+    # parse output csv file
+    res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
+
+    with open(res_tsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        prev_row = []
+        for row in csv_reader:
+            if row[2] == "start":
+                continue
+            if prev_row != []:
+                pident = float(prev_row[4])
+                pmon = prev_row[1]
+                if pmon[-1] == "'":
+                    pmon = pmon[:-1]
+                identity = float(row[4])
+                mon = row[1]
+                if mon[-1] == "'":
+                    mon = mon[:-1]
+
+                if identity >= 100 - args.resDiv and pident >= 100 - args.resDiv:
+                    gw[(pmon, mon)] += 1
+            prev_row = row
+
+    dotst = "digraph Monomer-graph {\n"
+
+    for i in range(len(monomers_list)):
+        dotst += monomers_list[i].id + ";\n"
+        G[monomers_list[i].id] = []
+        for j in range(len(monomers_list)):
+            if gw[(monomers_list[i].id, monomers_list[j].id)] > 0:
+                G[monomers_list[i].id].append((monomers_list[j].id, gw[(monomers_list[i].id, monomers_list[j].id)]))
+
+    simple_gr = os.path.join(iter_outdir, "monomer_gr")
+    with open(simple_gr, "w") as fw:
+        for i in range(len(monomers_list)):
+            curm = monomers_list[i].id
+            for edg in G[curm]:
+                fw.write(curm + " " + edg[0] + " "  + str(edg[1]) + "\n")
+                dotst += curm + " -> " + edg[0] + " [label='" + str(edg[1]) + "'];\n"
+
+    dotst += "}\n"
+
+    dotpath = os.path.join(iter_outdir, "monomer_graph.dot")
+    with open(dotpath, "w") as fw:
+        fw.write(dotst)
+
+
 def main():
     log.log("Start Monomer Inference")
     args = parse_args()
@@ -483,8 +551,8 @@ def main():
         if len(unresolved_blocks) > 0:
             set_blocks_seq(args.sequences, unresolved_blocks)
             max_cluster = clustering(unresolved_blocks, args)
-            #if (len(max_cluster) == 1):
-            #    monomer_set_complete = True
+            if (len(max_cluster) == 1):
+                monomer_set_complete = True
         else:
             monomer_set_complete = True
 
@@ -509,6 +577,7 @@ def main():
         summary_writer.writerow([str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt), str(len(max_cluster)), str(deleted_cnt)])
         iter_id += 1
 
+    final_iteration(args, sd_script_path, monomers_list)
     summary_fw.close()
 
 if __name__ == "__main__":
