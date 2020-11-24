@@ -335,13 +335,46 @@ def rc(seq):
     return res_seq
 
 
+def need_update(args, monomer_record, monomer_resolved_block, iter_outdir):
+    iter_id = int(iter_outdir.split('_')[-1])
+    if iter_id == 0:
+        return True
+    else:
+        prev_dir = '_'.join(iter_outdir.split('_')[:-1]) + '_' + str(iter_id - 1)
+        res_tsv = os.path.join(prev_dir, "final_decomposition.tsv")
+        prevresolved_blocks = []
+
+        with open(res_tsv, "r") as f:
+            csv_reader = csv.reader(f, delimiter='\t')
+            for row in csv_reader:
+                if row[2] == "start":
+                    continue
+                identity = float(row[4])
+                if identity >= 100 - args.resDiv:
+                    if row[1][-1] == "'":
+                        row[1] = row[1][:-1]
+                    if row[1] == monomer_record.id:
+                        prevresolved_blocks.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
+        if len(prevresolved_blocks) != len(monomer_resolved_block):
+            return True
+
+        for i in range(len(prevresolved_blocks)):
+            if (prevresolved_blocks[i].read_name != monomer_resolved_block[i].read_name) or\
+                    (prevresolved_blocks[i].lft != monomer_resolved_block[i].lft) or\
+                    (prevresolved_blocks[i].rgh != monomer_resolved_block[i].rgh):
+                return True
+    return False
+
+
 def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir):
-    cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
-    save_seqs(monomer_resolved_block, cluster_seqs_path)
-    new_monomer = get_consensus_seq(cluster_seqs_path, monomer_resolved_block)
-    if reverse_monomer(args):
-        new_monomer = rc(new_monomer)
-    monomer_record.seq = Seq(new_monomer)
+    if need_update(args, monomer_record, monomer_resolved_block, iter_outdir):
+        cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
+        save_seqs(monomer_resolved_block, cluster_seqs_path)
+        new_monomer = get_consensus_seq(cluster_seqs_path, monomer_resolved_block)
+        if reverse_monomer(args):
+            new_monomer = rc(new_monomer)
+        monomer_record.seq = Seq(new_monomer)
+
     return monomer_record
 
 
