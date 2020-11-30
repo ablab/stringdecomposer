@@ -429,7 +429,7 @@ def final_iteration(args, sd_script_path, monomers_list):
                     gw[(pmon, mon)] += 1
             prev_row = row
 
-    dotst = "digraph Monomer-graph {\n"
+    dotst = "digraph MonomerGraph {\n"
 
     for i in range(len(monomers_list)):
         dotst += monomers_list[i].id + ";\n"
@@ -444,7 +444,7 @@ def final_iteration(args, sd_script_path, monomers_list):
             curm = monomers_list[i].id
             for edg in G[curm]:
                 fw.write(curm + " " + edg[0] + " "  + str(edg[1]) + "\n")
-                dotst += curm + " -> " + edg[0] + " [label='" + str(edg[1]) + "'];\n"
+                dotst += curm + " -> " + edg[0] + " [label=\"" + str(edg[1]) + "\"];\n"
 
     dotst += "}\n"
 
