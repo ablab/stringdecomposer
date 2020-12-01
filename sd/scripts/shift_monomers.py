@@ -39,7 +39,7 @@ class Log:
         return self.text
 
 log = Log()
-
+is_RC_alignment = False
 
 def init_monomers(monomers_path):
     #save info about monomers
@@ -80,18 +80,23 @@ def get_edge_list(args):
 
 
 def get_one_shifted_monomer(mn1, mn2, shift):
+    global is_RC_alignment
     edge_name = "edge_" + mn1.id.split('_')[-1] + "_" + mn2.id.split('_')[-1]
     nseq = str(mn1.seq)[shift:] + str(mn2.seq)[:shift]
+    if is_RC_alignment:
+        nseq = str(mn2.seq)[shift:] + str(mn1.seq)[:shift]
+
     mn_record = SeqRecord(Seq(nseq), id=edge_name, description="")
     return mn_record
 
 
 def generate_shifted_monomers(monomers_list, shift, db_cnt, trp_cnt):
+    log.log("Start generate shifted monomers")
     sft_db_cnt = {}
     sh_monomers = []
     cnt_mn = {}
     for edge in db_cnt:
-        if db_cnt[edge] > 0:
+        if edge in db_cnt and db_cnt[edge] > 0:
             mn1 = get_record_by_id(edge[0], monomers_list)
             mn2 = get_record_by_id(edge[1], monomers_list)
             sh_monomers.append((get_one_shifted_monomer(mn1, mn2, shift), edge[0], edge[1]))
@@ -99,11 +104,12 @@ def generate_shifted_monomers(monomers_list, shift, db_cnt, trp_cnt):
 
     for shmn1 in sh_monomers:
         for shmn2 in sh_monomers:
-            if shmn1[2] == shmn1[1]:
+            if shmn1[2] == shmn2[1]:
                 if (shmn1[0].id, shmn2[0].id) not in sft_db_cnt:
                     sft_db_cnt[(shmn1[0].id, shmn2[0].id)] = 0
-                sft_db_cnt[(shmn1[0].id, shmn2[0].id)] = trp_cnt[(shmn1[1], shmn1[2], shmn2[2])]
-
+                sft_db_cnt[(shmn1[0].id, shmn2[0].id)] = 0
+                if (shmn1[1], shmn1[2], shmn2[2]) in trp_cnt:
+                    sft_db_cnt[(shmn1[0].id, shmn2[0].id)] = trp_cnt[(shmn1[1], shmn1[2], shmn2[2])]
     res_sh_mn = []
     for elem in sh_monomers:
         res_sh_mn.append(elem[0])
@@ -122,11 +128,13 @@ def is_same(mn1, mn2, mxDiv):
 
 
 def delete_same_mn(shifted_mn, sft_db_cnt, cnt_mn):
+    log.log("Start delete same monomers")
     mxDiv = 5
     delete = [0] * len(shifted_mn)
     for i in range(len(shifted_mn)):
+        print(i, delete)
         mn1 = shifted_mn[i]
-        for j in range(len(shifted_mn)):
+        for j in range(i + 1, len(shifted_mn)):
             if delete[i] == 1 or delete[j] == 1:
                 continue
 
@@ -163,6 +171,8 @@ def delete_same_mn(shifted_mn, sft_db_cnt, cnt_mn):
 def calc_mn_order_stat(args):
     db_cnt = {}
     trp_cnt = {}
+    RC_cnt = 0
+    FR_cnt = 0
     with open(args.finalDec, "r") as f:
         csv_reader = csv.reader(f, delimiter='\t')
         pprev_row = []
@@ -179,8 +189,13 @@ def calc_mn_order_stat(args):
                 mon = row[1]
                 if mon[-1] == "'":
                     mon = mon[:-1]
+                    RC_cnt += 1
+                else:
+                    FR_cnt += 1
 
                 if row[-1] != '?' and prev_row[-1] != '?':
+                    if (pmon, mon) not in db_cnt:
+                        db_cnt[(pmon, mon)] = 0
                     db_cnt[(pmon, mon)] += 1
                     if pprev_row != []:
                         ppmon = pprev_row[1]
@@ -188,10 +203,15 @@ def calc_mn_order_stat(args):
                             ppmon = ppmon[:-1]
                         ppiden = float(pprev_row[4])
                         if pprev_row[-1] != '?':
+                            if (ppmon, pmon, mon) not in trp_cnt:
+                                trp_cnt[(ppmon, pmon, mon)] = 0
                             trp_cnt[(ppmon, pmon, mon)] += 1
 
             pprev_row = prev_row
             prev_row = row
+    if RC_cnt > FR_cnt:
+        global is_RC_alignment
+        is_RC_alignment = True
     return db_cnt, trp_cnt
 
 
@@ -205,7 +225,7 @@ def save_init_graph(args, db_cnt, monomers_list, outfile):
         curm = monomers_list[i].id
         for j in range(len(monomers_list)):
             m2 = monomers_list[j].id
-            if db_cnt[(curm, m2)] > 0:
+            if (curm, m2) in db_cnt and db_cnt[(curm, m2)] > 0:
                 dotst += curm + " -> " + m2 + " [label=\"" + str(db_cnt[(curm, m2)]) + "\"];\n"
 
     dotst += "}\n"
