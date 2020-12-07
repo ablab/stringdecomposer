@@ -285,8 +285,10 @@ private:
                     break;
                 }
             }
-            res.push_back(batch[i]);
-            ++ i;
+            if (i < batch.size()) {
+                res.push_back(batch[i]);
+                ++i;
+            }
         }
         return res;
     }
