@@ -63,6 +63,7 @@ def parse_args():
     parser.add_argument('--monomers', '-mn', dest="monomers",
                         help='path to fasta file with initial monomers')
     parser.add_argument('--shift', dest="shift", type=int, help='shift for monomers (Monomer << shift)')
+    parser.add_argument("--RC", dest="RC", action='store_true')
     parser.add_argument('--outdir', '-o', dest="outdir", help="path to output directory")
     return parser.parse_args()
 
@@ -78,19 +79,41 @@ def get_edge_list(args):
             edge_list.append((v1, v2, wg))
     return edge_list
 
+def rc(seq):
+    res_seq = ""
+    for i in range(len(seq)):
+        pos = len(seq) - i - 1
+        if seq[pos] == 'A':
+            res_seq += "T"
+        elif seq[pos] == 'T':
+            res_seq += "A"
+        elif seq[pos] == 'C':
+            res_seq += "G"
+        elif seq[pos] == "G":
+            res_seq += "C"
+        else:
+            res_seq += seq[pos]
+    return res_seq
 
-def get_one_shifted_monomer(mn1, mn2, shift):
+
+def get_one_shifted_monomer(mn1, mn2, shift, args):
     global is_RC_alignment
     edge_name = "edge_" + mn1.id.split('_')[-1] + "_" + mn2.id.split('_')[-1]
-    nseq = str(mn1.seq)[shift:] + str(mn2.seq)[:shift]
-    if is_RC_alignment:
-        nseq = str(mn2.seq)[shift:] + str(mn1.seq)[:shift]
+    seq1 = mn1.seq
+    seq2 = mn2.seq
+    if (args.RC):
+        seq1 = rc(str(mn1.seq))
+        seq2 = rc(str(mn2.seq))
+
+    nseq = str(seq1)[shift:] + str(seq2)[:shift]
+    if is_RC_alignment != args.RC:
+        nseq = str(seq2)[shift:] + str(seq1)[:shift]
 
     mn_record = SeqRecord(Seq(nseq), id=edge_name, description="")
     return mn_record
 
 
-def generate_shifted_monomers(monomers_list, shift, db_cnt, trp_cnt):
+def generate_shifted_monomers(monomers_list, shift, db_cnt, trp_cnt, args):
     log.log("Start generate shifted monomers")
     sft_db_cnt = {}
     sh_monomers = []
@@ -99,7 +122,7 @@ def generate_shifted_monomers(monomers_list, shift, db_cnt, trp_cnt):
         if edge in db_cnt and db_cnt[edge] > 0:
             mn1 = get_record_by_id(edge[0], monomers_list)
             mn2 = get_record_by_id(edge[1], monomers_list)
-            sh_monomers.append((get_one_shifted_monomer(mn1, mn2, shift), edge[0], edge[1]))
+            sh_monomers.append((get_one_shifted_monomer(mn1, mn2, shift, args), edge[0], edge[1]))
             cnt_mn[sh_monomers[-1][0].id] = db_cnt[edge]
 
     for shmn1 in sh_monomers:
@@ -248,7 +271,7 @@ def main():
     monomers_list = init_monomers(args.monomers)
     db_cnt, trp_cnt = calc_mn_order_stat(args)
     save_init_graph(args, db_cnt, monomers_list, "init_monomer_graph.dot")
-    shifted_mn, sft_db_cnt, cnt_mn = generate_shifted_monomers(monomers_list, args.shift, db_cnt, trp_cnt)
+    shifted_mn, sft_db_cnt, cnt_mn = generate_shifted_monomers(monomers_list, args.shift, db_cnt, trp_cnt, args)
     shifted_mn, sft_db_cnt = delete_same_mn(shifted_mn, sft_db_cnt, cnt_mn)
     save_init_graph(args, sft_db_cnt, shifted_mn, "final_monomer_graph.dot")
     save_mn(args, shifted_mn)

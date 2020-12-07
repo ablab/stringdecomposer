@@ -95,15 +95,20 @@ def main():
             line_id = 0
             for line in reader:
                 if line_id == 0:
-                    writer.writerow(line + ["Dist to original monomers"])
+                    writer.writerow(line + ["Dist to original monomers", "Dist to previously generated monomer", "Length"])
                 else:
                     nxt_folder_mono = os.path.join(args.MGdir, "iter_"  + str(line_id), "monomers.fa")
                     if (os.path.isfile(nxt_folder_mono)):
                         last_monomer = load_last_fasta(nxt_folder_mono)
+                        nxt_folder_mono = os.path.join(args.MGdir, "iter_" + str(line_id - 1), "monomers.fa")
+                        nw_monomers = load_fasta(nxt_folder_mono, "map")
+                        print(nw_monomers)
                         mdist = get_min_dist(last_monomer, origin_monomers)
-                        writer.writerow(line + [str(mdist)])
+                        #del nw_monomers[last_monomer.id]
+                        mgdist = get_min_dist(last_monomer, nw_monomers)
+                        writer.writerow(line + [str(mdist), str(mgdist), str(len(last_monomer.seq))])
                     else:
-                        writer.writerow(line + ["-"])
+                        writer.writerow(line + ["-", "-", "-"])
                 line_id += 1
 
 if __name__ == "__main__":
