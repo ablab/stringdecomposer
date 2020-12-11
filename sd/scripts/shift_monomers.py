@@ -99,7 +99,7 @@ def rc(seq):
 
 def get_one_shifted_monomer(mn1, mn2, shift, args):
     global is_RC_alignment
-    edge_name = "edge_" + mn1.id.split('_')[-1] + "_" + mn2.id.split('_')[-1]
+    edge_name = "mn_" + mn1.id.split('_')[-1] + "-" + mn2.id.split('_')[-1]
     seq1 = mn1.seq
     seq2 = mn2.seq
     if (args.RC):
@@ -266,6 +266,55 @@ def save_mn(args, shifted_mn):
             SeqIO.write(record, fa, "fasta")
 
 
+def get_hybrid_len(main_mn, mn1, mn2):
+    resDiv = 5
+    for prfx in range(len(mn1.seq)):
+        suffix = len(str(main_mn.seq)) - prfx
+        hbr = str(mn1.seq)[:prfx] + str(mn2.seq)[len(mn2.seq) - suffix:]
+        if (seq_identity(hbr, str(main_mn.seq)) * 2 <= resDiv):
+            return (prfx, suffix)
+    return 0, 0
+
+
+def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
+    for i in range(len(monomers_list)):
+        log.log("hybrid detection for monomer#" + str(i) + " out of " + str(len(monomers_list)))
+        bst_hyber_cnt = 0
+        bst_hyber = (0, 0)
+
+        for j in range(len(monomers_list)):
+            for g in range(len(monomers_list)):
+                if i == j or j == g or i == g:
+                    continue
+                if cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id] <= bst_hyber_cnt:
+                    continue
+
+                if cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id] <= cnt_mn[monomers_list[i].id]:
+                    continue
+
+                if (get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g])[0] != 0):
+                    bst_hyber_cnt = cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id]
+                    bst_hyber = (j, g)
+
+        if bst_hyber_cnt > 0:
+            cnt1, cnt2 = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
+            mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
+            mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
+
+            old_name = monomers_list[i].id
+            #monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
+            monomers_list[i].id += "_hybrid_" + mn1 + "_" + mn2
+            cnt_mn[monomers_list[i].id] = cnt_mn[old_name]
+            kkeys_list = list(sft_db_cnt.keys())
+            for key in kkeys_list:
+                if key[0] == old_name:
+                    sft_db_cnt[(monomers_list[i].id, key[1])] = sft_db_cnt[key]
+                if key[1] == old_name:
+                    sft_db_cnt[(key[0], monomers_list[i].id)] = sft_db_cnt[key]
+
+    return monomers_list, sft_db_cnt
+
+
 def main():
     log.log("Start Shift Monomers")
     args = parse_args()
@@ -274,6 +323,7 @@ def main():
     save_init_graph(args, db_cnt, monomers_list, "init_monomer_graph.dot")
     shifted_mn, sft_db_cnt, cnt_mn = generate_shifted_monomers(monomers_list, args.shift, db_cnt, trp_cnt, args)
     shifted_mn, sft_db_cnt = delete_same_mn(shifted_mn, sft_db_cnt, cnt_mn)
+    shifted_mn, sft_db_cnt = detect_hybrid_mn(shifted_mn, sft_db_cnt, cnt_mn)
     save_init_graph(args, sft_db_cnt, shifted_mn, "final_monomer_graph.dot")
     save_mn(args, shifted_mn)
 

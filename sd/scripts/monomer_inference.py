@@ -385,8 +385,64 @@ def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_
         monomers_list[i] = update_monomer(args, monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
 
 
+def get_hybrid_len(main_mn, mn1, mn2, args):
+    for prfx in range(len(mn1.seq)):
+        suffix = len(str(main_mn.seq)) - prfx
+        hbr = str(mn1.seq)[:prfx] + str(mn2.seq)[len(mn2.seq) - suffix:]
+        if (seq_identity(hbr, str(main_mn.seq)) * 2 <= args.resDiv):
+            return (prfx, suffix)
+    return 0, 0
+
+
+def detect_hybrid(monomers_list, res_tsv, args):
+    resolved_cnt = {}
+
+    with open(res_tsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        for row in csv_reader:
+            if row[2] == "start":
+                continue
+            identity = float(row[4])
+            if row[-1] == '?':
+                continue
+
+            # print("Identity: ", identity)
+            if identity >= 100 - args.resDiv:
+                if row[1][-1] == "'":
+                    row[1] = row[1][:-1]
+                    continue
+                if row[1] not in resolved_cnt:
+                    resolved_cnt[row[1]] = 0
+                resolved_cnt[row[1]] += 1
+
+    print(resolved_cnt)
+
+    for i in range(len(monomers_list)):
+        log.log("hybrid detection for monomer#" + str(i) + " out of " + str(len(monomers_list)))
+        bst_hyber_cnt = 0
+        bst_hyber = (0, 0)
+
+        for j in range(len(monomers_list)):
+            for g in range(len(monomers_list)):
+                if i == j or j == g or i == g:
+                    continue
+                if (get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g], args)[0] != 0):
+                    if resolved_cnt[monomers_list[j].id] + resolved_cnt[monomers_list[g].id] > bst_hyber_cnt:
+                        bst_hyber_cnt = resolved_cnt[monomers_list[j].id] + resolved_cnt[monomers_list[g].id]
+                        bst_hyber = (j, g)
+
+        if bst_hyber_cnt > 0:
+            cnt1, cnt2 = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]], args)
+            mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
+            mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
+
+            monomers_list[i].id += "_hybrid_" + mn1 + "(" + cnt1 + ")_" + mn2 + "(" + cnt2 + ")"
+    return monomers_list
+
+
 def final_iteration(args, sd_script_path, monomers_list):
     log.log("====== Start final iteration======")
+
     iter_outdir = os.path.join(args.outdir, "final")
     if not os.path.exists(iter_outdir):
         os.makedirs(iter_outdir)
@@ -399,59 +455,15 @@ def final_iteration(args, sd_script_path, monomers_list):
     sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
     log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
-    G = {}
-    gw = {}
-    for i in range(len(monomers_list)):
-        G[monomers_list[i].id] = []
-        for j in range(len(monomers_list)):
-            gw[(monomers_list[i].id, monomers_list[j].id)] = 0
-
     # parse output csv file
     res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
 
-    with open(res_tsv, "r") as f:
-        csv_reader = csv.reader(f, delimiter='\t')
-        prev_row = []
-        for row in csv_reader:
-            if row[2] == "start":
-                continue
-            if prev_row != []:
-                pident = float(prev_row[4])
-                pmon = prev_row[1]
-                if pmon[-1] == "'":
-                    pmon = pmon[:-1]
-                identity = float(row[4])
-                mon = row[1]
-                if mon[-1] == "'":
-                    mon = mon[:-1]
+    log.log("Start detect hybrids")
+    monomers_list = detect_hybrid(monomers_list, res_tsv, args)
 
-                if identity >= 100 - args.resDiv and pident >= 100 - args.resDiv:
-                    gw[(pmon, mon)] += 1
-            prev_row = row
-
-    dotst = "digraph MonomerGraph {\n"
-
-    for i in range(len(monomers_list)):
-        dotst += monomers_list[i].id + ";\n"
-        G[monomers_list[i].id] = []
-        for j in range(len(monomers_list)):
-            if gw[(monomers_list[i].id, monomers_list[j].id)] > 0:
-                G[monomers_list[i].id].append((monomers_list[j].id, gw[(monomers_list[i].id, monomers_list[j].id)]))
-
-    simple_gr = os.path.join(iter_outdir, "monomer_gr")
-    with open(simple_gr, "w") as fw:
-        for i in range(len(monomers_list)):
-            curm = monomers_list[i].id
-            for edg in G[curm]:
-                fw.write(curm + " " + edg[0] + " "  + str(edg[1]) + "\n")
-                dotst += curm + " -> " + edg[0] + " [label=\"" + str(edg[1]) + "\"];\n"
-
-    dotst += "}\n"
-
-    dotpath = os.path.join(iter_outdir, "monomer_graph.dot")
-    with open(dotpath, "w") as fw:
-        fw.write(dotst)
-
+    with open(args.monomers, "w") as fa:
+        for record in monomers_list:
+            SeqIO.write(record, fa, "fasta")
 
 def main():
     log.log("Start Monomer Inference")
@@ -475,7 +487,7 @@ def main():
 
     monomers_list = init_monomers(args.monomers)
 
-    monomer_set_complete = False
+    monomer_set_complete = True#False
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
