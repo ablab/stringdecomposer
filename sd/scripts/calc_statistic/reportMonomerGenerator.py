@@ -12,6 +12,18 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 
+class MonomericBlock(object):
+    read_name = ""
+    lft = 0
+    rgh = 0
+    seq = ""
+
+    def __init__(self, read_name="", lft=0, rgh=0, seq=""):
+        self.read_name = read_name
+        self.lft = lft
+        self.rgh = rgh
+        self.seq = seq
+
 
 def load_fasta(filename, tp = "list"):
     if tp == "map":
@@ -38,7 +50,7 @@ def get_min_dist(last_monomer, origin_monomers):
         a = str(origin_monomers[omon].seq)
         b = str(last_monomer.seq)
         result = edlib.align(a, b, mode="NW", task="locations")
-        dist = result["editDistance"] * 100 / max(len(a), len(b))
+        dist = result["editDistance"]# * 100 / max(len(a), len(b))
         res_dist = min(res_dist, dist)
 
     return res_dist
@@ -67,6 +79,80 @@ def rc(seq):
             res_seq += seq[pos]
     return res_seq
 
+
+def set_blocks_seq(sequences, blocks):
+    records = load_fasta(sequences, tp="map")
+    for i in range(len(blocks)):
+        blocks[i].seq = records[blocks[i].read_name][blocks[i].lft:blocks[i].rgh + 1]
+
+
+def getMonomerBlocks(mnid, res_tsv, sequences):
+    resDiv = 5
+    monomer_resolved = []
+
+    with open(res_tsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        for row in csv_reader:
+            if row[2] == "start":
+                continue
+            identity = float(row[4])
+            if row[-1] == '?':
+                continue
+
+            #print("Identity: ", identity)
+            #if identity >= 100 - resDiv:
+            if row[1][-1] == "'":
+                row[1] = row[1][:-1]
+                continue
+
+            if (row[1] == mnid):
+                monomer_resolved.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
+
+    set_blocks_seq(sequences, monomer_resolved)
+    return monomer_resolved
+
+
+def get_radius(last_monomer, monomers_blocks):
+    dists_vector = []
+    max_dist = 0
+    for mnblock in monomers_blocks:
+        a = str(mnblock.seq.seq)
+        b = str(last_monomer.seq)
+        result = edlib.align(a, b, mode="NW", task="locations")
+        dists_vector.append(result["editDistance"])
+        max_dist = max(max_dist, result["editDistance"])
+    print("Monomers cnt:", len(monomers_blocks))
+    dists_vector.sort()
+    print("Dists sorted:", dists_vector)
+    return  max_dist
+
+
+def calc_radius(last_monomer, final_dec_path, seq):
+    monomers_blocks = getMonomerBlocks(last_monomer.id,
+                                       final_dec_path,
+                                       seq)
+    return get_radius(last_monomer, monomers_blocks)
+
+
+def resolved_cnt(monomer, final_dec_path, sequences):
+    return len(getMonomerBlocks(monomer, final_dec_path, sequences))
+
+
+def cal_separation(monomer, reported_monomers, final_dec_path, sequences):
+    res_dist = 100
+    for omon in reported_monomers:
+        if reported_monomers[omon].id == monomer.id:
+            continue
+        if resolved_cnt(reported_monomers[omon].id, final_dec_path, sequences) < 500:
+            continue
+
+        a = str(reported_monomers[omon].seq)
+        b = str(monomer.seq)
+        result = edlib.align(a, b, mode="NW", task="locations")
+        dist = result["editDistance"]# * 100 / max(len(a), len(b))
+        res_dist = min(res_dist, dist)
+    return res_dist
+
 def main():
     args = parse_args()
     origin_monomers = load_fasta(args.monomers, "map")
@@ -74,17 +160,23 @@ def main():
     cmpMonomers = os.path.join(args.MGdir, "cmpReportedAndOriginMonomers.csv")
     with open(cmpMonomers, "w") as fw:
         writer = csv.writer(fw)
-        writer.writerow(['OriginMonomerName', 'ReportedMonomerName', 'Distance', 'Alignment'])
-        for omon in origin_monomers:
-            for emon in reported_monomers:
-                a = rc(str(origin_monomers[omon].seq))
-                b = rc(str(reported_monomers[emon].seq))
+        writer.writerow(['OriginMonomerName', 'ReportedMonomerName', 'Distance', 'Radius', 'Separation', 'Alignment'])
+        for emon in reported_monomers:
+            radius = calc_radius(reported_monomers[emon],
+                                 os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
+                                 os.path.join(args.MGdir, "sequence.fa"))
+            separation = cal_separation(reported_monomers[emon], reported_monomers, os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
+                                 os.path.join(args.MGdir, "sequence.fa"))
+
+            for omon in origin_monomers:
+                a = str(origin_monomers[omon].seq)
+                b = str(reported_monomers[emon].seq)
                 result = edlib.align(a, b, mode="NW", task="locations")
                 dist = result["editDistance"] * 100 / max(len(a), len(b))
 
                 result = edlib.align(a, b, mode="NW", task="path")
                 nice = edlib.getNiceAlignment(result, a, b)
-                writer.writerow([omon, emon, str(dist), "\n".join(nice.values())])
+                writer.writerow([omon, emon, str(dist), str(radius), str(separation), "\n".join(nice.values())])
 
     summary_path = os.path.join(args.MGdir, "summary.csv")
     summary_upgrade = os.path.join(args.MGdir, "summary_upgrade.csv")

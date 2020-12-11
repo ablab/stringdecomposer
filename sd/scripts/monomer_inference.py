@@ -567,7 +567,7 @@ def main():
             dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
             log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
 
-            new_monomer_record = SeqRecord(Seq(new_monomer), id="new_monomer_" + str(iter_id), description="")
+            new_monomer_record = SeqRecord(Seq(new_monomer), id="mn_" + str(iter_id), description="")
             monomers_list.append(new_monomer_record)
 
         with open(args.monomers, "w") as fa:

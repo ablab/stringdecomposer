@@ -79,6 +79,7 @@ def get_edge_list(args):
             edge_list.append((v1, v2, wg))
     return edge_list
 
+
 def rc(seq):
     res_seq = ""
     for i in range(len(seq)):
@@ -147,7 +148,7 @@ def seq_identity(a, b):
 
 
 def is_same(mn1, mn2, mxDiv):
-    return seq_identity(str(mn1.seq), str(mn2.seq)) < mxDiv
+    return seq_identity(str(mn1.seq), str(mn2.seq)) < mxDiv/2
 
 
 def delete_same_mn(shifted_mn, sft_db_cnt, cnt_mn):
