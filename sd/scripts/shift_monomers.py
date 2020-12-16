@@ -12,6 +12,9 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 
+FreqCeiling = 40
+TotalMonomerBlocks = 0
+
 #Log class, use it, not print
 class Log:
     text = ""
@@ -193,6 +196,8 @@ def delete_same_mn(shifted_mn, sft_db_cnt, cnt_mn):
 
 
 def calc_mn_order_stat(args):
+    global TotalMonomerBlocks
+
     db_cnt = {}
     trp_cnt = {}
     RC_cnt = 0
@@ -216,6 +221,9 @@ def calc_mn_order_stat(args):
                     RC_cnt += 1
                 else:
                     FR_cnt += 1
+
+                if row[-1] != '?':
+                    TotalMonomerBlocks += 1
 
                 if row[-1] != '?' and prev_row[-1] != '?':
                     if (pmon, mon) not in db_cnt:
@@ -243,14 +251,15 @@ def save_init_graph(args, db_cnt, monomers_list, outfile):
     dotst = "digraph MonomerGraph {\n"
 
     for i in range(len(monomers_list)):
-        dotst += monomers_list[i].id + ";\n"
+        dotst += "\"" + monomers_list[i].id + "\";\n"
 
     for i in range(len(monomers_list)):
         curm = monomers_list[i].id
         for j in range(len(monomers_list)):
             m2 = monomers_list[j].id
             if (curm, m2) in db_cnt and db_cnt[(curm, m2)] > 0:
-                dotst += curm + " -> " + m2 + " [label=\"" + str(db_cnt[(curm, m2)]) + "\"];\n"
+                dotst += "\"" + curm + "\" -> \"" + m2 + "\" [label=\"" + str(db_cnt[(curm, m2)]) + "\"];\n"
+
 
     dotst += "}\n"
 
@@ -277,6 +286,9 @@ def get_hybrid_len(main_mn, mn1, mn2):
 
 
 def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
+    global TotalMonomerBlocks
+    global FreqCeiling
+
     for i in range(len(monomers_list)):
         log.log("hybrid detection for monomer#" + str(i) + " out of " + str(len(monomers_list)))
         bst_hyber_cnt = 0
@@ -286,10 +298,14 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
             for g in range(len(monomers_list)):
                 if i == j or j == g or i == g:
                     continue
-                if cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id] <= bst_hyber_cnt:
+
+                if cnt_mn[monomers_list[j].id] < TotalMonomerBlocks/FreqCeiling:
                     continue
 
-                if cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id] <= cnt_mn[monomers_list[i].id]:
+                if cnt_mn[monomers_list[g].id] < TotalMonomerBlocks/FreqCeiling:
+                    continue
+
+                if cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id] <= bst_hyber_cnt:
                     continue
 
                 if (get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g])[0] != 0):
@@ -302,8 +318,8 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
 
             old_name = monomers_list[i].id
-            #monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
-            monomers_list[i].id += "_hybrid_" + mn1 + "_" + mn2
+            monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
+            #monomers_list[i].id += "_hybrid_" + mn1 + "_" + mn2
             cnt_mn[monomers_list[i].id] = cnt_mn[old_name]
             kkeys_list = list(sft_db_cnt.keys())
             for key in kkeys_list:
