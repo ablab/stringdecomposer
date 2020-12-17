@@ -277,12 +277,20 @@ def save_mn(args, shifted_mn):
 
 def get_hybrid_len(main_mn, mn1, mn2):
     resDiv = 5
+    mn_identity = 100
+    bst_res = (0, 0)
     for prfx in range(len(mn1.seq)):
         suffix = len(str(main_mn.seq)) - prfx
         hbr = str(mn1.seq)[:prfx] + str(mn2.seq)[len(mn2.seq) - suffix:]
-        if (seq_identity(hbr, str(main_mn.seq)) * 2 <= resDiv):
-            return (prfx, suffix)
-    return 0, 0
+        cur_identity = seq_identity(hbr, str(main_mn.seq))
+        if mn_identity > cur_identity:
+            mn_identity = cur_identity
+            bst_res =  (prfx, suffix)
+
+    print(mn_identity)
+    if (mn_identity * 2 <= resDiv):
+        return (bst_res[0], bst_res[1], mn_identity)
+    return (0, 0, 100)
 
 
 def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
@@ -291,13 +299,15 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
 
     for i in range(len(monomers_list)):
         log.log("hybrid detection for monomer#" + str(i) + " out of " + str(len(monomers_list)))
-        bst_hyber_cnt = 0
+        bst_hyber_score = 100
         bst_hyber = (0, 0)
 
         for j in range(len(monomers_list)):
             for g in range(len(monomers_list)):
-                if i == j or j == g or i == g:
+                if i == j or i == g:
                     continue
+
+                print(monomers_list[i].id, monomers_list[j].id, monomers_list[g].id)
 
                 if cnt_mn[monomers_list[j].id] < TotalMonomerBlocks/FreqCeiling:
                     continue
@@ -305,20 +315,23 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
                 if cnt_mn[monomers_list[g].id] < TotalMonomerBlocks/FreqCeiling:
                     continue
 
-                if cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id] <= bst_hyber_cnt:
-                    continue
-
-                if (get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g])[0] != 0):
-                    bst_hyber_cnt = cnt_mn[monomers_list[j].id] + cnt_mn[monomers_list[g].id]
+                hybrid_res = get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g])
+                print(hybrid_res)
+                if (hybrid_res[0] != 0 and hybrid_res[2] < bst_hyber_score):
+                    bst_hyber_score = hybrid_res[2]
                     bst_hyber = (j, g)
 
-        if bst_hyber_cnt > 0:
-            cnt1, cnt2 = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
+        if bst_hyber[0] > 0:
+            cnt1, cnt2, scr = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
             mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
 
             old_name = monomers_list[i].id
-            monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
+            if (mn1 != mn2):
+                monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
+            else:
+                monomers_list[i].id += "_variant_" + mn1
+
             #monomers_list[i].id += "_hybrid_" + mn1 + "_" + mn2
             cnt_mn[monomers_list[i].id] = cnt_mn[old_name]
             kkeys_list = list(sft_db_cnt.keys())

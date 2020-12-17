@@ -43,6 +43,8 @@ class Log:
 
 log = Log()
 
+FreqCeiling = 40
+TotalMonomerBlocks = 0
 
 def process_readline(line, is_python3=sys.version.startswith("3.")):
     if is_python3:
@@ -129,6 +131,11 @@ def set_blocks_seq(sequences, blocks):
         #print(records[blocks[i].read_name][2:6])
         blocks[i].seq = records[blocks[i].read_name][blocks[i].lft:blocks[i].rgh + 1]
         #print("Set seq: " + blocks[i].seq)
+
+
+def get_distance(a, b):
+    result = edlib.align(a, b, mode="NW", task="locations")
+    return result["editDistance"]
 
 
 def seq_identity(a, b):
@@ -227,8 +234,8 @@ def get_rc(seq):
 def get_dist_to_exists_monomers(monomers_list, new_monomer):
     mdist = 100
     for i in range(len(monomers_list)):
-        mdist = min(mdist, seq_identity(str(monomers_list[i].seq), new_monomer))
-        mdist = min(mdist, seq_identity(get_rc(str(monomers_list[i].seq)), new_monomer))
+        mdist = min(mdist, get_distance(str(monomers_list[i].seq), new_monomer))
+        mdist = min(mdist, get_distance(get_rc(str(monomers_list[i].seq)), new_monomer))
     return mdist
 
 
@@ -252,7 +259,7 @@ def init_first_run(args):
     summary_fw = open(summary_path, "w")
     summary_writer = csv.writer(summary_fw)
     summary_writer.writerow(["IterationId", "Number of resolved blocks", "Number of unresolved blocks", "Number of non-monomeric blocks",
-                              "Size of the largest cluster", "Number of deleted monomers at this iteration"])
+                              "Size of the largest cluster", "Number of deleted monomers at this iteration", "Radius", "Separation"])
     iter_id = 0
     return iter_id, summary_fw, summary_writer
 
@@ -378,6 +385,13 @@ def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir):
     return monomer_record
 
 
+def get_radius(new_monomer, max_cluster):
+    mx_dist = 0
+    for seq in max_cluster:
+        mx_dist = max(mx_dist, get_distance(str(new_monomer), str(seq.seq.seq)))
+    return mx_dist
+
+
 def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_outdir):
     for i in range(lft, rgh):
         log.log("==== Update monomer " + str(monomers_list[i].id))
@@ -386,16 +400,25 @@ def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_
 
 
 def get_hybrid_len(main_mn, mn1, mn2, args):
+    mn_identity = 100
+    bst_res = (0, 0)
     for prfx in range(len(mn1.seq)):
         suffix = len(str(main_mn.seq)) - prfx
         hbr = str(mn1.seq)[:prfx] + str(mn2.seq)[len(mn2.seq) - suffix:]
-        if (seq_identity(hbr, str(main_mn.seq)) * 2 <= args.resDiv):
-            return (prfx, suffix)
-    return 0, 0
+        cur_identity = seq_identity(hbr, str(main_mn.seq))
+        if mn_identity > cur_identity:
+            mn_identity = cur_identity
+            bst_res =  (prfx, suffix)
+    if (mn_identity * 2 <= args.resDiv):
+        return (bst_res[0], bst_res[1], mn_identity)
+    return (0, 0, 100)
 
+def detect_hybrid_mn(monomers_list, res_tsv, args):
+    global TotalMonomerBlocks
+    global FreqCeiling
 
-def detect_hybrid(monomers_list, res_tsv, args):
-    resolved_cnt = {}
+    cnt_mn = {}
+    TotalMonomerBlocks = 0
 
     with open(res_tsv, "r") as f:
         csv_reader = csv.reader(f, delimiter='\t')
@@ -405,38 +428,52 @@ def detect_hybrid(monomers_list, res_tsv, args):
             identity = float(row[4])
             if row[-1] == '?':
                 continue
-
+            TotalMonomerBlocks += 1
             # print("Identity: ", identity)
             if identity >= 100 - args.resDiv:
                 if row[1][-1] == "'":
                     row[1] = row[1][:-1]
-                    continue
-                if row[1] not in resolved_cnt:
-                    resolved_cnt[row[1]] = 0
-                resolved_cnt[row[1]] += 1
 
-    print(resolved_cnt)
+                if row[1] not in cnt_mn:
+                    cnt_mn[row[1]] = 0
+                cnt_mn[row[1]] += 1
 
     for i in range(len(monomers_list)):
         log.log("hybrid detection for monomer#" + str(i) + " out of " + str(len(monomers_list)))
-        bst_hyber_cnt = 0
+        bst_hyber_score = 100
         bst_hyber = (0, 0)
 
         for j in range(len(monomers_list)):
             for g in range(len(monomers_list)):
-                if i == j or j == g or i == g:
+                if i == j or i == g:
                     continue
-                if (get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g], args)[0] != 0):
-                    if resolved_cnt[monomers_list[j].id] + resolved_cnt[monomers_list[g].id] > bst_hyber_cnt:
-                        bst_hyber_cnt = resolved_cnt[monomers_list[j].id] + resolved_cnt[monomers_list[g].id]
-                        bst_hyber = (j, g)
 
-        if bst_hyber_cnt > 0:
-            cnt1, cnt2 = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]], args)
+                if cnt_mn[monomers_list[j].id] < TotalMonomerBlocks/FreqCeiling:
+                    continue
+
+                if cnt_mn[monomers_list[g].id] < TotalMonomerBlocks/FreqCeiling:
+                    continue
+
+                hybrid_res = get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g], args)
+                if (hybrid_res[0] != 0 and hybrid_res[2] < bst_hyber_score):
+                    bst_hyber_score = hybrid_res[2]
+                    bst_hyber = (j, g)
+
+        if bst_hyber[0] > 0:
+            cnt1, cnt2, scr = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
             mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
 
-            monomers_list[i].id += "_hybrid_" + mn1 + "(" + cnt1 + ")_" + mn2 + "(" + cnt2 + ")"
+            old_name = monomers_list[i].id
+            if (mn1 != mn2):
+                monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
+            else:
+                monomers_list[i].id += "_variant_" + mn1
+
+            #monomers_list[i].id += "_hybrid_" + mn1 + "_" + mn2
+            cnt_mn[monomers_list[i].id] = cnt_mn[old_name]
+
+
     return monomers_list
 
 
@@ -459,7 +496,7 @@ def final_iteration(args, sd_script_path, monomers_list):
     res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
 
     log.log("Start detect hybrids")
-    monomers_list = detect_hybrid(monomers_list, res_tsv, args)
+    monomers_list = detect_hybrid_mn(monomers_list, res_tsv, args)
 
     with open(args.monomers, "w") as fa:
         for record in monomers_list:
@@ -487,7 +524,7 @@ def main():
 
     monomers_list = init_monomers(args.monomers)
 
-    monomer_set_complete = True#False
+    monomer_set_complete = False
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
@@ -507,6 +544,8 @@ def main():
         unresolved_blocks = []
         non_monomeric_cnt = 0
         resolved_cnt = 0
+        dist_to_monomers = 0
+        radius = 0
 
         monomer_resolved = {}
         for i in range(len(monomers_list)):
@@ -573,6 +612,8 @@ def main():
             save_seqs(max_cluster, cluster_seqs_path)
 
             new_monomer = get_consensus_seq(cluster_seqs_path, max_cluster)
+            radius = get_radius(new_monomer, max_cluster)
+
             if reverse_monomer(args):
                 new_monomer = rc(new_monomer)
 
@@ -586,7 +627,7 @@ def main():
             for record in monomers_list:
                 SeqIO.write(record, fa, "fasta")
 
-        summary_writer.writerow([str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt), str(len(max_cluster)), str(deleted_cnt)])
+        summary_writer.writerow([str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt), str(len(max_cluster)), str(deleted_cnt), str(radius), str(dist_to_monomers)])
         iter_id += 1
 
     final_iteration(args, sd_script_path, monomers_list)
