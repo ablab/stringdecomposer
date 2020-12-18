@@ -460,7 +460,7 @@ def detect_hybrid_mn(monomers_list, res_tsv, args):
                     bst_hyber = (j, g)
 
         if bst_hyber[0] > 0:
-            cnt1, cnt2, scr = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
+            cnt1, cnt2, scr = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]], args)
             mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
 
