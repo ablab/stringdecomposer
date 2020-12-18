@@ -14,7 +14,7 @@ def parse_args():
     return parser.parse_args()
 
 def main():
-    cen_start = 57800000
+    cen_start = 44243541
     args = parse_args()
 
     #Contig, Start, End, Name, Score, Starnd, Length, Gap

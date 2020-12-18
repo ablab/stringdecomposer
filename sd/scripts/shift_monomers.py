@@ -321,7 +321,7 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
                     bst_hyber_score = hybrid_res[2]
                     bst_hyber = (j, g)
 
-        if bst_hyber[0] > 0:
+        if bst_hyber_score < 100:
             cnt1, cnt2, scr = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
             mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
