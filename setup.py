@@ -22,6 +22,17 @@ if script_dir != os.getcwd():
     os.chdir(script_dir)
 
 
+requirements_fn = os.path.join(script_dir, 'requirements.txt')
+requirements = []
+with open(requirements_fn) as f:
+    for line in f:
+        line = line.strip()
+        if line == 'python-edlib':
+            requirements.append('edlib')
+        else:
+            requirements.append(line)
+
+
 description = \
     """
 StringDecomposer (SD) algorithm takes the set of monomers
@@ -51,8 +62,7 @@ setup(
     author='Tatiana Dvorkina',
     author_email='tanunia@gmail.com',
     license='BSD-3-Clause',
-    install_requires=['biopython', 'edlib', 'joblib', 'numpy', 'pandas',
-                      'setuptools'],
+    install_requires=requirements,
     packages=['sd'],
     package_dir={'sd': 'sd'},
     package_data={'sd': ['**/*']},
