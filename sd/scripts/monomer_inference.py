@@ -502,6 +502,68 @@ def final_iteration(args, sd_script_path, monomers_list):
         for record in monomers_list:
             SeqIO.write(record, fa, "fasta")
 
+
+def get_unresolved_blocks(res_tsv, monomers_list, args):
+    unresolved_blocks = []
+    non_monomeric_cnt = 0
+    resolved_cnt = 0
+    monomer_resolved = {}
+
+    for i in range(len(monomers_list)):
+        monomer_resolved[monomers_list[i].id] = []
+
+    with open(res_tsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        for row in csv_reader:
+            if row[2] == "start":
+                continue
+            identity = float(row[4])
+            if identity >= 100 - args.resDiv:
+                resolved_cnt += 1
+                if row[1][-1] == "'":
+                    row[1] = row[1][:-1]
+                monomer_resolved[row[1]].append(MonomericBlock(row[0], int(row[2]), int(row[3])))
+
+            if identity <= 100 - args.maxDiv:
+                non_monomeric_cnt += 1
+
+            if (identity > 100 - args.maxDiv) and (identity < 100 - args.resDiv):
+                unresolved_blocks.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
+
+    return unresolved_blocks, monomer_resolved, non_monomeric_cnt, resolved_cnt
+
+
+def delete_unused_monomers(monomers_list, monomer_resolved):
+    deleted_cnt = 0
+    i = 0
+    while (i < len(monomers_list)):
+        if len(monomer_resolved[monomers_list[i].id]) == 0:
+            deleted_cnt += 1
+            if (i + 1 < len(monomers_list)):
+                monomers_list = monomers_list[:i] + monomers_list[i + 1:]
+            else:
+                monomers_list = monomers_list[:i]
+        else:
+            i += 1
+    return deleted_cnt, monomers_list
+
+
+def update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir):
+    log.log("===UPDATE ALL MONOMERS===")
+    stp = (1 + (len(monomers_list) - 1) // args.threads)
+    lft = 0
+    threads = []
+    while lft < len(monomers_list):
+        threads.append(Thread(target=update_monomers_range, args=(lft, min(lft + stp, len(monomers_list)),
+                                                                  args, monomer_resolved, monomers_list, iter_outdir)))
+        lft += stp
+
+    for i in range(len(threads)):
+        threads[i].start()
+    for i in range(len(threads)):
+        threads[i].join()
+
+
 def main():
     log.log("Start Monomer Inference")
     args = parse_args()
@@ -541,58 +603,15 @@ def main():
 
         # parse output csv file
         res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
-        unresolved_blocks = []
-        non_monomeric_cnt = 0
-        resolved_cnt = 0
         dist_to_monomers = 0
         radius = 0
 
-        monomer_resolved = {}
-        for i in range(len(monomers_list)):
-            monomer_resolved[monomers_list[i].id] = []
+        unresolved_blocks, monomer_resolved, \
+        non_monomeric_cnt, resolved_cnt = get_unresolved_blocks(res_tsv, monomers_list, args)
 
-        with open(res_tsv, "r") as f:
-            csv_reader = csv.reader(f, delimiter='\t')
-            for row in csv_reader:
-                if row[2] == "start":
-                    continue
-                identity = float(row[4])
-                if identity >= 100 - args.resDiv:
-                    resolved_cnt += 1
-                    if row[1][-1] == "'":
-                        row[1] = row[1][:-1]
-                    monomer_resolved[row[1]].append(MonomericBlock(row[0], int(row[2]), int(row[3])))
+        deleted_cnt, monomers_list = delete_unused_monomers(monomers_list, monomer_resolved)
 
-                if identity <= 100 - args.maxDiv:
-                    non_monomeric_cnt += 1
-
-                if (identity > 100 - args.maxDiv) and (identity < 100 - args.resDiv):
-                    unresolved_blocks.append(MonomericBlock(row[0], int(row[2]), int(row[3])))
-
-        deleted_cnt = 0
-        i = 0
-        while (i < len(monomers_list)):
-            if len(monomer_resolved[monomers_list[i].id]) == 0:
-                deleted_cnt += 1
-                if (i + 1 < len(monomers_list)):
-                    monomers_list = monomers_list[:i] + monomers_list[i + 1:]
-                else:
-                    monomers_list = monomers_list[:i]
-            else:
-                i += 1
-
-        stp = (1 + (len(monomers_list) - 1)//args.threads)
-        lft = 0
-        threads = []
-        while lft < len(monomers_list):
-            threads.append(Thread(target=update_monomers_range, args=(lft, min(lft + stp, len(monomers_list)),
-                                                                      args, monomer_resolved, monomers_list, iter_outdir)))
-            lft += stp
-
-        for i in range(len(threads)):
-            threads[i].start()
-        for i in range(len(threads)):
-            threads[i].join()
+        update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir)
 
         log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
         log.log("Number of resolved blocks: " + str(resolved_cnt))
