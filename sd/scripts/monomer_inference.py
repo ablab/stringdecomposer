@@ -145,8 +145,62 @@ def seq_identity(a, b):
     return result["editDistance"] * 100 / max(len(a), len(b))
 
 
+def get_clusters_list_id(z, args, n, separation=20):
+    def inner_get_cluster_list(vid, mx_not_add_cluster=0):
+        if vid < n:
+            return [vid], mx_not_add_cluster
+
+        zid = vid - n
+        if z[zid][2]*2 <= args.resDiv:
+            return [vid], mx_not_add_cluster
+        elif z[zid][2] >= separation:
+            vid1 = int(z[zid][0])
+            vid2 = int(z[zid][1])
+            clst1, mx1 = inner_get_cluster_list(vid1)
+            clst2, mx2 = inner_get_cluster_list(vid2)
+            return clst1 + clst2, max(mx1, mx2, mx_not_add_cluster)
+        else:
+            vid1 = int(z[zid][0])
+            vid2 = int(z[zid][1])
+            clst1 = inner_get_cluster_list(vid1)[0]
+            clst2 = inner_get_cluster_list(vid2)[0]
+            mx1 = 0
+            mx2 = 0
+            for cid in clst1:
+                if cid < n:
+                    mx1 = max(1, mx1)
+                else:
+                    mx1 = max(z[cid - n][3], mx1)
+
+            for cid in clst2:
+                if cid < n:
+                    mx2 = max(1, mx2)
+                else:
+                    mx2 = max(z[cid - n][3], mx2)
+            if mx1 > mx2:
+                mx_not_add_cluster = max(mx_not_add_cluster, mx2)
+                return clst1, mx_not_add_cluster
+            else:
+                mx_not_add_cluster = max(mx_not_add_cluster, mx1)
+                return clst2, mx_not_add_cluster
+
+    clstid, mx_nt_add = inner_get_cluster_list(n + len(z) - 1)
+    print(clstid)
+    res_clusters = []
+    for cl in clstid:
+        sz = 1
+        if cl >= n:
+            sz = int(z[cl - n][3])
+        if sz >= mx_nt_add:
+            print(sz)
+            res_clusters.append(cl)
+    res_clusters.sort(key=lambda x: -1 if x < n else int(-z[x - n][3]))
+    return res_clusters
+
+
 def clustering(blocks, args):
     from scipy.cluster.hierarchy import linkage
+    log.log("===CLUSTERING===")
 
     y = []
     for i in range(len(blocks)):
@@ -156,15 +210,18 @@ def clustering(blocks, args):
     z = linkage(y, 'single')
     #[[cluster1, cluster2, dist, size]]
     #choose the biggest cluster with dist <= args.resDiv/2
-    bst_cluster_id = 0
-    cluster_size = 0
-    for i in range(len(z)):
-        if z[i][2] > args.resDiv/2:
-            continue
+    bst_cluster_ids = get_clusters_list_id(z, args, len(blocks))
+    print(bst_cluster_ids)
+    bst_cluster_id = bst_cluster_ids[0]
 
-        if z[i][3] > cluster_size:
-            cluster_size = z[i][3]
-            bst_cluster_id = i + len(blocks)
+    #cluster_size = 0
+    #for i in range(len(z)):
+    #    if z[i][2] > args.resDiv/2:
+    #        continue
+
+    #    if z[i][3] > cluster_size:
+    #        cluster_size = z[i][3]
+    #        bst_cluster_id = i + len(blocks)
 
     #print(z)
     #generate list of blocks in bigest cluster
