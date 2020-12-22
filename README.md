@@ -2,10 +2,21 @@
 
 # StringDecomposer
 
-StringDecomposer (SD) algorithm takes the set of monomers and a long error-prone read (or a genomic segment) and partitions this read into distinct monomers, providing an accurate translation of each read from a nucleotide alphabet into a monomer alphabet.
+## Version 1.0
+
+As an input StringDecomposer (SD) algorithm takes the set of monomers (typically, alpha satellites) and a genomic segment (assembly, Oxford Nanopore or a PacBio HiFi read) that contains a tandem repeat constituted by the given monomers.
+StringDecomposer partitions this segment into distinct monomers, providing an accurate translation from the nucleotide alphabet into the monomer alphabet.
 
 
 ## Installation
+
+The recommended way to install StringDecomposer is with conda package manager:
+```
+conda install -c bioconda stringdecomposer
+```
+
+
+Alternatively, StringDecomposer can be installed from source.
 
 Requirements:
 - Python3.5
@@ -21,27 +32,28 @@ Requirements:
     - [setuptools](https://pypi.org/project/setuptools/)
 - g++ (version 5.3.1 or higher)
 
-Requirements can be installed through Conda as ```conda install --file requirements.txt```.
+The required python packages can be installed through conda using ```conda install --file requirements.txt```.
 
-### Local Building (without installation)
+Local building without installation:
 
-    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
     make
 
-If you wish to run tests:
+Installing from source:
 
-    make test
-
-### Installing from source
-
-    git clone https://github.com/TanyaDvorkina/stringdecomposer.git
+    git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
-    python setup.py install
+    python setup.py install --record files.txt
+
+Removal of StringDecomposer installed from source:
+
+    xargs rm -rf < files.txt
 
 ## Quick start
+The following command assumes that StringDecomposer is either installed through conda or from source.
 
-    sd/run_decomposer.py ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
+    run_decomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
 
 Testing run results:
 
@@ -53,12 +65,13 @@ Each line in final_decomposition.tsv file has the following form:
 
     <read-name> <best-monomer> <start-pos> <end-pos> <identity> <second-best-monomer> <second-best-monomer-identity> <homo-best-monomer> <homo-identity> <homo-second-best-monomer> <homo-second-best-monomer-identity> <reliability>
 
-_homo_-related columns represent statistics of the best-scoring (second-best-scoring) monomer after homopolymer collapsing in both monomer and the target read. Reliability is either equal to ? (if StringDecomposer suggests that it is a potential gap) or + (if the alignment is reliable).
+`homo`-related columns represent statistics of the best-scoring (second-best-scoring) monomer after compression of homopolymer runs in both the monomer and the target read.
+Reliability is either equal to `?` (signifies unreliable alignment which can be caused by a retrotransposon insertion or a poor quality segment of a read) or `+` (if the alignment is reliable).
 
 
 ## Synopsis
 
-    run_decomposer.py [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
+    run_decomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
 
 Required arguments:
 
@@ -81,11 +94,18 @@ Optional arguments:
 
     --fast                                             SD won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
 
+## Latest updates
+
+### StringDecomposer 1.0 release (11 August 2020)
+
+* initial StringDecomposer release
+* conda support
+* results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://doi.org/10.6084/m9.figshare.12783371)
 
 
-## `sd/scripts` folder
+## StringDecomposer+
 
-The set of scripts help to solve decomposition-related problems.
+The set of scripts help to solve decomposition-related problems are placed in `sd/scripts` directory.
 
 Script `extract_hors.py` converts monomer decomposition to HOR decomposition.
 Synopsis:
