@@ -209,10 +209,9 @@ def calc_dists_between_blocks(blocks, args):
 
     def calc_dist_for_range(lft, rgh, y):
         for i in range(lft, rgh):
-            if lft == 0 and i%1000 == 0:
+            if lft == 0 and i%100000 == 0:
                 print(i, lft, rgh)
             y[i] = seq_identity(str(blocks[id_get_pairs[i][0]].seq.seq), str(blocks[id_get_pairs[i][1]].seq.seq))
-            print(y[i])
 
     stp = (1 + (len(id_get_pairs) - 1) // args.threads)
     lft = 0
@@ -227,7 +226,7 @@ def calc_dists_between_blocks(blocks, args):
         threads[i].start()
     for i in range(len(threads)):
         threads[i].join()
-    print(y)
+    y = y[:]
     return y
 
 
@@ -259,7 +258,7 @@ def clustering(blocks, args):
         max_cluster.append([])
         add_blocks_to_cluster(int(bst_cluster_id))
 
-    log.log("Max cluster is found! Cluster size: " + str(len(max_cluster)))
+    log.log("Max cluster is found! Cluster size: " + str(len(max_cluster[0])))
     return max_cluster
 
 
