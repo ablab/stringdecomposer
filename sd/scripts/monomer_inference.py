@@ -210,29 +210,21 @@ def clustering(blocks, args):
     #choose the biggest cluster with dist <= args.resDiv/2
     bst_cluster_ids = get_clusters_list_id(z, args, len(blocks))
     print(bst_cluster_ids)
-    bst_cluster_id = bst_cluster_ids[0]
 
-    #cluster_size = 0
-    #for i in range(len(z)):
-    #    if z[i][2] > args.resDiv/2:
-    #        continue
-
-    #    if z[i][3] > cluster_size:
-    #        cluster_size = z[i][3]
-    #        bst_cluster_id = i + len(blocks)
-
-    #print(z)
     #generate list of blocks in bigest cluster
     max_cluster = []
 
     def add_blocks_to_cluster(cid):
         if (cid < len(blocks)):
-            max_cluster.append(blocks[cid])
+            max_cluster[-1].append(blocks[cid])
         else:
             add_blocks_to_cluster(int(z[cid - len(blocks)][0]))
             add_blocks_to_cluster(int(z[cid - len(blocks)][1]))
 
-    add_blocks_to_cluster(int(bst_cluster_id))
+    for bst_cluster_id in bst_cluster_ids:
+        max_cluster.append([])
+        add_blocks_to_cluster(int(bst_cluster_id))
+
     log.log("Max cluster is found! Cluster size: " + str(len(max_cluster)))
     return max_cluster
 
@@ -676,33 +668,40 @@ def main():
         if len(unresolved_blocks) > 0:
             set_blocks_seq(args.sequences, unresolved_blocks)
             max_cluster = clustering(unresolved_blocks, args)
-            if (len(max_cluster) == 1):
+            if (len(max_cluster[0]) == 1):
                 monomer_set_complete = True
         else:
             monomer_set_complete = True
 
         if not monomer_set_complete:
-            cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq.fa")
-            save_seqs(max_cluster, cluster_seqs_path)
+            for i in range(len(max_cluster)):
+                cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq_" + str(i) + ".fa")
+                save_seqs(max_cluster[i], cluster_seqs_path)
 
-            new_monomer = get_consensus_seq(cluster_seqs_path, max_cluster)
-            radius = get_radius(new_monomer, max_cluster)
+                new_monomer = get_consensus_seq(cluster_seqs_path, max_cluster[i])
+                radius = get_radius(new_monomer, max_cluster[i])
 
-            if reverse_monomer(args):
-                new_monomer = rc(new_monomer)
+                if reverse_monomer(args):
+                    new_monomer = rc(new_monomer)
 
-            dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
-            log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
+                dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
+                log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
 
-            new_monomer_record = SeqRecord(Seq(new_monomer), id="mn_" + str(iter_id), description="")
-            monomers_list.append(new_monomer_record)
+                new_monomer_record = SeqRecord(Seq(new_monomer), id="mn_" + str(iter_id + i), description="")
+                monomers_list.append(new_monomer_record)
+                summary_writer.writerow(
+                    [str(iter_id + i), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt),
+                     str(len(max_cluster[i])), str(deleted_cnt), str(radius), str(dist_to_monomers)])
+        else:
+            summary_writer.writerow(
+                [str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt),
+                 str(len(max_cluster[0])), str(deleted_cnt), str(radius), str(dist_to_monomers)])
 
         with open(args.monomers, "w") as fa:
             for record in monomers_list:
                 SeqIO.write(record, fa, "fasta")
 
-        summary_writer.writerow([str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt), str(len(max_cluster)), str(deleted_cnt), str(radius), str(dist_to_monomers)])
-        iter_id += 1
+        iter_id += len(max_cluster)
 
     final_iteration(args, sd_script_path, monomers_list)
     summary_fw.close()
