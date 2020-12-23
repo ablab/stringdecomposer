@@ -146,7 +146,7 @@ def seq_identity(a, b):
     return result["editDistance"] * 100 / max(len(a), len(b))
 
 
-def get_clusters_list_id(z, args, n, separation=20):
+def get_clusters_list_id(z, args, n, separation=15):
     def inner_get_cluster_list(vid, mx_not_add_cluster=0):
         if vid < n:
             return [vid], mx_not_add_cluster
@@ -423,12 +423,11 @@ def rc(seq):
     return res_seq
 
 
-def need_update(args, monomer_record, monomer_resolved_block, iter_outdir):
+def need_update(args, monomer_record, monomer_resolved_block, iter_outdir, prev_dir):
     iter_id = int(iter_outdir.split('_')[-1])
     if iter_id == 0:
         return True
     else:
-        prev_dir = '_'.join(iter_outdir.split('_')[:-1]) + '_' + str(iter_id - 1)
         res_tsv = os.path.join(prev_dir, "final_decomposition.tsv")
         prevresolved_blocks = []
 
@@ -454,11 +453,11 @@ def need_update(args, monomer_record, monomer_resolved_block, iter_outdir):
     return False
 
 
-def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir):
-    if need_update(args, monomer_record, monomer_resolved_block, iter_outdir):
+def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir, prev_dir):
+    if need_update(args, monomer_record, monomer_resolved_block, iter_outdir, prev_dir):
         cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
         save_seqs(monomer_resolved_block, cluster_seqs_path)
-        new_monomer = get_consensus_seq(cluster_seqs_path, monomer_resolved_block, 1)
+        new_monomer = get_consensus_seq(cluster_seqs_path, monomer_resolved_block, args.threads)
         if reverse_monomer(args):
             new_monomer = rc(new_monomer)
         monomer_record.seq = Seq(new_monomer)
@@ -471,13 +470,6 @@ def get_radius(new_monomer, max_cluster):
     for seq in max_cluster:
         mx_dist = max(mx_dist, get_distance(str(new_monomer), str(seq.seq.seq)))
     return mx_dist
-
-
-def update_monomers_range(lft, rgh, args, monomer_resolved, monomers_list, iter_outdir):
-    for i in range(lft, rgh):
-        log.log("==== Update monomer " + str(monomers_list[i].id))
-        set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
-        monomers_list[i] = update_monomer(args, monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir)
 
 
 def get_hybrid_len(main_mn, mn1, mn2, args):
@@ -629,20 +621,11 @@ def delete_unused_monomers(monomers_list, monomer_resolved):
     return deleted_cnt, monomers_list
 
 
-def update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir):
-    log.log("===UPDATE ALL MONOMERS===")
-    stp = (1 + (len(monomers_list) - 1) // args.threads)
-    lft = 0
-    threads = []
-    while lft < len(monomers_list):
-        threads.append(Thread(target=update_monomers_range, args=(lft, min(lft + stp, len(monomers_list)),
-                                                                  args, monomer_resolved, monomers_list, iter_outdir)))
-        lft += stp
-
-    for i in range(len(threads)):
-        threads[i].start()
-    for i in range(len(threads)):
-        threads[i].join()
+def update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir, prev_dir):
+    for i in range(len(monomers_list)):
+        log.log("==== Update monomer " + str(monomers_list[i].id))
+        set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
+        monomers_list[i] = update_monomer(args, monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir, prev_dir)
 
 
 def main():
@@ -668,6 +651,7 @@ def main():
     monomers_list = init_monomers(args.monomers)
 
     monomer_set_complete = False
+    prev_dir = "iter_1"
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
@@ -692,7 +676,7 @@ def main():
 
         deleted_cnt, monomers_list = delete_unused_monomers(monomers_list, monomer_resolved)
 
-        update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir)
+        update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir, prev_dir)
 
         log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
         log.log("Number of resolved blocks: " + str(resolved_cnt))
@@ -736,6 +720,7 @@ def main():
             for record in monomers_list:
                 SeqIO.write(record, fa, "fasta")
 
+        prev_dir = iter_outdir
         iter_id += len(max_cluster)
 
     final_iteration(args, sd_script_path, monomers_list)
