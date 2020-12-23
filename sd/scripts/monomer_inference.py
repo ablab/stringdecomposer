@@ -271,23 +271,24 @@ def save_seqs(max_cluster, cluster_seqs_path):
     log.log("Seqs from biggest cluster saved to " + cluster_seqs_path)
 
 
-def get_consensus_seq(cluster_seqs_path, seq_records):
+def get_consensus_seq(cluster_seqs_path, seq_records, arg_threads):
     if (len(seq_records) == 1):
         return str(seq_records[0].seq.seq)
 
     from Bio.Align.Applications import ClustalwCommandline
+    from Bio.Align.Applications import ClustalOmegaCommandline
     from Bio import AlignIO
     from Bio.Align import AlignInfo
     from Bio.Align import MultipleSeqAlignment
 
-    cmd = ClustalwCommandline("clustalw2", infile=cluster_seqs_path)
-    log.log("Run clustalw2: " + str(cmd))
+    aln_file = '.'.join(cluster_seqs_path.split('.')[:-1]) + "_aln.fasta"
+    cmd = ClustalOmegaCommandline(infile=cluster_seqs_path, outfile=aln_file, force=True, threads=arg_threads)
+    log.log("Run clustalOmega: " + str(cmd))
     stdout, stderr = cmd()
-    aln_file = '.'.join(cluster_seqs_path.split('.')[:-1]) + ".aln"
     log.log("Get Multiply alignment: " + aln_file)
 
     log.log("Start search for consensus monomer")
-    align = AlignIO.read(aln_file, "clustal")
+    align = AlignIO.read(aln_file, "fasta")
     #print(align.format("fasta"))
 
     summary_align = AlignInfo.SummaryInfo(align)
@@ -457,7 +458,7 @@ def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir):
     if need_update(args, monomer_record, monomer_resolved_block, iter_outdir):
         cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
         save_seqs(monomer_resolved_block, cluster_seqs_path)
-        new_monomer = get_consensus_seq(cluster_seqs_path, monomer_resolved_block)
+        new_monomer = get_consensus_seq(cluster_seqs_path, monomer_resolved_block, 1)
         if reverse_monomer(args):
             new_monomer = rc(new_monomer)
         monomer_record.seq = Seq(new_monomer)
@@ -712,7 +713,7 @@ def main():
                 cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq_" + str(i) + ".fa")
                 save_seqs(max_cluster[i], cluster_seqs_path)
 
-                new_monomer = get_consensus_seq(cluster_seqs_path, max_cluster[i])
+                new_monomer = get_consensus_seq(cluster_seqs_path, max_cluster[i], args.threads)
                 radius = get_radius(new_monomer, max_cluster[i])
 
                 if reverse_monomer(args):
