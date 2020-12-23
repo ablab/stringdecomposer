@@ -7,6 +7,7 @@ import csv
 import argparse
 import shutil
 import edlib
+import multiprocessing
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -196,20 +197,53 @@ def get_clusters_list_id(z, args, n, separation=20):
     return res_clusters
 
 
+def calc_dists_between_blocks(blocks, args):
+    log.log("Calculate distance between monomers blocks")
+
+    id_get_pairs = []
+    for i in range(len(blocks)):
+        for j in range(i + 1, len(blocks)):
+            id_get_pairs.append((i, j))
+
+    y = multiprocessing.Array('f', len(id_get_pairs), lock=False)
+
+    def calc_dist_for_range(lft, rgh, y):
+        for i in range(lft, rgh):
+            if lft == 0 and i%1000 == 0:
+                print(i, lft, rgh)
+            y[i] = seq_identity(str(blocks[id_get_pairs[i][0]].seq.seq), str(blocks[id_get_pairs[i][1]].seq.seq))
+            print(y[i])
+
+    stp = (1 + (len(id_get_pairs) - 1) // args.threads)
+    lft = 0
+
+    threads = []
+    while lft < len(id_get_pairs):
+        threads.append(multiprocessing.Process(target=calc_dist_for_range,
+                                               args=(lft, min(lft + stp, len(id_get_pairs)), y)))
+        lft += stp
+
+    for i in range(len(threads)):
+        threads[i].start()
+    for i in range(len(threads)):
+        threads[i].join()
+    print(y)
+    return y
+
+
 def clustering(blocks, args):
     from scipy.cluster.hierarchy import linkage
     log.log("===CLUSTERING===")
 
-    y = []
-    for i in range(len(blocks)):
-        for j in range(i + 1, len(blocks)):
-            y.append(seq_identity(str(blocks[i].seq.seq), str(blocks[j].seq.seq)))
+    y = calc_dists_between_blocks(blocks, args)
 
+    log.log("finish calc clusters dist")
     z = linkage(y, 'single')
+    log.log("get cluster")
     #[[cluster1, cluster2, dist, size]]
     #choose the biggest cluster with dist <= args.resDiv/2
     bst_cluster_ids = get_clusters_list_id(z, args, len(blocks))
-    print(bst_cluster_ids)
+    log.log("get biggest clusters" + str(bst_cluster_ids))
 
     #generate list of blocks in bigest cluster
     max_cluster = []
@@ -675,6 +709,7 @@ def main():
 
         if not monomer_set_complete:
             for i in range(len(max_cluster)):
+                log.log("===DETECT CONSENSUS FOR CLUSTER#" + str(i) + "===")
                 cluster_seqs_path = os.path.join(iter_outdir, "cluster_seq_" + str(i) + ".fa")
                 save_seqs(max_cluster[i], cluster_seqs_path)
 
