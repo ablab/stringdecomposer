@@ -164,37 +164,35 @@ def get_clusters_list_id(z, args, n, separation=20):
             vid2 = int(z[zid][1])
             clst1 = inner_get_cluster_list(vid1)[0]
             clst2 = inner_get_cluster_list(vid2)[0]
-            mx1 = 0
-            mx2 = 0
+            mx1 = (0, 0)
+            mx2 = (0, 0)
             for cid in clst1:
                 if cid < n:
-                    mx1 = max(1, mx1)
+                    mx1 = max((1, -cid), mx1)
                 else:
-                    mx1 = max(z[cid - n][3], mx1)
+                    mx1 = max((z[cid - n][3], -cid), mx1)
 
             for cid in clst2:
                 if cid < n:
-                    mx2 = max(1, mx2)
+                    mx2 = max((1, -cid), mx2)
                 else:
-                    mx2 = max(z[cid - n][3], mx2)
+                    mx2 = max((z[cid - n][3], -cid), mx2)
             if mx1 > mx2:
-                mx_not_add_cluster = max(mx_not_add_cluster, mx2)
+                mx_not_add_cluster = max(mx_not_add_cluster, mx2[0])
                 return clst1, mx_not_add_cluster
             else:
-                mx_not_add_cluster = max(mx_not_add_cluster, mx1)
+                mx_not_add_cluster = max(mx_not_add_cluster, mx1[0])
                 return clst2, mx_not_add_cluster
 
     clstid, mx_nt_add = inner_get_cluster_list(n + len(z) - 1)
-    print(clstid)
     res_clusters = []
     for cl in clstid:
         sz = 1
         if cl >= n:
             sz = int(z[cl - n][3])
         if sz >= mx_nt_add:
-            print(sz)
             res_clusters.append(cl)
-    res_clusters.sort(key=lambda x: -1 if x < n else int(-z[x - n][3]))
+    res_clusters.sort(key=lambda x: (-1,x) if x < n else (int(-z[x - n][3]), x))
     return res_clusters
 
 
