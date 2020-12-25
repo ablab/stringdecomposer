@@ -157,14 +157,14 @@ def get_clusters_list_id(z, args, n, separation=15):
         elif z[zid][2] >= separation:
             vid1 = int(z[zid][0])
             vid2 = int(z[zid][1])
-            clst1, mx1 = inner_get_cluster_list(vid1)
-            clst2, mx2 = inner_get_cluster_list(vid2)
+            clst1, mx1 = inner_get_cluster_list(vid1, mx_not_add_cluster)
+            clst2, mx2 = inner_get_cluster_list(vid2, mx_not_add_cluster)
             return clst1 + clst2, max(mx1, mx2, mx_not_add_cluster)
         else:
             vid1 = int(z[zid][0])
             vid2 = int(z[zid][1])
-            clst1 = inner_get_cluster_list(vid1)[0]
-            clst2 = inner_get_cluster_list(vid2)[0]
+            clst1, clst1_mx = inner_get_cluster_list(vid1, mx_not_add_cluster)
+            clst2, clst2_mx = inner_get_cluster_list(vid2, mx_not_add_cluster)
             mx1 = (0, 0)
             mx2 = (0, 0)
             for cid in clst1:
@@ -179,10 +179,10 @@ def get_clusters_list_id(z, args, n, separation=15):
                 else:
                     mx2 = max((z[cid - n][3], -cid), mx2)
             if mx1 > mx2:
-                mx_not_add_cluster = max(mx_not_add_cluster, mx2[0])
+                mx_not_add_cluster = max(mx_not_add_cluster, mx2[0], clst1_mx, clst2_mx)
                 return clst1, mx_not_add_cluster
             else:
-                mx_not_add_cluster = max(mx_not_add_cluster, mx1[0])
+                mx_not_add_cluster = max(mx_not_add_cluster, mx1[0], clst1_mx, clst2_mx)
                 return clst2, mx_not_add_cluster
     clstid, mx_nt_add = inner_get_cluster_list(n + len(z) - 1)
 
