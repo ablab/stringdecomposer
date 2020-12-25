@@ -231,36 +231,111 @@ def calc_dists_between_blocks(blocks, args):
     return y
 
 
+cnt_resolved = 0
+def init_one_cluster(i, cluserts_id, blocks, args, cid):
+    global cnt_resolved
+    cluserts_id[i] = cid
+    queue = [i]
+    bg = 0
+
+    while (bg < len(queue)):
+        cnt_resolved += 1
+        if cnt_resolved % 100 == 0:
+            print(str(cnt_resolved) + "/" + str(len(blocks)))
+        v = queue[bg]
+        bg += 1
+
+        y = multiprocessing.Array('f', len(blocks), lock=False)
+
+        def calc_dist_for_range(lft, rgh, y):
+            for i in range(lft, rgh):
+                if cluserts_id[i] == -1:
+                    y[i] = seq_identity(str(blocks[v].seq.seq), str(blocks[i].seq.seq))
+
+        stp = (1 + (len(blocks) - 1) // args.threads)
+        lft = 0
+
+        threads = []
+        while lft < len(blocks):
+            threads.append(multiprocessing.Process(target=calc_dist_for_range,
+                                                   args=(lft, min(lft + stp, len(blocks)), y)))
+            lft += stp
+
+        for i in range(len(threads)):
+            threads[i].start()
+        for i in range(len(threads)):
+            threads[i].join()
+        y = y[:]
+
+        for j in range(len(blocks)):
+            if (cluserts_id[j] != -1):
+                continue
+            cur_dist = y[j]
+            if cur_dist*2 <= args.resDiv:
+                cluserts_id[j] = cid
+                queue.append(j)
+
+
+def get_clusters(blocks, args):
+    global cnt_resolved
+    cnt_resolved = 0
+    cluserts_id = [-1]*len(blocks)
+    cid = 0
+    for i in range(len(blocks)):
+        if cluserts_id[i] == -1:
+            init_one_cluster(i, cluserts_id, blocks, args, cid)
+            cid += 1
+
+    clusters = [[] for i in range(cid)]
+    for i in range(len(blocks)):
+        clusters[cluserts_id[i]].append(blocks[i])
+
+    clusters.sort(key=lambda x: -len(x))
+    return clusters
+
+
+def get_separation(clst1, clst2, args):
+    y = multiprocessing.Value('f', 100, lock=True)
+
+    def calc_dist_for_range(lft, rgh, y):
+        mn_dist = 100
+        for i in range(lft, rgh):
+            for j in range(len(clst2)):
+                mn_dist = min(mn_dist, seq_identity(str(clst1[i].seq.seq), str(clst2[j].seq.seq)))
+        y.value = min(y.value, mn_dist)
+
+    stp = (1 + (len(clst1) - 1) // args.threads)
+    lft = 0
+
+    threads = []
+    while lft < len(clst1):
+        threads.append(multiprocessing.Process(target=calc_dist_for_range,
+                                               args=(lft, min(lft + stp, len(clst1)), y)))
+        lft += stp
+
+    for i in range(len(threads)):
+        threads[i].start()
+    for i in range(len(threads)):
+        threads[i].join()
+    return y.value
+
+
 def clustering(blocks, args):
-    from scipy.cluster.hierarchy import linkage
     log.log("===CLUSTERING===")
 
-    y = calc_dists_between_blocks(blocks, args)
-
-    log.log("finish calc clusters dist")
-    z = linkage(y, 'single')
-    log.log("get cluster")
-    #[[cluster1, cluster2, dist, size]]
-    #choose the biggest cluster with dist <= args.resDiv/2
-    bst_cluster_ids = get_clusters_list_id(z, args, len(blocks))
-    log.log("get biggest clusters" + str(bst_cluster_ids))
-
-    #generate list of blocks in bigest cluster
-    max_cluster = []
-
-    def add_blocks_to_cluster(cid):
-        if (cid < len(blocks)):
-            max_cluster[-1].append(blocks[cid])
+    clusters = get_clusters(blocks, args)
+    max_clst = [clusters[0]]
+    for i in range(1, len(clusters)):
+        mn_sep = 100
+        for j in range(0, i):
+            mn_sep = min(mn_sep, get_separation(clusters[i], clusters[j], args))
+        if mn_sep < 15:
+            break
         else:
-            add_blocks_to_cluster(int(z[cid - len(blocks)][0]))
-            add_blocks_to_cluster(int(z[cid - len(blocks)][1]))
+            max_clst.append(clusters[i])
 
-    for bst_cluster_id in bst_cluster_ids:
-        max_cluster.append([])
-        add_blocks_to_cluster(int(bst_cluster_id))
-
-    log.log("Max cluster is found! Cluster size: " + str(len(max_cluster[0])))
-    return max_cluster
+    log.log("Max cluster is found! Cluster size: " + str(len(max_clst[0])))
+    return max_clst
 
 
 def save_seqs(max_cluster, cluster_seqs_path):
