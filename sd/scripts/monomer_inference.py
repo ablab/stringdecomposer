@@ -184,8 +184,9 @@ def get_clusters_list_id(z, args, n, separation=15):
             else:
                 mx_not_add_cluster = max(mx_not_add_cluster, mx1[0])
                 return clst2, mx_not_add_cluster
-
     clstid, mx_nt_add = inner_get_cluster_list(n + len(z) - 1)
+
+
     res_clusters = []
     for cl in clstid:
         sz = 1
@@ -720,6 +721,7 @@ def main():
             for record in monomers_list:
                 SeqIO.write(record, fa, "fasta")
 
+        summary_fw.flush()
         prev_dir = iter_outdir
         iter_id += len(max_cluster)
 
