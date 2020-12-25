@@ -629,6 +629,27 @@ def update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir, prev
         monomers_list[i] = update_monomer(args, monomers_list[i], monomer_resolved[monomers_list[i].id], iter_outdir, prev_dir)
 
 
+def chr_statistic(blocks):
+    cnt = {}
+    for block in blocks:
+        if block.read_name not in cnt:
+            cnt[block.read_name] = 0
+        cnt[block.read_name] += 1
+
+    inclds = []
+    for key in cnt:
+        inclds.append((-cnt[key], key.split(':')[0]))
+
+    inclds.sort()
+
+    cnts = []
+    crms = []
+    for incl in inclds:
+        cnts.append(-incl[0])
+        crms.append(incl[1])
+    return cnts, crms
+
+
 def main():
     log.log("Start Monomer Inference")
     args = parse_args()
@@ -709,13 +730,15 @@ def main():
 
                 new_monomer_record = SeqRecord(Seq(new_monomer), id="mn_" + str(iter_id + i), description="")
                 monomers_list.append(new_monomer_record)
+                ch_cnt, crms = chr_statistic(max_cluster[i])
                 summary_writer.writerow(
                     [str(iter_id + i), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt),
-                     str(len(max_cluster[i])), str(deleted_cnt), str(radius), str(dist_to_monomers)])
+                     str(len(max_cluster[i])), str(deleted_cnt), str(radius),
+                     str(dist_to_monomers), str(ch_cnt), str(crms)])
         else:
             summary_writer.writerow(
                 [str(iter_id), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt),
-                 str(len(max_cluster[0])), str(deleted_cnt), str(radius), str(dist_to_monomers)])
+                 str(len(max_cluster[0])), str(deleted_cnt), str(radius), str(dist_to_monomers), "-", "-"])
 
         with open(args.monomers, "w") as fa:
             for record in monomers_list:
