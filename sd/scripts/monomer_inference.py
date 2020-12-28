@@ -231,9 +231,50 @@ def calc_dists_between_blocks(blocks, args):
     return y
 
 
+def init_small_ids(v, small_ids, origin_ids, cluserts_id, blocks, separation, args):
+    y = multiprocessing.Array('f', len(blocks), lock=False)
+
+    def calc_dist_for_range(lft, rgh, y):
+        for i in range(lft, rgh):
+            if cluserts_id[i] == -1:
+                y[i] = seq_identity(str(blocks[v].seq.seq), str(blocks[i].seq.seq))
+
+    stp = (1 + (len(blocks) - 1) // args.threads)
+    lft = 0
+    threads = []
+    while lft < len(blocks):
+        rgt = lft
+        cur_cnt = 0
+        while cur_cnt < stp and rgt < len(blocks):
+            if cluserts_id[rgt] == -1:
+                cur_cnt += 1
+            rgt += 1
+
+        threads.append(multiprocessing.Process(target=calc_dist_for_range,
+                                               args=(lft, rgt, y)))
+        lft = rgt
+
+    for i in range(len(threads)):
+        threads[i].start()
+    for i in range(len(threads)):
+        threads[i].join()
+
+    for j in range(len(blocks)):
+        cur_dist = y[j]
+        if cluserts_id[j] == -1 and cur_dist < separation:
+            origin_ids.append(j)
+            small_ids[j] = len(origin_ids) - 1
+
+
 cnt_resolved = 0
 def init_one_cluster(i, cluserts_id, blocks, args, cid):
     global cnt_resolved
+    separation = 20
+    origin_ids = []
+    small_ids = [-1]*len(blocks)
+
+    init_small_ids(i, small_ids, origin_ids, cluserts_id, blocks, separation, args)
+
     cluserts_id[i] = cid
     queue = [i]
     bg = 0
@@ -242,38 +283,39 @@ def init_one_cluster(i, cluserts_id, blocks, args, cid):
         cnt_resolved += 1
         if cnt_resolved % 100 == 0:
             print(str(cnt_resolved) + "/" + str(len(blocks)))
+            print("CLose monomers: ", len(origin_ids))
+            print("Cluster id: ", cid)
         v = queue[bg]
         bg += 1
 
-        y = multiprocessing.Array('f', len(blocks), lock=False)
+        #y = multiprocessing.Array('f', len(origin_ids), lock=False)
 
-        def calc_dist_for_range(lft, rgh, y):
-            for i in range(lft, rgh):
-                if cluserts_id[i] == -1:
-                    y[i] = seq_identity(str(blocks[v].seq.seq), str(blocks[i].seq.seq))
+        #def calc_dist_for_range(lft, rgh, y):
+        #    for i in range(lft, rgh):
+        #        y[i] = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[i]].seq.seq))
 
-        stp = (1 + (len(blocks) - 1) // args.threads)
-        lft = 0
+        #stp = (1 + (len(origin_ids) - 1) // args.threads)
+        #lft = 0
 
-        threads = []
-        while lft < len(blocks):
-            threads.append(multiprocessing.Process(target=calc_dist_for_range,
-                                                   args=(lft, min(lft + stp, len(blocks)), y)))
-            lft += stp
+        #threads = []
+        #while lft < len(origin_ids):
+        #    rgt = min(lft + stp, len(origin_ids))
+        #    threads.append(multiprocessing.Process(target=calc_dist_for_range,
+        #                                           args=(lft, rgt, y)))
+        #    lft = rgt
 
-        for i in range(len(threads)):
-            threads[i].start()
-        for i in range(len(threads)):
-            threads[i].join()
-        y = y[:]
+        #for i in range(len(threads)):
+        #    threads[i].start()
+        #for i in range(len(threads)):
+        #    threads[i].join()
 
-        for j in range(len(blocks)):
-            if (cluserts_id[j] != -1):
+        for j in range(0, len(origin_ids)):
+            if cluserts_id[origin_ids[j]] != -1:
                 continue
-            cur_dist = y[j]
+            cur_dist = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[j]].seq.seq))
             if cur_dist*2 <= args.resDiv:
-                cluserts_id[j] = cid
-                queue.append(j)
+                cluserts_id[origin_ids[j]] = cid
+                queue.append(origin_ids[j])
 
 
 def get_clusters(blocks, args):
@@ -653,6 +695,7 @@ def final_iteration(args, sd_script_path, monomers_list):
 
 
 def get_unresolved_blocks(res_tsv, monomers_list, args):
+    log.log("==Get unresolved blocls==")
     unresolved_blocks = []
     non_monomeric_cnt = 0
     resolved_cnt = 0
@@ -683,6 +726,7 @@ def get_unresolved_blocks(res_tsv, monomers_list, args):
 
 
 def delete_unused_monomers(monomers_list, monomer_resolved):
+    log.log("==Delte unused monomers==")
     deleted_cnt = 0
     i = 0
     while (i < len(monomers_list)):
