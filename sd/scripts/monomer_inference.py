@@ -243,13 +243,7 @@ def init_small_ids(v, small_ids, origin_ids, cluserts_id, blocks, separation, ar
     lft = 0
     threads = []
     while lft < len(blocks):
-        rgt = lft
-        cur_cnt = 0
-        while cur_cnt < stp and rgt < len(blocks):
-            if cluserts_id[rgt] == -1:
-                cur_cnt += 1
-            rgt += 1
-
+        rgt = min(lft + stp, len(blocks))
         threads.append(multiprocessing.Process(target=calc_dist_for_range,
                                                args=(lft, rgt, y)))
         lft = rgt
@@ -259,21 +253,61 @@ def init_small_ids(v, small_ids, origin_ids, cluserts_id, blocks, separation, ar
     for i in range(len(threads)):
         threads[i].join()
 
+    cl_size = 0
     for j in range(len(blocks)):
+        if cluserts_id[j] != -1:
+            continue
         cur_dist = y[j]
         if cluserts_id[j] == -1 and cur_dist < separation:
             origin_ids.append(j)
             small_ids[j] = len(origin_ids) - 1
+        if cur_dist <= args.resDiv:
+            cl_size += 1
+    return cl_size
+
+
+def find_all_dists(small_ids, origin_ids, blocks, args):
+    y = multiprocessing.Array('f', len(origin_ids) * len(origin_ids), lock=False)
+
+    def calc_dist_for_range(lft, rgh, y):
+        for i in range(lft, rgh):
+            xx = origin_ids[i//len(origin_ids)]
+            yy = origin_ids[i%len(origin_ids)]
+            y[i] = seq_identity(str(blocks[xx].seq.seq), str(blocks[yy].seq.seq))
+
+    stp = (1 + (len(origin_ids) * len(origin_ids) - 1) // args.threads)
+    lft = 0
+
+    threads = []
+    while lft < len(origin_ids) * len(origin_ids):
+        threads.append(multiprocessing.Process(target=calc_dist_for_range,
+                                               args=(lft, min(lft + stp, len(origin_ids) * len(origin_ids)), y)))
+        lft += stp
+
+    for i in range(len(threads)):
+        threads[i].start()
+    for i in range(len(threads)):
+        threads[i].join()
+    return y[:]
 
 
 cnt_resolved = 0
+
+
 def init_one_cluster(i, cluserts_id, blocks, args, cid):
     global cnt_resolved
     separation = 20
     origin_ids = []
     small_ids = [-1]*len(blocks)
+    all_dists = []
 
-    init_small_ids(i, small_ids, origin_ids, cluserts_id, blocks, separation, args)
+    cl_size = init_small_ids(i, small_ids, origin_ids, cluserts_id, blocks, separation, args)
+    print("CLuster size: ", cl_size, " len(origin_ids)=", str(len(origin_ids)))
+    #log.log("Cnt blocks in area: " + str(len(origin_ids)))
+    if cl_size > 500:
+        all_dists = find_all_dists(small_ids, origin_ids, blocks, args)
+    #print(all_dists)
+    #log.log("All dists are calculated")
 
     cluserts_id[i] = cid
     queue = [i]
@@ -288,34 +322,17 @@ def init_one_cluster(i, cluserts_id, blocks, args, cid):
         v = queue[bg]
         bg += 1
 
-        #y = multiprocessing.Array('f', len(origin_ids), lock=False)
-
-        #def calc_dist_for_range(lft, rgh, y):
-        #    for i in range(lft, rgh):
-        #        y[i] = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[i]].seq.seq))
-
-        #stp = (1 + (len(origin_ids) - 1) // args.threads)
-        #lft = 0
-
-        #threads = []
-        #while lft < len(origin_ids):
-        #    rgt = min(lft + stp, len(origin_ids))
-        #    threads.append(multiprocessing.Process(target=calc_dist_for_range,
-        #                                           args=(lft, rgt, y)))
-        #    lft = rgt
-
-        #for i in range(len(threads)):
-        #    threads[i].start()
-        #for i in range(len(threads)):
-        #    threads[i].join()
-
         for j in range(0, len(origin_ids)):
             if cluserts_id[origin_ids[j]] != -1:
                 continue
-            cur_dist = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[j]].seq.seq))
+            if len(all_dists) > 0:
+                cur_dist = all_dists[small_ids[v] * len(origin_ids) + j]
+            else:
+                cur_dist = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[j]].seq.seq))
             if cur_dist*2 <= args.resDiv:
                 cluserts_id[origin_ids[j]] = cid
                 queue.append(origin_ids[j])
+    log.log("Cluster id: " + str(cid) + "; area size: " + str(len(origin_ids)) + "; cluster size: " + str(len(queue)))
 
 
 def get_clusters(blocks, args):
