@@ -279,15 +279,16 @@ def get_hybrid_len(main_mn, mn1, mn2):
     resDiv = 5
     mn_identity = 100
     bst_res = (0, 0)
-    for prfx in range(len(mn1.seq)):
+    for prfx in range(30, len(mn1.seq)):
         suffix = len(str(main_mn.seq)) - prfx
+        if suffix < 30:
+            break
         hbr = str(mn1.seq)[:prfx] + str(mn2.seq)[len(mn2.seq) - suffix:]
         cur_identity = seq_identity(hbr, str(main_mn.seq))
         if mn_identity > cur_identity:
             mn_identity = cur_identity
             bst_res =  (prfx, suffix)
 
-    print(mn_identity)
     if (mn_identity * 2 <= resDiv):
         return (bst_res[0], bst_res[1], mn_identity)
     return (0, 0, 100)
@@ -307,8 +308,6 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
                 if i == j or i == g:
                     continue
 
-                print(monomers_list[i].id, monomers_list[j].id, monomers_list[g].id)
-
                 if cnt_mn[monomers_list[j].id] < TotalMonomerBlocks/FreqCeiling:
                     continue
 
@@ -316,17 +315,19 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
                     continue
 
                 hybrid_res = get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g])
-                print(hybrid_res)
                 if (hybrid_res[0] != 0 and hybrid_res[2] < bst_hyber_score):
                     bst_hyber_score = hybrid_res[2]
                     bst_hyber = (j, g)
 
         if bst_hyber_score < 100:
+            print(bst_hyber, bst_hyber_score)
             cnt1, cnt2, scr = get_hybrid_len(monomers_list[i], monomers_list[bst_hyber[0]], monomers_list[bst_hyber[1]])
             mn1 = monomers_list[bst_hyber[0]].id.split('_')[1]
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
 
             old_name = monomers_list[i].id
+            print(old_name, mn1, cnt1, mn2, cnt2)
+
             if (mn1 != mn2):
                 monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"
             else:

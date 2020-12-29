@@ -110,6 +110,12 @@ class MonomericBlock(object):
         self.rgh = rgh
         self.seq = seq
 
+    def __hash__(self):
+        return hash((self.lft, self.rgh, self.read_name))
+
+    def __eq__(self, other):
+        return self.lft == other.lft and self.rgh == other.rgh and self.read_name == other.read_name
+
 
 def load_fasta(filename, tp = "list"):
     if tp == "map":
@@ -231,7 +237,7 @@ def calc_dists_between_blocks(blocks, args):
     return y
 
 
-def init_small_ids(v, small_ids, origin_ids, cluserts_id, blocks, separation, args):
+def init_small_ids(v, init_dist, small_ids, origin_ids, cluserts_id, blocks, separation, args):
     y = multiprocessing.Array('f', len(blocks), lock=False)
 
     def calc_dist_for_range(lft, rgh, y):
@@ -258,10 +264,11 @@ def init_small_ids(v, small_ids, origin_ids, cluserts_id, blocks, separation, ar
         if cluserts_id[j] != -1:
             continue
         cur_dist = y[j]
+        init_dist[j] = cur_dist
         if cluserts_id[j] == -1 and cur_dist < separation:
             origin_ids.append(j)
             small_ids[j] = len(origin_ids) - 1
-        if cur_dist <= args.resDiv:
+        if cur_dist*2 <= args.resDiv:
             cl_size += 1
     return cl_size
 
@@ -293,19 +300,24 @@ def find_all_dists(small_ids, origin_ids, blocks, args):
 
 cnt_resolved = 0
 
+isolated_clusters = set()
 
 def init_one_cluster(i, cluserts_id, blocks, args, cid):
+    global isolated_clusters
     global cnt_resolved
     separation = 20
     origin_ids = []
     small_ids = [-1]*len(blocks)
-    all_dists = []
+    init_dist = [-1]*len(blocks)
 
-    cl_size = init_small_ids(i, small_ids, origin_ids, cluserts_id, blocks, separation, args)
+    if blocks[i] in isolated_clusters:
+        cluserts_id[i] = cid
+        return
+
+    cl_size = init_small_ids(i, init_dist, small_ids, origin_ids, cluserts_id, blocks, separation, args)
     print("CLuster size: ", cl_size, " len(origin_ids)=", str(len(origin_ids)))
+
     #log.log("Cnt blocks in area: " + str(len(origin_ids)))
-    if cl_size > 500:
-        all_dists = find_all_dists(small_ids, origin_ids, blocks, args)
     #print(all_dists)
     #log.log("All dists are calculated")
 
@@ -325,13 +337,15 @@ def init_one_cluster(i, cluserts_id, blocks, args, cid):
         for j in range(0, len(origin_ids)):
             if cluserts_id[origin_ids[j]] != -1:
                 continue
-            if len(all_dists) > 0:
-                cur_dist = all_dists[small_ids[v] * len(origin_ids) + j]
-            else:
-                cur_dist = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[j]].seq.seq))
+            if (init_dist[origin_ids[j]] - init_dist[v]) * 2 > args.resDiv:
+                continue
+            cur_dist = seq_identity(str(blocks[v].seq.seq), str(blocks[origin_ids[j]].seq.seq))
             if cur_dist*2 <= args.resDiv:
                 cluserts_id[origin_ids[j]] = cid
                 queue.append(origin_ids[j])
+
+    if len(queue) == 1:
+        isolated_clusters.add(blocks[i])
     log.log("Cluster id: " + str(cid) + "; area size: " + str(len(origin_ids)) + "; cluster size: " + str(len(queue)))
 
 
@@ -481,10 +495,10 @@ def init_first_run(args):
 
 
 def get_lst_iter(outdir):
-    iter_id = 0
-    while (os.path.isdir(os.path.join(outdir, "iter_" + str(iter_id)))):
-        iter_id += 1
-    return iter_id - 1
+    iter_id = 1000
+    while (not os.path.isdir(os.path.join(outdir, "iter_" + str(iter_id)))):
+        iter_id -= 1
+    return iter_id
 
 
 def init_continue(args):
@@ -809,7 +823,7 @@ def main():
     monomers_list = init_monomers(args.monomers)
 
     monomer_set_complete = False
-    prev_dir = "iter_1"
+    prev_dir = os.path.join(args.outdir, "iter_17")
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
@@ -820,9 +834,10 @@ def main():
         local_monmers_path = os.path.join(iter_outdir, "monomers.fa")
         shutil.copyfile(args.monomers, local_monmers_path)
 
-        # run string decomposer
-        sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
-        log.log("String decomposer is complete. Results save in: " + iter_outdir)
+        if not os.path.exists(os.path.join(iter_outdir, "final_decomposition.tsv")):
+            # run string decomposer
+            sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
+            log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
         # parse output csv file
         res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
