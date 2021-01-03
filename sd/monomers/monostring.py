@@ -121,7 +121,8 @@ class MonoString:
         assert_monostring_validity(self)
 
     @classmethod
-    def from_sd_record(cls, seq_id, monomer_db, sd_record, nucl_sequence):
+    def from_sd_record(cls, seq_id, monomer_db, sd_record, nucl_sequence,
+                       attempt_reversing=True):
         def get_monoinstances(sd_record):
             def id2index_strand(monomer_id, monomer_db=monomer_db):
                 if monomer_id == cls.none_monomer:
@@ -230,8 +231,11 @@ class MonoString:
 
         monoinstances = get_monoinstances(sd_record=sd_record)
 
-        monoinstances, nucl_sequence, is_reversed = \
-            reverse_if_needed(monoinstances, nucl_sequence)
+        if attempt_reversing:
+            monoinstances, nucl_sequence, is_reversed = \
+                reverse_if_needed(monoinstances, nucl_sequence)
+        else:
+            is_reversed = False
         string = get_string(monoinstances)
 
         monostring = cls(seq_id=seq_id,

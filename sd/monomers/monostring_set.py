@@ -23,7 +23,8 @@ class MonoStringSet:
 
     @classmethod
     def from_sd_report(cls, report, sequences, monomer_db,
-                       mode=None, filter_lowq=False):
+                       mode=None, filter_lowq=False,
+                       attempt_reversing=True):
         def get_raw_monostrings(report=report,
                                 sequences=sequences,
                                 monomer_db=monomer_db):
@@ -35,7 +36,9 @@ class MonoStringSet:
                     MonoString.from_sd_record(seq_id=seq_id,
                                               monomer_db=monomer_db,
                                               sd_record=seq_record,
-                                              nucl_sequence=nucl_sequence)
+                                              nucl_sequence=nucl_sequence,
+                                              attempt_reversing=\
+                                              attempt_reversing)
                 monostrings[seq_id] = monostring
             return monostrings
 

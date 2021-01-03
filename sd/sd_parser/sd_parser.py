@@ -18,7 +18,8 @@ logger = logging.getLogger("SD.sd_parser.sd_parser")
 
 class SD_Report:
     def __init__(self, sd_report_fn, monomers_fn, sequences_fn,
-                 mode=None, tocluster=False):
+                 mode=None, tocluster=False,
+                 attempt_reversing=True):
         logger.info('Reading SD Report')
 
         if mode is not None:
@@ -67,7 +68,8 @@ class SD_Report:
             MonoStringSet.from_sd_report(report=report,
                                          sequences=sequences,
                                          monomer_db=monomer_db,
-                                         mode=mode)
+                                         mode=mode,
+                                         attempt_reversing=attempt_reversing)
 
         logger.info('Creating monostrings dict')
         logger.info('Finished creating monostrings dict')
