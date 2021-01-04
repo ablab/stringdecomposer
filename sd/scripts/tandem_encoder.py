@@ -102,7 +102,7 @@ class TandemEncoding:
                     seq_pos, seq_char):
         enc_seq_nucl = self.encoding[self.PositionTriple(mono_index,
                                                          monomer_pos,
-                                                         monomer_nucl)]
+                                                         seq_char)]
         mono_id = self.monomer_db.index2id[mono_index][0]
         return EncodedChar(mono_id, mono_is_reversed,
                            monomer_pos, monomer_nucl,
