@@ -40,12 +40,14 @@ def parse_args():
 
 class EncodedChar:
     # char in seq can be '-', so it is not a nucleotide
-    HEADER = ['mono_id', 'mono_is_reversed', 'monomer_pos', 'monomer_nucl',
+    HEADER = ['seq_id', 'mono_id',
+              'mono_is_reversed', 'monomer_pos', 'monomer_nucl',
               'seq_pos', 'seq_char', 'enc_seq_char']
 
-    def __init__(self, mono_id, mono_is_reversed,
+    def __init__(self, seq_id, mono_id, mono_is_reversed,
                  monomer_pos, monomer_nucl,
                  seq_pos, seq_char, enc_seq_char):
+        self.seq_id = seq_id
         self.mono_id = mono_id
         self.mono_is_reversed = mono_is_reversed
         self.monomer_pos = monomer_pos
@@ -57,7 +59,8 @@ class EncodedChar:
     def output(self, opened_writable_file, sep='\t', print_header=True):
         if print_header:
             print(sep.join(self.HEADER), file=opened_writable_file)
-        out_lst = [self.mono_id, self.mono_is_reversed, self.monomer_pos,
+        out_lst = [self.seq_id, self.mono_id,
+                   self.mono_is_reversed, self.monomer_pos,
                    self.monomer_nucl, self.seq_pos, self.seq_char,
                    self.enc_seq_char]
         out_lst = [str(x) for x in out_lst]
@@ -97,14 +100,15 @@ class TandemEncoding:
                     self.decoding.append(triple)
                     i += 1
 
-    def encode_char(self, mono_index, mono_is_reversed,
+    def encode_char(self, seq_id, mono_index, mono_is_reversed,
                     monomer_pos, monomer_nucl,
                     seq_pos, seq_char):
         enc_seq_nucl = self.encoding[self.PositionTriple(mono_index,
                                                          monomer_pos,
                                                          seq_char)]
         mono_id = self.monomer_db.index2id[mono_index][0]
-        return EncodedChar(mono_id, mono_is_reversed,
+        return EncodedChar(seq_id, mono_id,
+                           mono_is_reversed,
                            monomer_pos, monomer_nucl,
                            seq_pos, seq_char,
                            enc_seq_nucl)
@@ -154,12 +158,13 @@ class TandemEncoding:
                     seq_pos += 1
                     continue
 
-                assert (mi.is_reverse() and \
+                assert (mi.is_reverse() and
                         m_cons[-(monomer_pos - trim)-1] == cons_char) or \
-                       (not mi.is_reverse() and \
+                       (not mi.is_reverse() and
                         m_cons[monomer_pos - trim] == cons_char)
 
                 lst_encoded_chars.append(self.encode_char(
+                    seq_id=monostring.seq_id,
                     mono_index=mono_index,
                     mono_is_reversed=mi.is_reverse(),
                     monomer_pos=monomer_pos,
