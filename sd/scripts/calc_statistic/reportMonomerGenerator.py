@@ -153,30 +153,67 @@ def cal_separation(monomer, reported_monomers, final_dec_path, sequences):
         res_dist = min(res_dist, dist)
     return res_dist
 
+
+def get_cnt_in_centromers(res_tsv, mnid):
+    resDiv = 5
+    cnt_cet = {}
+
+    with open(res_tsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        for row in csv_reader:
+            if row[2] == "start":
+                continue
+            identity = float(row[4])
+            if row[-1] == '?':
+                continue
+
+            #print("Identity: ", identity)
+            if identity < 100 - resDiv:
+                continue
+
+            if row[1][-1] == "'":
+                row[1] = row[1][:-1]
+                continue
+
+            if (row[1] == mnid):
+                if row[0].split(':')[0] not in cnt_cet:
+                    cnt_cet[row[0].split(':')[0]] = 1
+                cnt_cet[row[0].split(':')[0]] += 1
+    res_lst = []
+    for key in cnt_cet:
+        res_lst.append((-cnt_cet[key], key))
+    res_lst.sort()
+    res_cen, res_cnt = [], []
+    for cnt1, cen1 in res_lst:
+        res_cen.append(cen1)
+        res_cnt.append(-cnt1)
+    return res_cen, res_cnt
+
+
 def main():
     args = parse_args()
     origin_monomers = load_fasta(args.monomers, "map")
     reported_monomers = load_fasta(os.path.join(args.MGdir, "monomers.fa"), "map")
-    cmpMonomers = os.path.join(args.MGdir, "cmpReportedAndOriginMonomers.csv")
-    with open(cmpMonomers, "w") as fw:
-        writer = csv.writer(fw)
-        writer.writerow(['OriginMonomerName', 'ReportedMonomerName', 'Distance', 'Radius', 'Separation', 'Alignment'])
-        for emon in reported_monomers:
-            radius = calc_radius(reported_monomers[emon],
-                                 os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
-                                 os.path.join(args.MGdir, "sequence.fa"))
-            separation = cal_separation(reported_monomers[emon], reported_monomers, os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
-                                 os.path.join(args.MGdir, "sequence.fa"))
-
-            for omon in origin_monomers:
-                a = str(origin_monomers[omon].seq)
-                b = str(reported_monomers[emon].seq)
-                result = edlib.align(a, b, mode="NW", task="locations")
-                dist = result["editDistance"] * 100 / max(len(a), len(b))
-
-                result = edlib.align(a, b, mode="NW", task="path")
-                nice = edlib.getNiceAlignment(result, a, b)
-                writer.writerow([omon, emon, str(dist), str(radius), str(separation), "\n".join(nice.values())])
+    # cmpMonomers = os.path.join(args.MGdir, "cmpReportedAndOriginMonomers.csv")
+    # with open(cmpMonomers, "w") as fw:
+    #     writer = csv.writer(fw)
+    #     writer.writerow(['OriginMonomerName', 'ReportedMonomerName', 'Distance', 'Radius', 'Separation', 'Alignment'])
+    #     for emon in reported_monomers:
+    #         radius = calc_radius(reported_monomers[emon],
+    #                              os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
+    #                              os.path.join(args.MGdir, "sequence.fa"))
+    #         separation = cal_separation(reported_monomers[emon], reported_monomers, os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
+    #                              os.path.join(args.MGdir, "sequence.fa"))
+    #
+    #         for omon in origin_monomers:
+    #             a = str(origin_monomers[omon].seq)
+    #             b = str(reported_monomers[emon].seq)
+    #             result = edlib.align(a, b, mode="NW", task="locations")
+    #             dist = result["editDistance"] * 100 / max(len(a), len(b))
+    #
+    #             result = edlib.align(a, b, mode="NW", task="path")
+    #             nice = edlib.getNiceAlignment(result, a, b)
+    #             writer.writerow([omon, emon, str(dist), str(radius), str(separation), "\n".join(nice.values())])
 
     summary_path = os.path.join(args.MGdir, "summary.csv")
     summary_upgrade = os.path.join(args.MGdir, "summary_upgrade.csv")
@@ -186,21 +223,30 @@ def main():
             writer = csv.writer(fw)
             line_id = 0
             for line in reader:
+                print(line)
                 if line_id == 0:
-                    writer.writerow(line + ["Dist to original monomers", "Dist to previously generated monomer", "Length"])
+                    writer.writerow(line + ["Dist to original monomers", "Dist to previously generated monomer", "Length", "Centromers position", "Number of occurance"])
                 else:
                     nxt_folder_mono = os.path.join(args.MGdir, "iter_"  + str(line_id), "monomers.fa")
-                    if (os.path.isfile(nxt_folder_mono)):
-                        last_monomer = load_last_fasta(nxt_folder_mono)
+                    final_monomers_folder = os.path.join(args.MGdir, "final", "monomers.fa")
+                    mn_name = "mn_" + str(line_id - 1)
+                    if True:#(os.path.isfile(nxt_folder_mono)):
+                        last_monomer = load_fasta(final_monomers_folder, "map")[mn_name]
                         nxt_folder_mono = os.path.join(args.MGdir, "iter_" + str(line_id - 1), "monomers.fa")
-                        nw_monomers = load_fasta(nxt_folder_mono, "map")
+                        all_monomers = load_fasta(final_monomers_folder, "map")
+                        nw_monomers = {}
+                        for i in range(line_id - 1):
+                            if ("mn_" + str(i)) in all_monomers:
+                                nw_monomers["mn_" + str(i)] = all_monomers["mn_" + str(i)]
+
                         print(nw_monomers)
                         mdist = get_min_dist(last_monomer, origin_monomers)
                         #del nw_monomers[last_monomer.id]
                         mgdist = get_min_dist(last_monomer, nw_monomers)
-                        writer.writerow(line + [str(mdist), str(mgdist), str(len(last_monomer.seq))])
+                        centromers_list, cnt_in_cen = get_cnt_in_centromers(os.path.join(args.MGdir, "final", "final_decomposition.tsv"), mn_name)
+                        writer.writerow(line + [str(mdist), str(mgdist), str(len(last_monomer.seq)), str(centromers_list), str(cnt_in_cen)])
                     else:
-                        writer.writerow(line + ["-", "-", "-"])
+                        writer.writerow(line + ["-", "-", "-", "-", "-"])
                 line_id += 1
 
 if __name__ == "__main__":

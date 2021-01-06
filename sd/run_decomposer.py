@@ -100,9 +100,14 @@ def classify(reads_mapping):
             reads_mapping[i]["q"] = "?"
     return reads_mapping
 
+
 def convert_read(decomposition, read, monomers, light = False):
     res = []
+    iter_d = 0
     for d in decomposition:
+        if iter_d % 10000 == 0:
+            print("Conver read: ", iter_d, "/", len(decomposition), file=sys.stderr, flush=True)
+        iter_d += 1
         monomer, start, end = d["m"], d["start"], d["end"]
         if light:
             scores = {}
@@ -181,7 +186,7 @@ def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
     sd_exec_file = p[:-len("run_decomposer.py")] + "/bin/dp"
-    print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
+    print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr, flush=True)
     with open(raw_file, 'w') as f:
         subprocess.run([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match], stdout = f, check = True)
     with open(raw_file, 'r') as f:
@@ -202,16 +207,18 @@ def main():
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
     parser.add_argument('--fast',  help='doesn\'t generate second best monomer and homopolymer scores', action="store_true")
 
+#"--new-monomers", upmn_path
+
     args = parser.parse_args()
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
-    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
+    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr, flush=True)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
-    print("Transforming raw alignments...", file=sys.stderr)
+    print("Transforming raw alignments...", file=sys.stderr, flush=True)
     convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
-    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":

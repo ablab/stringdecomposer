@@ -402,7 +402,7 @@ def clustering(blocks, args):
         mn_sep = 100
         for j in range(0, i):
             mn_sep = min(mn_sep, get_separation(clusters[i], clusters[j], args))
-        if mn_sep < 15:
+        if mn_sep < 11:
             break
         else:
             max_clst.append(clusters[i])
@@ -601,8 +601,10 @@ def need_update(args, monomer_record, monomer_resolved_block, iter_outdir, prev_
                 return True
     return False
 
+updated_monomers = []
 
 def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir, prev_dir):
+    global updated_monomers
     if need_update(args, monomer_record, monomer_resolved_block, iter_outdir, prev_dir):
         cluster_seqs_path = os.path.join(iter_outdir, monomer_record.id.split('/')[0] + "_seqs.fa")
         save_seqs(monomer_resolved_block, cluster_seqs_path)
@@ -610,6 +612,7 @@ def update_monomer(args, monomer_record, monomer_resolved_block, iter_outdir, pr
         if reverse_monomer(args):
             new_monomer = rc(new_monomer)
         monomer_record.seq = Seq(new_monomer)
+        updated_monomers.append(monomer_record.id)
 
     return monomer_record
 
@@ -711,7 +714,7 @@ def final_iteration(args, sd_script_path, monomers_list):
     shutil.copyfile(args.monomers, local_monmers_path)
 
     # run string decomposer
-    sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
+    sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads), "--fast"])
     log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
     # parse output csv file
@@ -773,6 +776,8 @@ def delete_unused_monomers(monomers_list, monomer_resolved):
 
 
 def update_all_monomers(monomers_list, args, monomer_resolved, iter_outdir, prev_dir):
+    global updated_monomers
+    updated_monomers = []
     for i in range(len(monomers_list)):
         log.log("==== Update monomer " + str(monomers_list[i].id))
         set_blocks_seq(args.sequences, monomer_resolved[monomers_list[i].id])
@@ -801,6 +806,7 @@ def chr_statistic(blocks):
 
 
 def main():
+    global updated_monomers
     log.log("Start Monomer Inference")
     args = parse_args()
     # get path to current script
@@ -823,7 +829,7 @@ def main():
     monomers_list = init_monomers(args.monomers)
 
     monomer_set_complete = False
-    prev_dir = os.path.join(args.outdir, "iter_17")
+    prev_dir = os.path.join(args.outdir, "iter_345")
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
@@ -835,8 +841,15 @@ def main():
         shutil.copyfile(args.monomers, local_monmers_path)
 
         if not os.path.exists(os.path.join(iter_outdir, "final_decomposition.tsv")):
+            extra_options = []
+            if updated_monomers != []:
+                upmn_path = os.path.join(iter_outdir, "updated_monomers")
+                with open(upmn_path, "w") as f:
+                    for u_mn in updated_monomers:
+                        f.write(u_mn + "\n")
+                extra_options = ["--new-monomers", upmn_path]
             # run string decomposer
-            sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads)])
+            sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads), "--fast"])
             log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
         # parse output csv file
@@ -859,7 +872,7 @@ def main():
         if len(unresolved_blocks) > 0:
             set_blocks_seq(args.sequences, unresolved_blocks)
             max_cluster = clustering(unresolved_blocks, args)
-            if (len(max_cluster[0]) == 1):
+            if (len(max_cluster[0]) < 5):
                 monomer_set_complete = True
         else:
             monomer_set_complete = True
@@ -881,6 +894,7 @@ def main():
 
                 new_monomer_record = SeqRecord(Seq(new_monomer), id="mn_" + str(iter_id + i), description="")
                 monomers_list.append(new_monomer_record)
+                updated_monomers.append(new_monomer_record.id)
                 ch_cnt, crms = chr_statistic(max_cluster[i])
                 summary_writer.writerow(
                     [str(iter_id + i), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt),
