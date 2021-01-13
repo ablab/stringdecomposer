@@ -8,6 +8,7 @@ import argparse
 import shutil
 import edlib
 import multiprocessing
+from random import *
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -305,7 +306,7 @@ isolated_clusters = set()
 def init_one_cluster(i, cluserts_id, blocks, args, cid):
     global isolated_clusters
     global cnt_resolved
-    separation = 20
+    separation = 100
     origin_ids = []
     small_ids = [-1]*len(blocks)
     init_dist = [-1]*len(blocks)
@@ -354,10 +355,20 @@ def get_clusters(blocks, args):
     cnt_resolved = 0
     cluserts_id = [-1]*len(blocks)
     cid = 0
-    for i in range(len(blocks)):
-        if cluserts_id[i] == -1:
-            init_one_cluster(i, cluserts_id, blocks, args, cid)
-            cid += 1
+
+    if os.path.exists(os.path.join(args.outdir, "cluster_id")):
+        with open(os.path.join(args.outdir, "cluster_id")) as f:
+            cluserts_id = [int(val) for val in f.read().split(' ')]
+        cid = max(cluserts_id) + 2
+    else:
+        cid = 0
+        for i in range(len(blocks)):
+            if cluserts_id[i] == -1:
+                init_one_cluster(i, cluserts_id, blocks, args, cid)
+                cid += 1
+
+        with open(os.path.join(args.outdir, "cluster_id"), "w") as fw:
+            fw.write(" ".join([str(cid) for cid in cluserts_id]))
 
     clusters = [[] for i in range(cid)]
     for i in range(len(blocks)):
@@ -375,6 +386,7 @@ def get_separation(clst1, clst2, args):
         for i in range(lft, rgh):
             for j in range(len(clst2)):
                 mn_dist = min(mn_dist, seq_identity(str(clst1[i].seq.seq), str(clst2[j].seq.seq)))
+                mn_dist = min(mn_dist, seq_identity(str(clst1[i].seq.seq), str(rc(clst2[j].seq.seq))))
         y.value = min(y.value, mn_dist)
 
     stp = (1 + (len(clst1) - 1) // args.threads)
@@ -479,9 +491,14 @@ def init_first_run(args):
     summary_fw = open(summary_path, "w")
     summary_writer = csv.writer(summary_fw)
     summary_writer.writerow(["IterationId", "Number of resolved blocks", "Number of unresolved blocks", "Number of non-monomeric blocks",
-                              "Size of the largest cluster", "Number of deleted monomers at this iteration", "Radius", "Separation"])
+                              "Size of the largest cluster", "Radius", "Dist to prev monomers", "Separation",
+                             "Avarage degree in cluster", "Connected"])
+
+    subcl_fw = open(os.path.join(args.outdir, "subcls.csv"), "w")
+    subcl_writer = csv.writer(subcl_fw)
+    subcl_writer.writerow(["Iteration", "SmallCluster id", "Centromenre", "Cluster size", "Radius", "Dist to another monomers in group", "Edges cnt to another cluster"])
     iter_id = 0
-    return iter_id, summary_fw, summary_writer
+    return iter_id, summary_fw, summary_writer, subcl_fw, subcl_writer
 
 
 def get_lst_iter(outdir):
@@ -620,6 +637,107 @@ def chr_statistic(blocks):
     return cnts, crms
 
 
+def get_edges(cluster, args):
+    edges_cnt = 0
+    for iter in range(10):
+        i = randint(0, len(cluster) - 1)
+        for j in range(0,  len(cluster)):
+            dst = seq_identity(str(cluster[i].seq.seq), str(cluster[j].seq.seq))
+            if dst * 2 <= args.resDiv:
+                edges_cnt += 1
+    return (edges_cnt/10)
+
+
+def check_is_connected(cluster, args):
+    initv = 0
+    used = [0] * len(cluster)
+    que = []
+    qbg = 0
+    used[0] = 1
+    que.append(0)
+    while qbg < len(que):
+        vi = que[qbg]
+        qbg += 1
+
+        for j in range(len(cluster)):
+            if used[j] == 0:
+                dst = seq_identity(str(cluster[vi].seq.seq), str(cluster[j].seq.seq))
+                if dst * 2 <= args.resDiv:
+                    used[j] = used[vi]
+                    que.append(j)
+        if qbg == len(que):
+            while initv < len(cluster) and used[initv] != 0:
+                initv += 1
+            if initv < len(cluster):
+                que.append(initv)
+                used[initv] = used[vi] + 1
+
+    for i in range(len(cluster)):
+        if used[i] != 1:
+            return False, used
+    return True, used
+
+
+
+def slpit_cluster(cluster, args):
+    cnts = []
+    vertex = {}
+    connected = []
+    for clst in cluster:
+        clname = clst.read_name.split(':')[0]
+        if clname not in vertex:
+            vertex[clname] = []
+            cnts.append(clname)
+        vertex[clname].append(clst)
+
+    splclst = []
+    for cen in cnts:
+        is_con, clusterid = check_is_connected(vertex[cen], args)
+        mxclst = max(clusterid) + 2
+        res_cl = [ [] for i in range(mxclst)]
+        for i in range(len(clusterid)):
+            res_cl[clusterid[i]].append(vertex[cen][i])
+        for cl in res_cl:
+            if len(cl) > 0:
+                splclst.append(cl)
+
+        if is_con:
+            log.log(cen + " is connected cluster")
+            connected.append(True)
+        else:
+            log.log(cen + " is not connected")
+            connected.append(False)
+    return connected, splclst
+
+
+def get_edges_cnt(clst1, clst2, args):
+    cnt_edge = 0
+    for i in range(len(clst1)):
+        for j in range(len(clst2)):
+            dst = seq_identity(str(clst1[i].seq.seq), str(clst2[j].seq.seq))
+            if dst * 2 <= args.resDiv:
+                cnt_edge += 1
+    return cnt_edge
+
+
+def save_subcl(bigcl_i, splcl, args, csv_writer, subcl_fw):
+    nmlst = []
+    for i in range(len(splcl)):
+        print(len(splcl[i]))
+        cluster_seqs_path = os.path.join(args.outdir, "tmp.fa")
+        save_seqs(splcl[i], cluster_seqs_path)
+        cl_mn = get_consensus_seq(cluster_seqs_path, splcl[i], args.threads)
+        dist_lst = []
+        edges_cnt = []
+        for j in range(len(nmlst)):
+            dist_lst.append(get_distance(str(cl_mn), str(nmlst[j])))
+            edges_cnt.append(get_edges_cnt(splcl[i], splcl[j], args))
+        nmlst.append(cl_mn)
+        radius = get_radius(cl_mn, splcl[i])
+        csv_writer.writerow([str(bigcl_i), str(i), splcl[i][0].read_name.split(':')[0], len(splcl[i]), str(radius), str(dist_lst), str(edges_cnt)])
+        subcl_fw.flush()
+
+
 def main():
     global updated_monomers
     log.log("Start cluster statistic calculation")
@@ -628,7 +746,7 @@ def main():
     current_script_path = os.path.abspath(os.path.dirname(__file__))
 
     # path to the run_decomposer script
-    sd_script_path = os.path.join(current_script_path, "..", "run_decomposer.py")
+    sd_script_path = os.path.join(current_script_path, "..", "..", "run_decomposer.py")
     log.log("Path to run_decomposer: " + sd_script_path)
 
     # create output_dir if not exists
@@ -637,7 +755,7 @@ def main():
         os.makedirs(args.outdir)
 
     if args.restart == False:
-        iter_id, summary_fw, summary_writer = init_first_run(args)
+        iter_id, summary_fw, summary_writer, subcl_fw, subcl_writer = init_first_run(args)
     else:
         iter_id, summary_fw, summary_writer = init_continue(args)
 
@@ -653,12 +771,15 @@ def main():
     local_monmers_path = os.path.join(iter_outdir, "monomers.fa")
     shutil.copyfile(args.monomers, local_monmers_path)
 
-    # run string decomposer
-    sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads), "--fast"])
-    log.log("String decomposer is complete. Results save in: " + iter_outdir)
-
     # parse output csv file
     res_tsv = os.path.join(iter_outdir, "final_decomposition.tsv")
+
+    # run string decomposer
+    if not os.path.exists(res_tsv):
+        sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads), "--fast"])
+        log.log("String decomposer is complete. Results save in: " + iter_outdir)
+
+
     dist_to_monomers = 0
     radius = 0
 
@@ -668,7 +789,6 @@ def main():
     log.log("Number of unresolved monomer block: " + str(len(unresolved_blocks)))
     log.log("Number of resolved blocks: " + str(resolved_cnt))
     log.log("Number of non-monomeric blocks: " + str(non_monomeric_cnt))
-    log.log("Number of deleted monomers: " + str(deleted_cnt))
 
     set_blocks_seq(args.sequences, unresolved_blocks)
     max_cluster = clustering(unresolved_blocks, args)
@@ -679,12 +799,19 @@ def main():
         save_seqs(max_cluster[i], cluster_seqs_path)
 
         new_monomer = get_consensus_seq(cluster_seqs_path, max_cluster[i], args.threads)
+        edges = get_edges(max_cluster[i], args)
+        connected, splcl = slpit_cluster(max_cluster[i], args)
         radius = get_radius(new_monomer, max_cluster[i])
+
+        save_subcl(i, splcl, args, subcl_writer, subcl_fw)
 
         if reverse_monomer(args):
             new_monomer = rc(new_monomer)
 
         dist_to_monomers = get_dist_to_exists_monomers(monomers_list, new_monomer)
+        separation = 100
+        for j in range(i):
+            separation = min(get_separation(max_cluster[i], max_cluster[j], args), separation)
         log.log("Min Distance to exsisting monomers: " + str(dist_to_monomers))
 
         new_monomer_record = SeqRecord(Seq(new_monomer), id="mn_" + str(iter_id + i), description="")
@@ -692,10 +819,13 @@ def main():
         ch_cnt, crms = chr_statistic(max_cluster[i])
         summary_writer.writerow(
                     [str(iter_id + i), str(resolved_cnt), str(len(unresolved_blocks)), str(non_monomeric_cnt),
-                     str(len(max_cluster[i])), str(deleted_cnt), str(radius),
-                     str(dist_to_monomers), str(ch_cnt), str(crms)])
+                     str(len(max_cluster[i])), str(radius),
+                     str(dist_to_monomers), str(separation), str(ch_cnt), str(crms),
+                     str(edges), str(connected)])
+        subcl_fw.flush()
         summary_fw.flush()
     summary_fw.close()
+    subcl_fw.close()
 
 if __name__ == "__main__":
     main()
