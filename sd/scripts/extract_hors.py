@@ -39,9 +39,9 @@ def load_dec(filename, min_idnt, min_reliable):
             qseqid = qseqid.split("(")[0]
             if idnt >= min_idnt:
                 monomers.add(qseqid)
-                reads_mapping[sseqid].append({"qid": qseqid, "s": s, "e": e, "rev": rev, "idnt": idnt})
+                reads_mapping[sseqid].append({"qid": qseqid.split("(")[0], "s": s, "e": e, "rev": rev, "idnt": idnt})
             else:
-                reads_mapping[sseqid].append({"qid": "NM","s": s, "e": e, "rev": False, "idnt": idnt})
+                reads_mapping[sseqid].append({"qid": "NM", "s": s, "e": e, "rev": False, "idnt": idnt})
 
     new_reads_mapping = {}
     cnt = 0
@@ -222,7 +222,7 @@ def collapse_annotation(annotation):
     new_annotation.append([prev, cnt, {"s": start, "e": end, "sz": cnt_sz}])
     return new_annotation
 
-def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, hors, potential_hors_all, potential_hors_names_all, set_size):
+def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, hors, potential_hors_all, potential_hors_names_all, set_size, superhor):
     potential_hors = {}
     potential_hors_names = []
     annotation_str = "_".join(annotation_seq)
@@ -234,16 +234,17 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
         has_diff = False
         has_mono = False
         while end_ind < len(annotation) and len_subseq < max_hor_len \
-              and annotation[end_ind][0] != "NM" and not annotation[end_ind][0].startswith("f") :
+              and annotation[end_ind][0] != "NM" and not annotation[end_ind][0].startswith("f"):
             len_subseq += annotation[end_ind][2]["sz"]
             subseq.append(annotation_seq[end_ind])
+            if annotation[end_ind][0].startswith("m") or superhor:
+                has_mono = True
             end_ind += 1
-            if min_hor_len < len_subseq < max_hor_len:
+            if min_hor_len < len_subseq < max_hor_len or (min_hor_len < len_subseq and superhor):
                 if len(subseq) > 1 and subseq[-1] != subseq[-2]:
                     has_diff = True
                 if has_diff and has_mono:
                     subseq_str = "_".join(subseq)
-
                     if "NM" in subseq_str or "f" in subseq_str:
                         print(subseq_str)
                         exit(-1)
@@ -302,9 +303,9 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
                     annotation_seq.append(a[0] + "[1]")
                 else:
                     annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
-            # if h_cnt == 0:
+            # if superhor:
             #     print("_".join(annotation_seq).replace("[1]", ""))
-            potential_hors, potential_hors_names = find_potential_hors(annotation[r], annotation_seq, min_hor_len, max_hor_len, hors, potential_hors, potential_hors_names, set_size)
+            potential_hors, potential_hors_names = find_potential_hors(annotation[r], annotation_seq, min_hor_len, max_hor_len, hors, potential_hors, potential_hors_names, set_size, superhor)
             set_size += len(annotation[r])
 
         potential_hors_lst = []
@@ -326,7 +327,7 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
             for a in annotation[r]:
                 annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
             if superhor:
-                annotation[r] = update_annotation_superhor(annotation[r], annotation_seq, potential_hors_lst[0][0], name)
+                annotation[r] = collapse_annotation(update_annotation_superhor(annotation[r], annotation_seq, potential_hors_lst[0][0], name))
             else:
                 annotation[r] = update_annotation(annotation[r], annotation_seq, potential_hors_lst[0][0], name)
     for r in reads:
@@ -609,7 +610,7 @@ if __name__ == "__main__":
     parser.add_argument('output', help='tsv-file to save HOR decomposition')
     parser.add_argument('--canonical', help='txt-file with list of canonical HORs', required = False)
     parser.add_argument('--naive',  help='run naive decomposition using canonical HORs (divides into canonical HORs and their subsequences, --canonical is required)', action="store_true")
-    #parser.add_argument('--superhor',  help='run decomposition into superHORs after naive or classic HOR decomposition', action="store_true")
+    parser.add_argument('--superhor',  help='run decomposition into superHORs after naive or classic HOR decomposition', action="store_true")
     parser.add_argument('--min-idnt',  help='minimum identity of monomer (75 by default)', type=int, default=75, required = False)
     parser.add_argument('--min-reliable',  help='minimum identity of reliable monomer (95, by default)', type=int, default=95, required = False)
     parser.add_argument('--min-cnt',  help='minimum number of potential HOR occurrences to be considered (5 by default)', type=int, default=5, required = False)
