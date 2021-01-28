@@ -61,7 +61,7 @@ def load_dec(filename, min_idnt, min_reliable):
 
 
 def convert_dec_to_internal_monomers(reads_mapping, monomers):
-    monomers_lst = [x for x in monomers]
+    monomers_lst = sorted([x.split("(")[0] for x in monomers], key=lambda x: ord(x[0])) #sorted([x for x in monomers], key=lambda x: int(x.split(".")[1].split("/")[0]))
     monomers_mp = {}
     monomers_mp_r = {}
     print("Monomer mapping: ")
@@ -73,6 +73,7 @@ def convert_dec_to_internal_monomers(reads_mapping, monomers):
             new_qid = "f" + str(i + 1)
         print(" ", "\t".join([qid, new_qid]))
         monomers_mp[qid] = new_qid
+        monomers_mp[qid + "'"] = new_qid + "'"
         monomers_mp_r[new_qid] = qid
         monomers_mp_r[new_qid + "'"] = qid + "'"
     monomers_mp["NM"] = "NM"
@@ -114,13 +115,16 @@ def build_full_hor(new_hor, hors, name):
 def get_annotation_seq_sz(annotation_seq):
     prev = annotation_seq[0]
     cnt = 1
+    x_cnt = 0
     for i in range(1, len(annotation_seq)):
         if annotation_seq[i] != prev:
             cnt += 1
             prev = annotation_seq[i]
-    return cnt
+        if annotation_seq[i] =="X":
+            x_cnt +=1
+    return cnt, x_cnt
 
-def known_hors_annotation(reads_annotation, known_hors, hors, hors_lst, h_cnt, min_cnt):
+def known_hors_annotation(reads_annotation, known_hors, hors, hors_lst, h_cnt, min_cnt, monomers_mp_r):
     hors_log = []
     rev_comp_hors = []
     for kh in known_hors:
@@ -134,12 +138,13 @@ def known_hors_annotation(reads_annotation, known_hors, hors, hors_lst, h_cnt, m
             for a in annotation:
                 annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
             annotation_str = "_".join(annotation_seq)
-            set_size += get_annotation_seq_sz(annotation_seq)
+            set_size += get_annotation_seq_sz(annotation_seq)[0]
             annotation_new_lst = annotation_str.split(kh)
             annotation_new_str = annotation_str.replace(kh, "X")
-            annotation_new_str = re.sub(r'(X_)\1+', r'\1', (annotation_new_str + "_"))[:-1]
-            new_set_size += get_annotation_seq_sz(annotation_new_str.split("_"))
-            cnt += len(annotation_new_lst) - 1
+            #annotation_new_str = re.sub(r'(X_)\1+', r'\1', (annotation_new_str + "_"))[:-1]
+            cur_set_size, cur_cnt = get_annotation_seq_sz(annotation_new_str.split("_"))
+            new_set_size += cur_set_size
+            cnt += cur_cnt
         if cnt == 0:
             continue
         h_cnt += 1
@@ -188,7 +193,7 @@ def update_annotation_superhor(annotation, annotation_seq, new_hor, name):
             cur_seq = ""
         cur_seq_transformed = re.sub(r"\[\d+\]", "[1]", cur_seq)
         if cur_seq_transformed == new_hor:
-            new_annotation.append([name, 1, {"s": [annotation[i][2]["s"][0]], "e": [annotation[i + k - 1][2]["e"][-1]]} ])
+            new_annotation.append([name, 1, {"s": [annotation[i][2]["s"][0]], "e": [annotation[i + k - 1][2]["e"][-1]], "sz": k} ])
             i += k
         else:
             new_annotation.append(annotation[i])
@@ -221,12 +226,13 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
     potential_hors = {}
     potential_hors_names = []
     annotation_str = "_".join(annotation_seq)
-    cur_set_size = get_annotation_seq_sz(annotation_seq)
+    cur_set_size, _ = get_annotation_seq_sz(annotation_seq)
     for i in range(len(annotation)):
         end_ind = i
         len_subseq, subseq = 0, []
         len_monomer_subseq = 0
         has_diff = False
+        has_mono = False
         while end_ind < len(annotation) and len_subseq < max_hor_len \
               and annotation[end_ind][0] != "NM" and not annotation[end_ind][0].startswith("f") :
             len_subseq += annotation[end_ind][2]["sz"]
@@ -235,7 +241,7 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
             if min_hor_len < len_subseq < max_hor_len:
                 if len(subseq) > 1 and subseq[-1] != subseq[-2]:
                     has_diff = True
-                if has_diff:
+                if has_diff and has_mono:
                     subseq_str = "_".join(subseq)
 
                     if "NM" in subseq_str or "f" in subseq_str:
@@ -244,10 +250,9 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
                     if subseq_str not in potential_hors:
                         annotation_new_lst = annotation_str.split(subseq_str)
                         annotation_new_str = annotation_str.replace(subseq_str, "X")
-                        annotation_new_str = re.sub(r'(X_)\1+', r'\1', (annotation_new_str + "_"))[:-1]
-
-                        new_set_size = get_annotation_seq_sz(annotation_new_str.split("_"))
-                        potential_hors[subseq_str] = {"set_size": new_set_size, "cnt": len(annotation_new_lst) - 1}
+                        #annotation_new_str = re.sub(r'(X_)\1+', r'\1', (annotation_new_str + "_"))[:-1]
+                        new_set_size, cnt = get_annotation_seq_sz(annotation_new_str.split("_"))
+                        potential_hors[subseq_str] = {"set_size": new_set_size, "cnt": cnt}
                         potential_hors_names.append(subseq_str)
     for h in potential_hors_all:
         if h not in potential_hors:
@@ -297,7 +302,7 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
         for h in potential_hors_names:
             if potential_hors[h]["cnt"] > min_cnt:
                 potential_hors_lst.append([h, potential_hors[h]])
-        potential_hors_lst = sorted(potential_hors_lst, key=lambda x: x[1]["set_size"])
+        potential_hors_lst = sorted(potential_hors_lst, key=lambda x: (x[1]["set_size"], len(x[0].split("_")) ))
         if len(potential_hors_lst) == 0 or set_size - potential_hors_lst[0][1]["set_size"] < min_weight:
             break
         h_cnt += 1
@@ -364,9 +369,9 @@ def run_naive_hor_annotation(annotation, known_hors):
         #new_annotation[r] = collapse_annotation(new_annotation[r])
     return new_annotation, hors_lst, hors_log
 
-def form_hor_dec(annotation, seq):
+def form_hor_dec(annotation, seq, reads_dec):
     new_seq = {}
-    for r in reads:
+    for r in reads_dec:
         r_ann, r_seq = annotation[r], seq[r]
         new_seq[r] = []
         i = 0
