@@ -153,7 +153,7 @@ def known_hors_annotation(reads_annotation, known_hors, hors, hors_lst, h_cnt, m
         hors_lst.append([name, kh])
         hors_log.append([name, kh.replace("[1]",""), hors[name].replace("[1]",""), str(len(hors[name].split("_"))), str(cnt), \
                                                      str(set_size - new_set_size), str(new_set_size) ])
-        print("\t".join([name, kh.replace("[1]",""), hors[name].replace("[1]",""), str(len(hors[name].split("_"))), str(cnt), \
+        print("\t".join([name, rename(kh.replace("[1]",""), monomers_mp_r), str(len(hors[name].split("_"))), str(cnt), \
                                                      str(set_size - new_set_size), str(new_set_size) ]), flush=True)
         for r in reads_annotation:
             annotation = reads_annotation[r]
@@ -269,7 +269,16 @@ def find_potential_hors(annotation, annotation_seq, min_hor_len, max_hor_len, ho
             potential_hors_all[h]["cnt"] = potential_hors[h]["cnt"]
     return potential_hors_all, potential_hors_names_all
 
-def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_hor_len, max_hor_len, superhor = False):
+def rename(st, monomers_mp_r):
+    res = ""
+    for c in st.split("_"):
+        if c.startswith("m"):
+            res += monomers_mp_r[c][0]
+        else:
+            res += c
+    return res
+
+def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_hor_len, max_hor_len, monomers_mp_r, superhor = False):
     hors = {}
     hors_lst = []
     h_cnt = 0
@@ -280,7 +289,7 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
 
     hors_log = []
     if len(known_hors) > 0:
-        annotation, hors, hors_lst, h_cnt, hors_log = known_hors_annotation(annotation, known_hors, hors, hors_lst, h_cnt, min_cnt)
+        annotation, hors, hors_lst, h_cnt, hors_log = known_hors_annotation(annotation, known_hors, hors, hors_lst, h_cnt, min_cnt, monomers_mp_r)
 
     while True:
         potential_hors = {}
@@ -309,7 +318,7 @@ def run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, mi
         name = "h" + str(h_cnt)
         hors= build_full_hor(potential_hors_lst[0][0], hors, name)
         hors_lst.append([name, potential_hors_lst[0][0]])
-        hors_log.append([name, potential_hors_lst[0][0].replace("[1]",""), hors[name].replace("[1]",""), str(len(hors[name].split("_"))), str(potential_hors_lst[0][1]["cnt"]), \
+        hors_log.append([name, rename(potential_hors_lst[0][0].replace("[1]",""), monomers_mp_r), str(len(hors[name].split("_"))), str(potential_hors_lst[0][1]["cnt"]), \
                                                      str(set_size - potential_hors_lst[0][1]["set_size"]), str(potential_hors_lst[0][1]["set_size"]) ])
         print("\t".join(hors_log[-1]), flush=True)
         for r in reads:
@@ -404,6 +413,16 @@ def convert_to_list_of_monomers(monomers_lst, monomers_mp):
         res.append(m_name)
     return ",".join(res)
 
+def convert_to_initial_mono_olya(qid, monomers_mp):
+    return monomers_mp[qid].split("(")[0]
+
+def convert_to_list_of_monomers_olya(monomers_lst, monomers_mp):
+    res = []
+    for m in monomers_lst:
+        m_name = convert_to_initial_mono_olya(m, monomers_mp)
+        res.append(m_name)
+    return ",".join(res)
+
 def convert_to_ivan_hors(monomers_lst, monomers_mp, known_hors_initial):
     res = []
     for m in monomers_lst:
@@ -485,11 +504,14 @@ def print_hor_dec(filename, seq, monomers_mp, known_hors_initial):
                     prev_qid = "NM"
                 else:
                     if prev_qid == "NM":
-                        fout.write("\t".join([r, "NM", str(-1), "{0:.2f}".format(55.0), str(start), str(prev), str(prev - start + 1), str(-1)]) + "\n")   
+                        fout.write("\t".join([r, "NM", str(start), str(prev), "{0:.2f}".format(55.0), str(-1), str(prev - start + 1), str(-1)]) + "\n")   
                     if c["qid"] in monomers_mp:
-                        fout.write("\t".join([r, convert_to_initial_mono(c["qid"], monomers_mp), str(c["len"]) if not c["qid"].startswith("f") else "-1", "{0:.2f}".format(c["idnt"]), str(c["s"]), str(c["e"]), str(c["e"] - c["s"] + 1), str(c["s"] - prev)]) + "\n")
+                        fout.write("\t".join([r, convert_to_initial_mono_olya(c["qid"], monomers_mp), str(c["s"]), str(c["e"]), "{0:.2f}".format(c["idnt"]),\
+                                              str(c["len"]) if not c["qid"].startswith("f") else "-1", \
+                                              str(c["e"] - c["s"] + 1), str(c["s"] - prev)]) + "\n")
                     else:
-                        fout.write("\t".join([r, convert_to_ivan_hors(c["monomers_lst"], monomers_mp, known_hors_initial), str(c["len"]), "{0:.2f}".format(c["idnt"]), str(c["s"]), str(c["e"]), str(c["e"] - c["s"] + 1),  str(c["s"] - prev)]) + "\n")
+                        fout.write("\t".join([r, convert_to_list_of_monomers_olya(c["monomers_lst"], monomers_mp), str(c["s"]), str(c["e"]), "{0:.2f}".format(c["idnt"]), \
+                                              str(c["len"]), str(c["e"] - c["s"] + 1),  str(c["s"] - prev)]) + "\n")
                 prev = c["e"]
                 prev_qid = c["qid"]
         if prev_qid == "NM":
@@ -517,22 +539,66 @@ def build_hor_annotation(reads_dec, min_cnt, min_weight, min_len, max_len, monom
     if naive_dec:
         annotation, hors_lst, hors_log = run_naive_hor_annotation(annotation, known_hors)
     else:
-        annotation, hors_lst, hors_log = run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_len, max_len)
-
-    # if run_superhor:
-    #     annotation, hors_lst, hors_log = run_iterative_hor_extraction(annotation, [], min_cnt, min_weight, min_len, max_len, True)
+        annotation, hors_lst, hors_log = run_iterative_hor_extraction(annotation, known_hors, min_cnt, min_weight, min_len, max_len, monomers_mp_r)
 
     for r in annotation:
         annotation_seq = []
-        for a in annotation[r]:
+        for i in range(len(annotation[r])):
+            a = annotation[r][i]
+            name = a[0]
+            # if a[0].startswith("h"):
+            #     name = chr(ord("a") + int(a[0][1:]) - 1)
+            # else:
+            #     name = monomers_mp_r[a[0]][0]
+            #     if monomers_mp_r[a[0]]=="NM":
+            #         name= "_NM_"
             if a[1] > 1:
-                annotation_seq.append(a[0] + "[" + str(a[1]) + "]")
+                annotation_seq.append(name + "[" + str(a[1]) + "]")
             else:
-                annotation_seq.append(a[0])
+                annotation_seq.append(name)
         print(r)
-        print("_".join(annotation_seq))
+        print("".join(annotation_seq))
+    if run_superhor:
+        print("SuperHORs")
+        m_num = len(monomers_mp_r) + 1
+        for r in annotation:
+            annotation_seq = []
+            for i in range(len(annotation[r])):
+                a = annotation[r][i]
+                name = a[0]
+                if a[0].startswith("h"):
+                    name = chr(ord("a") + int(a[0][1:]) - 1)
+                    if name not in monomers_mp:
+                        monomers_mp[name] = "m" + str(m_num)
+                        monomers_mp_r["m" + str(m_num)] = name
+                        print(name, "m" + str(m_num))
+                        m_num += 1
+                    annotation[r][i][0] = monomers_mp[name]
+                else:
+                    name = monomers_mp_r[a[0]][0]
+                if a[1] > 1:
+                    annotation_seq.append(annotation[r][i][0] + "[" + str(a[1]) + "]")
+                else:
+                    annotation_seq.append(annotation[r][i][0])
+            print(r)
+            print("_".join(annotation_seq))
+        annotation, hors_lst, hors_log = run_iterative_hor_extraction(annotation, [], min_cnt, min_weight, 1, 1000000000000, monomers_mp_r, True)
 
-    seq = form_hor_dec(annotation, seq)
+        for r in annotation:
+            annotation_seq = []
+            for a in annotation[r]:
+                name = a[0]
+                if a[0].startswith("h"):
+                    name = a[0] #chr(ord("a") + int(a[0][1:]) - 1)
+                else:
+                    name = monomers_mp_r[a[0]][0]
+                    if monomers_mp_r[a[0]]=="NM":
+                        name= "_NM_"
+                annotation_seq.append(name)
+            print(r)
+            print("_".join(annotation_seq))
+
+    seq = form_hor_dec(annotation, seq, reads_dec)
     print_hor_dec(output, seq, monomers_mp_r, known_hors_initial)
     
 if __name__ == "__main__":
