@@ -84,16 +84,20 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Monomer Inference Problem: complement monomers set')
     parser.add_argument('-seq', '--sequences', dest="sequences", help='fasta-file with long reads or genomic sequences')
     parser.add_argument('-mon', '--monomers', dest='monomers', help='fasta-file with monomers')
-    parser.add_argument('-o', '--out-dir', dest="outdir", help='output directory (default=\'.\')', default=".", required=False)
-    parser.add_argument("--continue", dest="restart", help="continue run from output dir", required=False, action='store_true')
-    parser.add_argument('-t', '--threads', dest="threads", help='number of threads (default=1)', default=1, type=int)
-    parser.add_argument('--len', help='the monomer length (default=171)', type=int, default=171, required=False)
+    parser.add_argument('-o', '--out-dir', dest="outdir", help="output directory [default='.']", default=".",
+                        required=False)
+    parser.add_argument("--continue", dest="restart", help="continue run from output dir", required=False,
+                        action='store_true')
+    parser.add_argument('-t', '--threads', dest="threads", help='number of threads [default=1]', default=1, type=int)
+    parser.add_argument('--len', help='the monomer length [default=171]', type=int, default=171, required=False)
     parser.add_argument('--lenDiv', '--max-length-divergence',
-                        help='the maximum differ from length (default= 0.02*len)',
+                        help='the maximum differ from length [default=0.02*len]',
                         type=int, default=-1, required=False)
-    parser.add_argument('--resDiv', '--max-resolved-divergence', help='max divergence in identity for resolve block (default=5%)',
+    parser.add_argument('--resDiv', '--max-resolved-divergence',
+                        help='max divergence in identity for resolve block [default=5]',
                         type=float, default=5, required=False)
-    parser.add_argument('--maxDiv','--max-divergence', help='max divergence in identity for monomeric-block (default=25%)',
+    parser.add_argument('--maxDiv', '--max-divergence',
+                        help='max divergence in identity for monomeric-block [default=25]',
                         type=float, default=40, required=False)
     return parser.parse_args()
 
