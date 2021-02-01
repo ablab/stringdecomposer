@@ -1,4 +1,23 @@
-[![Anaconda-Server Badge](https://anaconda.org/bioconda/stringdecomposer/badges/installer/conda.svg)](https://anaconda.org/bioconda/stringdecomposer)
+
+# CentromereArchitect
+
+## Version 0.5
+
+CentromereArchitect (CA) is the first tool for the centromere annotation in a newly sequenced genome. Its algorithm consists of two main steps: 
+- Monomer Inference - extraction of human monomers based on the given alpha-satellite template and centromeric sequence.
+- HOR Inference - extraction of human live HORs based on StringDecomposer decomposition of centromeric sequence into monomers extracted on the previous step.
+
+This branch contains prerelease version of CA that was used to generate results for ISMB-2021 submission. 
+We applied CA to the recently generated complete assembly of a human genome by the Telomere-to-Telomere consortium and generated the complete set of human monomers and high-order repeats for so-called live centromeres.
+
+Please find below all requirements and instructions to replicate our analysis. All generated monomers and HORs can be found here(TODO).
+
+## Monomer Inference
+
+## HOR Inference
+
+
+
 
 # StringDecomposer
 
