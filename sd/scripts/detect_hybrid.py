@@ -160,7 +160,7 @@ def save_mn(args, shifted_mn):
 
 
 def get_hybrid_len(main_mn, mn1, mn2):
-    resDiv = 5
+    resDiv = 500
     mn_identity = 100
     bst_res = (0, 0)
     for prfx in range(30, len(mn1.seq)):
@@ -176,6 +176,11 @@ def get_hybrid_len(main_mn, mn1, mn2):
     if (mn_identity * 2 <= resDiv):
         return (bst_res[0], bst_res[1], mn_identity)
     return (0, 0, 100)
+
+
+def get_align(mn1, mn2):
+    result = edlib.align(mn1, mn2, mode="NW", task="path")
+    return edlib.getNiceAlignment(result, mn1, mn2)
 
 
 def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
@@ -198,6 +203,12 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
                 if cnt_mn[monomers_list[g].id] < TotalMonomerBlocks/FreqCeiling:
                     continue
 
+                if (cnt_mn[monomers_list[j].id] < cnt_mn[monomers_list[i].id]):
+                    continue
+
+                if (cnt_mn[monomers_list[g].id] < cnt_mn[monomers_list[i].id]):
+                    continue
+
                 hybrid_res = get_hybrid_len(monomers_list[i], monomers_list[j], monomers_list[g])
                 if (hybrid_res[0] != 0 and hybrid_res[2] < bst_hyber_score):
                     bst_hyber_score = hybrid_res[2]
@@ -210,7 +221,27 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
             mn2 = monomers_list[bst_hyber[1]].id.split('_')[1]
 
             old_name = monomers_list[i].id
-            print(old_name, mn1, cnt1, mn2, cnt2)
+            print(old_name, mn1, cnt1, mn2, cnt2, scr)
+            if scr > 5:
+                continue
+            concatmn = monomers_list[bst_hyber[0]].seq[:cnt1] + monomers_list[bst_hyber[1]].seq[-cnt2:]
+            print(concatmn)
+            alignCon = get_align(monomers_list[i].seq, concatmn)
+            print(alignCon["query_aligned"])
+            print(alignCon["matched_aligned"])
+            print(alignCon["target_aligned"])
+            print()
+
+            align1 = get_align(monomers_list[i], monomers_list[bst_hyber[0]])
+            align2 = get_align(monomers_list[i], monomers_list[bst_hyber[1]])
+
+            print(align1["query_aligned"].seq)
+            print(align1["matched_aligned"])
+            print(align1["target_aligned"].seq)
+
+            print(align2["query_aligned"].seq)
+            print(align2["matched_aligned"])
+            print(align2["target_aligned"].seq)
 
             if (mn1 != mn2):
                 monomers_list[i].id += "_hybrid_" + mn1 + "(" + str(cnt1) + ")_" + mn2 + "(" + str(cnt2) + ")"

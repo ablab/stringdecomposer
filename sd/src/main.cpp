@@ -160,8 +160,10 @@ private:
         }
         std::sort(mn_edit.begin(), mn_edit.end());
         monomers_for_read.push_back(monomers_[mn_edit[0].second]);
+        //std::cerr << mn_edit[0].second << " " << mn_edit[0].first << "\n";
         for (int i = 1; i < mn_edit.size(); ++i) {
-            if (mn_edit[i].first <= 20) {
+            //std::cerr << mn_edit[i].second << " " << mn_edit[i].first << "\n";
+            if (mn_edit[i].first <= 200) {
                 monomers_for_read.push_back(monomers_[mn_edit[i].second]);
             }
         }
