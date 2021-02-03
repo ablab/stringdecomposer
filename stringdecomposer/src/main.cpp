@@ -9,6 +9,8 @@
 #include <iterator>
 #include <omp.h>
 
+#include "edlib.h"
+
 using namespace std;
 
 struct ReadId {
@@ -84,9 +86,10 @@ public:
         vector<pair<int, vector<MonomerAlignment>>> subbatches;
         for (size_t i = 0; i < new_reads.size(); i += step) {
             #pragma omp parallel for num_threads(threads)
-            for (size_t j = i; j < min(i + step, new_reads.size()); ++ j) {
-                vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
-                #pragma omp critical(aligner) 
+            for (size_t j = i; j < min(i + step, (int) new_reads.size()); ++ j) {
+                std::vector<Seq> filter_monomers = FilterMonomersForRead(new_reads[j]);
+                vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j], filter_monomers);
+                #pragma omp critical(aligner)
                 {
                     subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
                 }
@@ -116,47 +119,81 @@ public:
     }
 
 private:
+    void PrecalculateMonomerAlignment(){
 
-    vector<MonomerAlignment> AlignPartClassicDP(Seq &read) {
+    }
+
+    void PrecalculateMonomerEdlib(){
+
+    }
+
+    double MonomerEditDistance(Seq& monomer, Seq& read) {
+        EdlibAlignResult result = edlibAlign(monomer.seq.c_str(), monomer.seq.size(), read.seq.c_str(), read.seq.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
+        double res = result.editDistance;
+        edlibFreeAlignResult(result);
+        return res;
+    }
+
+    std::vector<Seq> FilterMonomersForRead(Seq& read) {
+        std::vector<Seq> monomers_for_read;
+        std::vector<std::pair<double, int>> mn_edit;
+        for (int i = 0; i < monomers_.size(); ++i) {
+            mn_edit.push_back(std::make_pair(MonomerEditDistance(monomers_[i], read), i));
+        }
+        std::sort(mn_edit.begin(), mn_edit.end());
+        monomers_for_read.push_back(monomers_[mn_edit[0].second]);
+        for (int i = 1; i < mn_edit.size(); ++i) {
+            if (mn_edit[i].first <= 20) {
+                monomers_for_read.push_back(monomers_[mn_edit[i].second]);
+            }
+        }
+        return monomers_for_read;
+    }
+
+    vector<MonomerAlignment> AlignPartFitting(Seq &read) {
+
+    }
+
+    vector<MonomerAlignment> AlignPartClassicDP(Seq &read, std::vector<Seq>& monomers) {
         int ins = ins_;
         int del = del_;
         int match = match_;
         int mismatch = mismatch_;
         int INF = -1000000;
-        int monomers_num = (int) monomers_.size();
+        int monomers_num = (int) monomers.size();
         vector<vector<vector<long long>>> dp(read.seq.size());
         //cout << dp.size() << endl;
         for (size_t i = 0; i < read.seq.size(); ++ i) {
-            for (const auto & m: monomers_) {
+            for (const auto & m: monomers) {
                 dp[i].push_back(vector<long long>(m.seq.size()));
                 for (size_t k = 0; k < m.seq.size(); ++ k) {
-                    dp[i][dp[i].size() - 1][k] = INF; 
+                    dp[i][dp[i].size() - 1][k] = INF;
                 }
             }
             dp[i].push_back(vector<long long>(1));
             dp[i][monomers_num][0] = INF;
         }
 
-        for (size_t j = 0; j < monomers_.size(); ++ j) {
-            Seq m = monomers_[j];
+        for (size_t j = 0; j < monomers.size(); ++ j) {
+            Seq m = monomers[j];
             if (m.seq[0] == read.seq[0]) {
                 dp[0][j][0] = match;
             } else {
                 dp[0][j][0] = mismatch;
             }
             for (size_t k = 1; k < m.seq.size(); ++ k) {
-                int mm_score = monomers_[j].seq[k] == read.seq[0] ? match: mismatch;
-                dp[0][j][k] = max(dp[0][j][k-1] + del, static_cast<long long>(del*(k-1)) + mm_score);
+                int mm_score = monomers[j].seq[k] == read.seq[0] ? match: mismatch;
+                dp[0][j][k] = max(dp[0][j][k-1] + del, del*(k-1) + mm_score);
             }
         }
         for (size_t i = 1; i < read.seq.size(); ++ i) {
-            for (size_t j = 0; j < monomers_.size(); ++ j) {
-                dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers_[j].size() - 1]);
+            for (size_t j = 0; j < monomers.size(); ++ j) {
+                dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers[j].size() - 1]);
             }
-            for (size_t j = 0; j < monomers_.size(); ++ j) {
-                for (size_t k = 0; k < monomers_[j].size(); ++ k) {
+            for (size_t j = 0; j < monomers.size(); ++ j) {
+                for (size_t k = 0; k < monomers[j].size(); ++ k) {
                     long long score = INF;
-                    int mm_score = monomers_[j].seq[k] == read.seq[i] ? match: mismatch;
+                    int mm_score = monomers[j].seq[k] == read.seq[i] ? match: mismatch;
                     if (dp[i][monomers_num][0] > INF) {
                         score = max(score, dp[i][monomers_num][0] + mm_score + static_cast<long long>(k*del));
                     }
@@ -177,9 +214,9 @@ private:
         }
         int max_score = INF;
         int best_m = monomers_num;
-        for (size_t j = 0; j < monomers_.size(); ++ j) {
-            if (max_score < dp[read.seq.size()-1][j][monomers_[j].size() -1] ) {
-                max_score = dp[read.seq.size()-1][j][monomers_[j].size() -1];
+        for (size_t j = 0; j < monomers.size(); ++ j) {
+            if (max_score < dp[read.seq.size()-1][j][monomers[j].size() -1] ) {
+                max_score = dp[read.seq.size()-1][j][monomers[j].size() -1];
                 best_m = j;
             }
         }
@@ -191,7 +228,7 @@ private:
         MonomerAlignment cur_aln;
         while (i >= 0) {
             if (k == static_cast<long long>(dp[i][j].size() - 1) && j != monomers_num && monomer_changed) {
-                cur_aln = MonomerAlignment(monomers_[j].read_id.name, read.read_id.name, i, i, dp[i][j][k], true);
+                cur_aln = MonomerAlignment(monomers[j].read_id.name, read.read_id.name, i, i, dp[i][j][k], true);
                 monomer_changed = false;
             } 
             if (j == monomers_num) {
@@ -214,7 +251,7 @@ private:
                     if (i != 0 && dp[i][j][k] == dp[i-1][j][k] + ins) {
                         --i;
                     } else{
-                        int mm_score = monomers_[j].seq[k] == read.seq[i] ? match: mismatch;
+                        int mm_score = monomers[j].seq[k] == read.seq[i] ? match: mismatch;
                         if (i != 0 && k != 0 && dp[i][j][k] == dp[i-1][j][k-1] + mm_score) {
                             --i; --k;
                         } else {
