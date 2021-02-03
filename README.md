@@ -4,19 +4,41 @@
 ## Version 0.5
 
 CentromereArchitect (CA) is the first tool for the centromere annotation in a newly sequenced genome. Its algorithm consists of two main steps: 
-- Monomer Inference - extraction of human monomers based on the given alpha-satellite template and centromeric sequence.
-- HOR Inference - extraction of human live HORs based on StringDecomposer decomposition of centromeric sequence into monomers extracted on the previous step.
+- Monomer Inference — extraction of human monomers based on the given alpha-satellite template and centromeric sequence.
+- HOR Inference — extraction of human live HORs based on StringDecomposer decomposition of centromeric sequence into monomers extracted on the previous step.
 
 This branch contains prerelease version of CA that was used to generate results for ISMB-2021 submission. 
 We applied CA to the recently generated complete assembly of a human genome by the Telomere-to-Telomere consortium and generated the complete set of human monomers and high-order repeats for so-called live centromeres.
 
 Please find below all requirements and instructions to replicate our analysis. All generated monomers and HORs can be found here(TODO).
 
+## Requirements:
+- Python3.5
+    - [biopython](https://biopython.org/wiki/Download)
+    - [argparse](https://pypi.org/project/argparse/)
+    - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
+    - [networkx](https://pypi.org/project/networkx)
+    - [numpy](https://scipy.org/install.html)
+    - [matplotlib](https://pypi.org/project/matplotlib/)
+    - [pandas](https://pypi.org/project/pandas/)
+    - [python-edlib](https://pypi.org/project/edlib/)
+    - [seaborn](https://pypi.org/project/seaborn/)
+    - [setuptools](https://pypi.org/project/setuptools/)
+- g++ (version 5.3.1 or higher)
+
 ## Monomer Inference
 
 ## HOR Inference
 
+Example of running HORDecomposition algorithm on cenX and newly obtained monomers:
+```
+python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_hordecomposition.tsv
+```
 
+Example of running SuperHORDecomposition algorithm on cenX and newly obtained monomers:
+```
+python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_hordecomposition.tsv --superhor
+```
 
 
 # StringDecomposer
@@ -33,7 +55,6 @@ The recommended way to install StringDecomposer is with conda package manager:
 ```
 conda install -c bioconda stringdecomposer
 ```
-
 
 Alternatively, StringDecomposer can be installed from source.
 
