@@ -817,7 +817,7 @@ def main():
     current_script_path = os.path.abspath(os.path.dirname(__file__))
 
     # path to the run_decomposer script
-    sd_script_path = os.path.join(current_script_path, "..", "run_decomposer.py")
+    sd_script_path = os.path.join(current_script_path, "..", "sd", "run_decomposer.py")
     log.log("Path to run_decomposer: " + sd_script_path)
 
     # create output_dir if not exists
