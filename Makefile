@@ -11,7 +11,7 @@ TEST_REFERENCE = $(SD_DIR)/test_data/final_decomposition_fc89af8.tsv
 
 build:
 	mkdir -p $(BIN_DIR)
-	${CXX} -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp -fopenmp --std=c++11 -O2 -Wall -Wextra -pedantic -Wshadow -Wfloat-equal -fsanitize=address
+	${CXX} -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp $(SRC_DIR)/edlib.h $(SRC_DIR)/edlib.cpp -fopenmp --std=c++11 -O2 -Wall -Wextra -pedantic -Wshadow -Wfloat-equal -fsanitize=address
 
 test_launch: build
 	./stringdecomposer.py $(TEST_QUERY) $(TEST_MONOMERS) -o $(TEST_OUTDIR)
