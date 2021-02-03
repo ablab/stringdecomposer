@@ -73,7 +73,7 @@ public:
         match_(match) {
     }
 
-    void AlignReadsSet(vector<Seq> &reads, int threads, int part_size) {
+    void AlignReadsSet(vector<Seq> &reads, int threads, int part_size, int ed_thr) {
         vector<Seq> new_reads;
         vector<int> save_steps;
         for (auto r: reads) {
@@ -96,8 +96,14 @@ public:
         for (int i = 0; i < new_reads.size(); i += step) {
             #pragma omp parallel for num_threads(threads)
             for (int j = i; j < min(i + step, (int) new_reads.size()); ++ j) {
-                std::vector<Seq> filter_monomers = FilterMonomersForRead(new_reads[j]);
-                vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j], filter_monomers);
+                std::vector<MonomerAlignment> aln;
+                if (ed_thr > -1) {
+                    std::vector<Seq> filter_monomers = FilterMonomersForRead(new_reads[j], ed_thr);
+                    aln = AlignPartClassicDP(new_reads[j], filter_monomers);
+                } else {
+                    aln = AlignPartClassicDP(new_reads[j], monomers_);
+                }
+
                 #pragma omp critical(aligner)
                 {
                     subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
@@ -144,7 +150,7 @@ private:
         return res;
     }
 
-    std::vector<Seq> FilterMonomersForRead(Seq& read) {
+    std::vector<Seq> FilterMonomersForRead(Seq& read, int ed_thr) {
         std::vector<Seq> monomers_for_read;
         std::vector<std::pair<double, int>> mn_edit;
         for (int i = 0; i < monomers_.size(); ++i) {
@@ -153,7 +159,7 @@ private:
         std::sort(mn_edit.begin(), mn_edit.end());
         monomers_for_read.push_back(monomers_[mn_edit[0].second]);
         for (int i = 1; i < mn_edit.size(); ++i) {
-            if (mn_edit[i].first <= 20) {
+            if (mn_edit[i].first <= ed_thr) {
                 monomers_for_read.push_back(monomers_[mn_edit[i].second]);
             }
         }
@@ -400,6 +406,12 @@ int main(int argc, char **argv) {
         mismatch = stoi(argv[7]);
         match = stoi(argv[8]);
     }
+
+    int ed_thr = -1;
+    if (argc == 10) {
+        ed_thr = stoi(argv[9])
+    }
+
     cerr << "Scores: insertion=" << ins << " deletion=" << del << " mismatch=" << mismatch << " match=" << match << endl;
     vector<Seq> reads = load_fasta(argv[1]);
     vector<Seq> monomers = load_fasta(argv[2]);
@@ -407,5 +419,5 @@ int main(int argc, char **argv) {
     MonomersAligner monomers_aligner(monomers, ins, del, mismatch, match);
     int num_threads = stoi(argv[3]);
     int part_size = stoi(argv[4]);
-    monomers_aligner.AlignReadsSet(reads, num_threads, part_size);
+    monomers_aligner.AlignReadsSet(reads, num_threads, part_size, ed_thr);
 }
