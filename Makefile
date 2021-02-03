@@ -6,7 +6,7 @@ SRC_DIR = ${SD_DIR}/src
 
 all: sd
 	mkdir -p $(BIN_DIR)
-	${CXX} -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp -fopenmp --std=c++11
+	${CXX} -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp $(SRC_DIR)/edlib.h $(SRC_DIR)/edlib.cpp -fopenmp --std=c++11
 
 test: all
 	python tests/_all_tests.py	
