@@ -718,7 +718,7 @@ def final_iteration(args, sd_script_path, monomers_list):
     shutil.copyfile(args.monomers, local_monmers_path)
 
     # run string decomposer
-    sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads), "--fast"])
+    sys_call(["python3", sd_script_path, args.sequences, local_monmers_path, "-t", str(args.threads), "--fast", "--ed_thr", "20"])
     log.log("String decomposer is complete. Results save in: " + iter_outdir)
 
     # parse output csv file

@@ -409,7 +409,7 @@ int main(int argc, char **argv) {
 
     int ed_thr = -1;
     if (argc == 10) {
-        ed_thr = stoi(argv[9])
+        ed_thr = stoi(argv[9]);
     }
 
     cerr << "Scores: insertion=" << ins << " deletion=" << del << " mismatch=" << mismatch << " match=" << match << endl;

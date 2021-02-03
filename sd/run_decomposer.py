@@ -177,13 +177,13 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
 
-def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
+def run(sequences, monomers, num_threads, scoring, batch_size, raw_file, ed_thr):
     ins, dels, mm, match = scoring.split(",")
     p = os.path.abspath(__file__)
     sd_exec_file = p[:-len("run_decomposer.py")] + "/bin/dp"
     print("Run", sd_exec_file, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
     with open(raw_file, 'w') as f:
-        subprocess.run([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match], stdout = f, check = True)
+        subprocess.run([sd_exec_file, sequences, monomers, num_threads, batch_size, ins, dels, mm, match, str(ed_thr)], stdout = f, check = True)
     with open(raw_file, 'r') as f:
         raw_decomposition = "".join(f.readlines())
     return raw_decomposition
@@ -201,9 +201,10 @@ def main():
                          help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
     parser.add_argument('--fast',  help='doesn\'t generate second best monomer and homopolymer scores', action="store_true")
-
+    parser.add_argument('--ed_thr', help='align only monomers with edit distance less then ed_thr for each segment (by default align all monomers)', default=-1,
+                        type=int, required=False)
     args = parser.parse_args()
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv", args.ed_thr)
     print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
 
     reads = load_fasta(args.sequences, "map")
