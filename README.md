@@ -8,58 +8,13 @@ CentromereArchitect (CA) is the first tool for the centromere annotation in a ne
 - HOR Inference — extraction of human live HORs based on StringDecomposer decomposition of centromeric sequence into monomers extracted on the previous step.
 
 This branch contains prerelease version of CA that was used to generate results for ISMB-2021 submission. 
-We applied CA to the recently generated complete assembly of a human genome by the Telomere-to-Telomere consortium and generated the complete set of human monomers and high-order repeats for so-called live centromeres.
+We applied CA to the recently generated complete assembly of a human genome by the Telomere-to-Telomere consortium and generated the complete set of human monomers and high-order repeats for so-called live centromeres. 
+All generated monomers and HORs can be found here(TODO).
 
-Please find below all requirements and instructions to replicate our analysis. All generated monomers and HORs can be found here(TODO).
+Please find below all steps to replicate our analysis:
 
-## Requirements:
-- Python3.5
-    - [biopython](https://biopython.org/wiki/Download)
-    - [argparse](https://pypi.org/project/argparse/)
-    - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
-    - [networkx](https://pypi.org/project/networkx)
-    - [numpy](https://scipy.org/install.html)
-    - [matplotlib](https://pypi.org/project/matplotlib/)
-    - [pandas](https://pypi.org/project/pandas/)
-    - [python-edlib](https://pypi.org/project/edlib/)
-    - [seaborn](https://pypi.org/project/seaborn/)
-    - [setuptools](https://pypi.org/project/setuptools/)
-- g++ (version 5.3.1 or higher)
-
-## Monomer Inference
-
-## HOR Inference
-
-Example of running HORDecomposition algorithm on cenX and newly obtained monomers:
-```
-python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_hordecomposition.tsv
-```
-
-Example of running SuperHORDecomposition algorithm on cenX and newly obtained monomers:
-```
-python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_hordecomposition.tsv --superhor
-```
-
-
-# StringDecomposer
-
-## Version 1.0
-
-As an input StringDecomposer (SD) algorithm takes the set of monomers (typically, alpha satellites) and a genomic segment (assembly, Oxford Nanopore or a PacBio HiFi read) that contains a tandem repeat constituted by the given monomers.
-StringDecomposer partitions this segment into distinct monomers, providing an accurate translation from the nucleotide alphabet into the monomer alphabet.
-
-
-## Installation
-
-The recommended way to install StringDecomposer is with conda package manager:
-```
-conda install -c bioconda stringdecomposer
-```
-
-Alternatively, StringDecomposer can be installed from source.
-
-Requirements:
-- Python3.5
+## Install Required Libraries
+- Python3.7
     - [biopython](https://biopython.org/wiki/Download)
     - [argparse](https://pypi.org/project/argparse/)
     - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
@@ -74,101 +29,30 @@ Requirements:
 
 The required python packages can be installed through conda using ```conda install --file requirements.txt```.
 
-Local building without installation:
+## Build StringDecomposer
 
     git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
     make
 
-Installing from source:
+## Run Monomer Inference
 
-    git clone https://github.com/ablab/stringdecomposer.git
-    cd stringdecomposer
-    python setup.py install --record files.txt
+## Run HOR Inference
 
-Removal of StringDecomposer installed from source:
+Example of running HORDecomposition algorithm on cenX and newly obtained monomers:
+```
+python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_hordecomposition.tsv
+```
+Resulting HORs can be found in ```HORDecomposition/cenX_hordecomposition.tsv```.
 
-    xargs rm -rf < files.txt
+Example of running SuperHORDecomposition algorithm on cenX and newly obtained monomers:
+```
+python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_superhordecomposition.tsv --superhor
+```
 
-## Quick start
-The following command assumes that StringDecomposer is either installed through conda or from source.
+Resulting HORs can be found in ```HORDecomposition/cenX_superhordecomposition.tsv```.
 
-    run_decomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
-
-Testing run results:
-
-    final_decomposition.tsv           final decomposition of sequences to monomer alphabet
-    final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
-    final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
-
-Each line in final_decomposition.tsv file has the following form:
-
-    <read-name> <best-monomer> <start-pos> <end-pos> <identity> <second-best-monomer> <second-best-monomer-identity> <homo-best-monomer> <homo-identity> <homo-second-best-monomer> <homo-second-best-monomer-identity> <reliability>
-
-`homo`-related columns represent statistics of the best-scoring (second-best-scoring) monomer after compression of homopolymer runs in both the monomer and the target read.
-Reliability is either equal to `?` (signifies unreliable alignment which can be caused by a retrotransposon insertion or a poor quality segment of a read) or `+` (if the alignment is reliable).
-
-
-## Synopsis
-
-    run_decomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
-
-Required arguments:
-
-    sequences                                         fasta-file with long reads or genomic sequences (accepts multiple sequences in one file)
-    monomers                                          fasta-file with monomers
-
-Optional arguments:
-
-    -h, --help                                         show this help message and exit
-
-    -t THREADS, --threads THREADS                      number of threads (by default 1)
-
-    -o OUT_FILE, --out-file OUT_FILE                   output tsv-file (by default final_decomposition.tsv)
-
-    -i MIN_IDENTITY, --min-identity MIN_IDENTITY       only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0%)
-
-    -s SCORING, --scoring SCORING                      set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")
-
-    -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
-
-    --fast                                             SD won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
-
-## Latest updates
-
-### StringDecomposer 1.0 release (11 August 2020)
-
-* initial StringDecomposer release
-* conda support
-* results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://doi.org/10.6084/m9.figshare.12783371)
-
-
-## StringDecomposer+
-
-The set of scripts help to solve decomposition-related problems are placed in `sd/scripts` directory.
-
-Script `extract_hors.py` converts monomer decomposition to HOR decomposition.
-Synopsis:
-
-    extract_hors.py <sequences> <monomers>  <decomposition> <output file> [--canonical <txt-file>] [--min-idnt MIN_IDNT] [--min-reliable MIN_RELIABLE] [--min-cnt MIN_CNT] [--min-weight MIN_WEIGHT] [--min-len MIN_LEN] [--max-len MAX_LEN]
-
-File in `--canonical` option represents a list of canonical HORs. Each line represents one HOR, HOR has to be represented as a list of monomer ids from `<monomers>` file, separated by ",".
-
-Script `extract_centromere_related_regions.py` extracts reads (or assembly segment) that are covered by the given set monomers.
-Synopsis:
-
-    extract_centromere_related_regions.py  -s <sequences> -m <monomers> -o <output file> [-d <edit-distance>]
-
-
-Script `convert_identities.py` converts decomposition with arbitrary scores to final_decomposition.tsv (with identites instead of scores).
-Synopsis:
-
-    convert_identities.py -s <sequences> -m <monomers> -d <decomposition> [-o <output file>]
-
-## Citation
-
-The String Decomposition Problem and its Applications to Centromere Analysis and Assembly. *Tatiana Dvorkina, Andrey V. Bzikadze, Pavel A. Pevzner* Bioinformatics, Volume 36, Issue Supplement_1, July 2020, Pages i93–i101; doi: [https://doi.org/10.1093/bioinformatics/btaa454](https://doi.org/10.1093/bioinformatics/btaa454)
 
 ## Contact
 
-In case of any issues please use [issue tracker](https://github.com/ablab/stringdecomposer/issues) or email directly to [t.dvorkina@spbu.ru](mailto:t.dvorkina@spbu.ru)
+In case of any issues please email directly to [t.dvorkina@spbu.ru](mailto:t.dvorkina@spbu.ru)
