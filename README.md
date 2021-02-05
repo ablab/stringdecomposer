@@ -9,7 +9,8 @@ CentromereArchitect (CA) is the first tool for the centromere annotation in a ne
 
 This branch contains prerelease version of CA that was used to generate results for ISMB-2021 submission. 
 We applied CA to the recently generated complete assembly of a human genome by the Telomere-to-Telomere consortium and generated the complete set of human monomers and high-order repeats for so-called live centromeres. 
-All generated monomers and HORs can be found here(TODO).
+
+All centromeric sequences, generated monomers and HORs can be found [here](https://figshare.com/s/4e7cd6e7cb3397c6ef6f).
 
 Please find below all steps to replicate our analysis:
 
@@ -37,32 +38,33 @@ The required python packages can be installed through conda using ```conda insta
 
 ## Run Monomer Inference
 
-Example of running MonomerInference on cenX(cenXct.fa) with universal Alpha Satellite(AlphaSat.fa)
+Example of running MonomerInference on cenX (cenXct.fa) with universal Alpha Satellite (AlphaSat.fa):
 ```
-python ca/monomer_inference.py -seq Centromeres/cenXct.fa -mon Monomers/AlphaSat.fa -o Monomers/cenX
+python3 ca/monomer_inference.py -seq ISMB2021/Centromeres/cenXct.fa -mon ISMB2021/Monomers/AlphaSat.fa -o ISMB2021/Monomers/cenX
 ```
-The result monomers can be found in ```Monomers/cenX/monomers.fa```
+The result monomers can be found in ```ISMB2021/Monomers/cenX/monomers.fa```. 
+Please note that in our work we run MonomerInference step on all centromeric sequences (Centromeres/allCt.fa) together and this may be time consuming to replicate.
 
 Example of running MonomerShift on 90 bp left for newly obtained monomers:
 ```
-python3 ca/shift_monomers.py --finalDec Monomers/cenX/final/final_decomposition.tsv -mn Monomers/cenX/monomers.fa --shift 90 -o Monomers/cenX/shift90
+python3 ca/shift_monomers.py --finalDec ISMB2021/Monomers/cenX/final/final_decomposition.tsv -mn ISMB2021/Monomers/cenX/monomers.fa --shift 90 -o ISMB2021/Monomers/cenX/shift90
 ```
-Shifted monomers can be found in ```Monomers/cenX/shift90/shifted_mn.fasta```
+Shifted monomers can be found in ```ISMB2021/Monomers/cenX/shift90/shifted_mn.fasta```.
 
 ## Run HOR Inference
 
 Example of running HORDecomposition algorithm on cenX and newly obtained monomers:
 ```
-python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_hordecomposition.tsv
+python3 ca/extract_hors.py ISMB2021/Centromeres/cenXct.fa ISMB2021/Monomers/cenX/monomers.fa ISMB2021/Monomers/cenX/final/final_decomposition.tsv ISMB2021/HORDecomposition/cenX_hordecomposition.tsv
 ```
-Resulting HORs can be found in ```HORDecomposition/cenX_hordecomposition.tsv```.
+Resulting HORs can be found in ```ISMB2021/HORDecomposition/cenX_hordecomposition.tsv```.
 
 Example of running SuperHORDecomposition algorithm on cenX and newly obtained monomers:
 ```
-python ca/extract_hors.py Centromeres/cenXct.fa Monomers/cenX_mn.fa MonomerDecomposition/cenX_decomposition.tsv HORDecomposition/cenX_superhordecomposition.tsv --superhor
+python3 ca/extract_hors.py ISMB2021/Centromeres/cenXct.fa ISMB2021/Monomers/cenX/monomers.fa ISMB2021/Monomers/cenX/final/final_decomposition.tsv ISMB2021/SuperHORDecomposition/cenX_superhordecomposition.tsv --superhor
 ```
 
-Resulting HORs can be found in ```HORDecomposition/cenX_superhordecomposition.tsv```.
+Resulting superHORs can be found in ```SuperHORDecomposition/cenX_superhordecomposition.tsv```.
 
 
 ## Contact
