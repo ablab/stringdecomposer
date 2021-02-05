@@ -43,6 +43,12 @@ python ca/monomer_inference.py -seq Centromeres/cenXct.fa -mon Monomers/AlphaSat
 ```
 The result monomers can be found in ```Monomers/cenX/monomers.fa```
 
+Example of running MonomerShift on 90 bp left for newly obtained monomers:
+```
+python3 ca/shift_monomers.py --finalDec Monomers/cenX/final/final_decomposition.tsv -mn Monomers/cenX/monomers.fa --shift 90 -o Monomers/cenX/shift90
+```
+Shifted monomers can be found in ```Monomers/cenX/shift90/shifted_mn.fasta```
+
 ## Run HOR Inference
 
 Example of running HORDecomposition algorithm on cenX and newly obtained monomers:

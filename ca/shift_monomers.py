@@ -48,6 +48,7 @@ def init_monomers(monomers_path):
     #save info about monomers
     monomers_list = []
     for record in SeqIO.parse(monomers_path, "fasta"):
+        record.id = "_".join(record.id.split("_")[:2])
         monomers_list.append(record)
     return monomers_list
 
@@ -348,6 +349,9 @@ def detect_hybrid_mn(monomers_list, sft_db_cnt, cnt_mn):
 def main():
     log.log("Start Shift Monomers")
     args = parse_args()
+    if not os.path.exists(args.outdir):
+        os.makedirs(args.outdir)
+
     monomers_list = init_monomers(args.monomers)
     db_cnt, trp_cnt = calc_mn_order_stat(args)
     save_init_graph(args, db_cnt, monomers_list, "init_monomer_graph.dot")
