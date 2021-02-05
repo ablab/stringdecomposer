@@ -42,7 +42,7 @@ Example of running MonomerInference on cenX (cenXct.fa) with universal Alpha Sat
 ```
 python3 ca/monomer_inference.py -seq ISMB2021/Centromeres/cenXct.fa -mon ISMB2021/Monomers/AlphaSat.fa -o ISMB2021/Monomers/cenX
 ```
-The result monomers can be found in ```ISMB2021/Monomers/cenX/monomers.fa```. 
+The result monomers can be found in ```ISMB2021/Monomers/cenX/monomers.fa```.
 Please note that in our work we run MonomerInference step on all centromeric sequences (Centromeres/allCt.fa) together and this may be time consuming to replicate.
 
 Example of running MonomerShift on 90 bp left for newly obtained monomers:
@@ -53,15 +53,15 @@ Shifted monomers can be found in ```ISMB2021/Monomers/cenX/shift90/shifted_mn.fa
 
 ## Run HOR Inference
 
-Example of running HORDecomposition algorithm on cenX and newly obtained monomers:
+Example of running HORDecomposition algorithm on cenX and newly obtained monomers from running MonomerInference on all centromeres:
 ```
-python3 ca/extract_hors.py ISMB2021/Centromeres/cenXct.fa ISMB2021/Monomers/cenX/monomers.fa ISMB2021/Monomers/cenX/final/final_decomposition.tsv ISMB2021/HORDecomposition/cenX_hordecomposition.tsv
+python3 ca/extract_hors.py ISMB2021/Centromeres/cenXct.fa ISMB2021/Monomers/cenX_mn.fa ISMB2021/MonomerDecomposition/cenX_monodecomposition.tsv ISMB2021/HORDecomposition/cenX_hordecomposition.tsv
 ```
 Resulting HORs can be found in ```ISMB2021/HORDecomposition/cenX_hordecomposition.tsv```.
 
-Example of running SuperHORDecomposition algorithm on cenX and newly obtained monomers:
+Example of running SuperHORDecomposition algorithm on cenX and newly obtained monomers from running MonomerInference on all centromeres:
 ```
-python3 ca/extract_hors.py ISMB2021/Centromeres/cenXct.fa ISMB2021/Monomers/cenX/monomers.fa ISMB2021/Monomers/cenX/final/final_decomposition.tsv ISMB2021/SuperHORDecomposition/cenX_superhordecomposition.tsv --superhor
+python3 ca/extract_hors.py ISMB2021/Centromeres/cenXct.fa ISMB2021/Monomers/cenX_mn.fa ISMB2021/MonomerDecomposition/cenX_monodecomposition.tsv ISMB2021/SuperHORDecomposition/cenX_superhordecomposition.tsv --superhor
 ```
 
 Resulting superHORs can be found in ```SuperHORDecomposition/cenX_superhordecomposition.tsv```.
