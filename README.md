@@ -37,6 +37,12 @@ The required python packages can be installed through conda using ```conda insta
 
 ## Run Monomer Inference
 
+Example of running MonomerInference on cenX(cenXct.fa) with universal Alpha Satellite(AlphaSat.fa)
+```
+python ca/monomer_inference.py -seq Centromeres/cenXct.fa -mon Monomers/AlphaSat.fa -o Monomers/cenX
+```
+The result monomers can be found in ```Monomers/cenX/monomers.fa```
+
 ## Run HOR Inference
 
 Example of running HORDecomposition algorithm on cenX and newly obtained monomers:
