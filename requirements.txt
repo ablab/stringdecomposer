@@ -6,5 +6,5 @@ matplotlib
 pandas
 python-edlib
 seaborn
-scikit-learn
+scikit-learn==0.21.3
 setuptools

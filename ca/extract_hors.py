@@ -1,5 +1,4 @@
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 from Bio import SearchIO
 from Bio.SeqRecord import SeqRecord
@@ -14,7 +13,8 @@ import logging
 
 import re
 
-sd_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+sd_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+print(sd_path)
 sys.path.append(sd_path)
 from sd.utils.bio import read_bio_seqs
 
@@ -84,7 +84,7 @@ def convert_dec_to_internal_monomers(reads_mapping, monomers):
                 reads_mapping[c][j]["qid"] = monomers_mp[reads_mapping[c][j]["qid"]] + "'"
             else:
                 reads_mapping[c][j]["qid"] = monomers_mp[reads_mapping[c][j]["qid"]]
-    
+
     return reads_mapping, monomers_mp, monomers_mp_r
 
 def build_known_hors(filename, monomers_mp):
@@ -213,7 +213,7 @@ def collapse_annotation(annotation):
         else:
             if prev != "":
                 new_annotation.append([prev, cnt, {"s": start, "e": end, "sz": cnt_sz}])
-            prev = c 
+            prev = c
             cnt = c_cnt
             cnt_sz = annotation[i][2]["sz"]
             start = annotation[i][2]["s"]
@@ -505,7 +505,7 @@ def print_hor_dec(filename, seq, monomers_mp, known_hors_initial):
                     prev_qid = "NM"
                 else:
                     if prev_qid == "NM":
-                        fout.write("\t".join([r, "NM", str(start), str(prev), "{0:.2f}".format(55.0), str(-1), str(prev - start + 1), str(-1)]) + "\n")   
+                        fout.write("\t".join([r, "NM", str(start), str(prev), "{0:.2f}".format(55.0), str(-1), str(prev - start + 1), str(-1)]) + "\n")
                     if c["qid"] in monomers_mp:
                         fout.write("\t".join([r, convert_to_initial_mono_olya(c["qid"], monomers_mp), str(c["s"]), str(c["e"]), "{0:.2f}".format(c["idnt"]),\
                                               str(c["len"]) if not c["qid"].startswith("f") else "-1", \
@@ -601,7 +601,7 @@ def build_hor_annotation(reads_dec, min_cnt, min_weight, min_len, max_len, monom
 
     seq = form_hor_dec(annotation, seq, reads_dec)
     print_hor_dec(output, seq, monomers_mp_r, known_hors_initial)
-    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Build HOR decomposition')
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
