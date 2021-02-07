@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 from Bio import SearchIO
 from Bio.SeqRecord import SeqRecord
