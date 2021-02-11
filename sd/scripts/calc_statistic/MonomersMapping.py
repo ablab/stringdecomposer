@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 import os
+import csv
 import numpy as np
 import edlib
+import math
 from subprocess import check_call
 
 from Bio.Seq import Seq
@@ -38,6 +40,7 @@ def getIvanMn(cenName):
 
 cenName = np.char.array(["cen"]*23) + np.append(np.arange(1, 23).astype(str), "X")
 paths_ca = np.char.array(list(map(getMnPath, cenName)))
+paths_tsv_res = np.char.array(list(map(lambda x: os.path.join(path_to_CA_monomers, x, "final_decomposition.tsv"), cenName)))
 paths_ivans = np.char.array(list(map(getIvanMn, cenName)))
 out_dots = np.char.array(list(map(lambda x: os.path.join(path_out, x + "_map.dot"), cenName)))
 
@@ -46,12 +49,24 @@ print(out_dots)
 def isH1(x):
     return ("H1" in x.id)
 
-def save_vert(fw, CAmn, IVmn, cenName):
+def save_vert(fw, CAmn, IVmn, cenName, cnt_mon):
     fw.write("graph " + cenName + " {\n")
     fw.write(" "* 4 + "rankdir=LR;\n")
     IvFilter = np.array(IVmn)[list(map(isH1, IVmn))]
-    for vert in np.append(CAmn, IvFilter):
+
+    for vert in CAmn:
+        cnt_mn = 0
+        lg = 0.01
+        if vert.id in cnt_mon:
+            cnt_mn = cnt_mon[vert.id]
+            lg = math.log(cnt_mn)
+        clr = ["red", "#cd5700", "orange", "#ffb300", "yellow", "#ceff1d", "#a7fc00", "#00ff00", "#e0ffff", "#f5fffa"]
+        print(int(lg))
+        fw.write(" " * 4 + '"' + vert.id + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vert.id + "[" + str(cnt_mn) + "]\"];\n")
+
+    for vert in IvFilter:
         fw.write(" " * 4 + '"' + vert.id + "\";\n")
+
 
     fw.write(" "*4 + "{rank = same; " + "; ".join(list(map(lambda x: "\"" + x.id + "\"", CAmn))) + ";}\n")
     fw.write(" "*4 + "{rank = same; " + "; ".join(list(map(lambda x: "\"" + x.id + "\"", IvFilter))) + ";}\n")
@@ -97,14 +112,43 @@ def save_edges(fw, CAmn, IVmn, cenN):
 
     fw.write("}\n")
 
+def get_cnt_in_centromers(res_tsv):
+    resDiv = 10
+    cnt_mon = {}
+
+    with open(res_tsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        for row in csv_reader:
+            if row[2] == "start":
+                continue
+            identity = float(row[4])
+            if row[-1] == '?':
+                continue
+
+            #print("Identity: ", identity)
+            if identity < 100 - resDiv:
+                continue
+
+            if row[1][-1] == "'":
+                row[1] = row[1][:-1]
+                continue
+
+            if row[1] not in cnt_mon:
+                cnt_mon[row[1]] = 1
+            cnt_mon[row[1]] += 1
+
+    return cnt_mon
+
 
 for i in range(len(cenName)):
     CAmn = load_fasta(paths_ca[i])
     IVmn = load_fasta(paths_ivans[i])
     with open(out_dots[i], "w") as fw:
-        save_vert(fw, CAmn, IVmn, cenName[i])
+        cnt_mon = get_cnt_in_centromers(paths_tsv_res[i])
+        print(cnt_mon)
+        save_vert(fw, CAmn, IVmn, cenName[i], cnt_mon)
         save_edges(fw, CAmn, IVmn, cenName[i])
-        try:
-            check_call(['dot', '-Tpng', out_dots[i], '-o', out_dots[i][:-3] + "png"])
-        except Exception:
-            continue
+        #try:
+         #   check_call(['dot', '-Tpng', out_dots[i], '-o', out_dots[i][:-3] + "png"])
+        #except Exception:
+        #    continue
