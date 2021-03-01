@@ -88,16 +88,16 @@ def parse_args():
     parser.add_argument("--continue", dest="restart", help="continue run from output dir", required=False,
                         action='store_true')
     parser.add_argument('-t', '--threads', dest="threads", help='number of threads [default=1]', default=1, type=int)
-    parser.add_argument('--len', help='the monomer length [default=171]', type=int, default=171, required=False)
-    parser.add_argument('--lenDiv', '--max-length-divergence',
-                        help='the maximum differ from length [default=0.02*len]',
-                        type=int, default=-1, required=False)
     parser.add_argument('--resDiv', '--max-resolved-divergence',
                         help='max divergence in identity for resolve block [default=5]',
                         type=float, default=5, required=False)
     parser.add_argument('--maxDiv', '--max-divergence',
                         help='max divergence in identity for monomeric-block [default=25]',
                         type=float, default=40, required=False)
+    parser.add_argument("--min-cluster-size", dest="min_clst", type=int, default=1, help=
+                                                                    "When maximum size of cluster will be less "\
+                                                                    "MIN_CLST the monomer inferense will finished "\
+                                                                    "[default=2]")
     return parser.parse_args()
 
 
@@ -473,8 +473,6 @@ def get_dist_to_exists_monomers(monomers_list, new_monomer):
 
 
 def init_first_run(args):
-    if args.lenDiv == -1:
-        args.lenDiv = int(args.len * 0.02)
     args.sequences = os.path.abspath(args.sequences)
     args.monomers = os.path.abspath(args.monomers)
 
@@ -875,7 +873,7 @@ def main():
         if len(unresolved_blocks) > 0:
             set_blocks_seq(args.sequences, unresolved_blocks)
             max_cluster = clustering(unresolved_blocks, args)
-            if (len(max_cluster[0]) < 2):
+            if (len(max_cluster[0]) < args.min_clst):
                 monomer_set_complete = True
         else:
             monomer_set_complete = True
