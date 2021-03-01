@@ -163,7 +163,7 @@ private:
         //std::cerr << mn_edit[0].second << " " << mn_edit[0].first << "\n";
         for (int i = 1; i < mn_edit.size(); ++i) {
             //std::cerr << mn_edit[i].second << " " << mn_edit[i].first << "\n";
-            if (mn_edit[i].first <= 200) {
+            if (mn_edit[i].first <= 15) {
                 monomers_for_read.push_back(monomers_[mn_edit[i].second]);
             }
         }
