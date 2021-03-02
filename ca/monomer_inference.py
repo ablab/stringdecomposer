@@ -492,21 +492,26 @@ def init_first_run(args):
     summary_writer.writerow(["IterationId", "Number of resolved blocks", "Number of unresolved blocks", "Number of non-monomeric blocks",
                               "Size of the largest cluster", "Number of deleted monomers at this iteration", "Radius", "Separation"])
     iter_id = 0
-    return iter_id, summary_fw, summary_writer
+    return iter_id, summary_fw, summary_writer, ""
 
 
 def get_lst_iter(outdir):
     iter_id = 1000
-    while (not os.path.isdir(os.path.join(outdir, "iter_" + str(iter_id)))):
+    while (not os.path.isdir(os.path.join(outdir, "iter_" + str(iter_id)))) and iter_id > -1:
         iter_id -= 1
-    return iter_id
+
+    prev_id = iter_id - 1
+    while (not os.path.isdir(os.path.join(outdir, "iter_" + str(prev_id)))) and prev_id > -1:
+        prev_id -= 1
+
+    return iter_id,  os.path.join(outdir, "iter_" + str(prev_id))
 
 
 def init_continue(args):
     #switch working directory to output dir
     os.chdir(args.outdir)
 
-    iter_id = get_lst_iter(args.outdir)
+    iter_id, prev_dir = get_lst_iter(args.outdir)
 
     args.monomers = os.path.join(args.outdir, "monomers.fa")
     args.sequences = os.path.join(args.outdir, 'sequence.fa')
@@ -515,7 +520,7 @@ def init_continue(args):
     summary_fw = open(summary_path, "a")
     summary_writer = csv.writer(summary_fw)
 
-    return iter_id, summary_fw, summary_writer
+    return iter_id, summary_fw, summary_writer, prev_dir
 
 
 def init_monomers(monomers_path):
@@ -823,14 +828,13 @@ def main():
         os.makedirs(args.outdir)
 
     if args.restart == False:
-        iter_id, summary_fw, summary_writer = init_first_run(args)
+        iter_id, summary_fw, summary_writer, prev_dir = init_first_run(args)
     else:
-        iter_id, summary_fw, summary_writer = init_continue(args)
+        iter_id, summary_fw, summary_writer, prev_dir = init_continue(args)
 
     monomers_list = init_monomers(args.monomers)
 
     monomer_set_complete = False
-    prev_dir = os.path.join(args.outdir, "iter_345")
     while (not monomer_set_complete):
         log.log("====== Start iteration " + str(iter_id) + "======")
         #create for current iteration
