@@ -189,27 +189,38 @@ def get_sq_sum(blocks, dists):
     return (sum(dists)/len(blocks))**0.5
 
 
+def get_subset_sq_sum(blocks, dists, mns, used_mn):
+    sub_dists = [[dists[j][i] for i, mn in enumerate(mns) if mn.id in used_mn] for j in range(0, len(blocks))]
+    return get_sq_sum(blocks, sub_dists)
+
+
+def update_used_mn(blocks, dists, CAmn, used_mn):
+    bst_mn = -1
+    bst_sc = 100
+    for mn in CAmn:
+        if mn.id not in used_mn:
+            sd = get_subset_sq_sum(blocks, dists, CAmn, used_mn | set(mn.id))
+            if sd < bst_sc:
+                bst_sc= sd
+                bst_mn = mn.id
+
+    used_mn.add(bst_mn)
+
+
 def elbow_calc(path_seq, tsv_B_res, Bmn, CAmn, f):
     blocks = get_blocks(path_seq, tsv_B_res)
 
-    df_sd = pd.read_csv(tsv_B_res, "\t")
-    mn_count = {(len(df_sd.loc[df_sd.iloc[:, 1] == mn.id]), mn.id) for mn in CAmn}
-    mn_dict = { mn.id: mn for mn in CAmn }
+    dists = [[min(seq_identity(str(mn.seq), bl), seq_identity(str(mn.seq), rc(bl))) for mn in CAmn] for bl in blocks]
+
     used_mn = { mn.id for mn in Bmn }
 
-    curMn = Bmn.copy()
-    for mn_cnt, mn_id in sorted(mn_count)[::-1]:
-        if mn_id not in used_mn:
-            curMn.append(mn_dict[mn_id])
-            used_mn.add(mn_id)
-
-    dists = [[min(seq_identity(str(mn.seq), bl), seq_identity(str(mn.seq), rc(bl))) for mn in curMn] for bl in blocks]
-
     elbow_str = ""
-    for i in range(len(Bmn), len(curMn) + 1):
-        sq_sum = get_sq_sum(blocks, [x[:i] for x in dists])
+    for i in range(len(Bmn), len(CAmn) + 1):
+        sq_sum = get_subset_sq_sum(blocks, dists, CAmn, used_mn)
         print(i, ": ", sq_sum)
         elbow_str += "{}:\t{:.4f};\n".format(i, sq_sum)
+        if i < len(CAmn):
+            update_used_mn(blocks, dists, CAmn, used_mn)
 
     f.write("elbow " + elbow_str + "\n")
 
