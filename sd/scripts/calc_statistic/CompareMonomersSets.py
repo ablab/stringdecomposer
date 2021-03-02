@@ -199,7 +199,7 @@ def update_used_mn(blocks, dists, CAmn, used_mn):
     bst_sc = 100
     for mn in CAmn:
         if mn.id not in used_mn:
-            sd = get_subset_sq_sum(blocks, dists, CAmn, used_mn | set(mn.id))
+            sd = get_subset_sq_sum(blocks, dists, CAmn, used_mn | set({mn.id}))
             if sd < bst_sc:
                 bst_sc= sd
                 bst_mn = mn.id
