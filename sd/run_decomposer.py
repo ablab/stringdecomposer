@@ -199,7 +199,7 @@ def main():
     parser.add_argument('-s', '--scoring', \
                          help='set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")', default="-1,-1,-1,1", required=False)
     parser.add_argument('-b', '--batch-size',  help='set size of the batch in parallelization (by default 5000)', type=str, default="5000", required=False)
-    parser.add_argument('--fast',  help='doesn\'t generate second best monomer and homopolymer scores', action="store_true")
+    parser.add_argument('--second-best', dest="second_best", help='generate second best monomer and homopolymer scores', action="store_true")
     parser.add_argument('--ed_thr', help='align only monomers with edit distance less then ed_thr for each segment (by default align all monomers)', default=-1,
                         type=int, required=False)
     args = parser.parse_args()
@@ -210,7 +210,7 @@ def main():
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
+    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), not args.second_best)
     print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
 
 
