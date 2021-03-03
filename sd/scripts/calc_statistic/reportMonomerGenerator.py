@@ -259,7 +259,7 @@ def main():
                     nxt_folder_mono = os.path.join(args.MGdir, "iter_"  + str(line_id), "monomers.fa")
                     final_monomers_folder = os.path.join(args.MGdir, "final", "monomers.fa")
                     mn_name = "mn_" + str(line_id - 1)
-                    if True:#(os.path.isfile(nxt_folder_mono)):
+                    try:
                         last_monomer = load_fasta(final_monomers_folder, "map")[mn_name]
                         nxt_folder_mono = os.path.join(args.MGdir, "iter_" + str(line_id - 1), "monomers.fa")
                         all_monomers = load_fasta(final_monomers_folder, "map")
@@ -280,7 +280,7 @@ def main():
                         separationFrq, sepName2 = cal_separation(last_monomer, frq_monomers, os.path.join(args.MGdir, "final", "final_decomposition.tsv"),
                                                     os.path.join(args.MGdir, "sequence.fa"), 50)
                         writer.writerow(line + [str(mdist), str(mgdist), str(len(last_monomer.seq)), str(centromers_list), str(cnt_in_cen), str(separation), str(separationFrq), sepName1, sepName2])
-                    else:
+                    except KeyError:
                         writer.writerow(line + ["-", "-", "-", "-", "-"])
                 line_id += 1
                 fw.flush()
