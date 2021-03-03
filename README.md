@@ -80,6 +80,7 @@ Each line in final_decomposition.tsv file has the following form:
 
 `homo`-related columns represent statistics of the best-scoring (second-best-scoring) monomer after compression of homopolymer runs in both the monomer and the target read.
 Reliability is either equal to `?` (signifies unreliable alignment which can be caused by a retrotransposon insertion or a poor quality segment of a read) or `+` (if the alignment is reliable).
+The columns `<second-best-monomer>`, `<second-best-monomer-identity>`, `<reliability>`, and `_homo_`-related columns will have values `None` and `-1` unless the user supplies the argument `--second-best` (see Synopsis below).
 
 
 ## Synopsis
@@ -105,11 +106,11 @@ Optional arguments:
 
     -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
 
-    --fast                                             StringDecomposer won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
+    --second-best                                      StringDecomposer will generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (not recommended with large number of monomers)
 
 ## Latest updates
 
-### StringDecomposer 1.1 release (XX July 2021)
+### StringDecomposer 1.1 release (28 July 2021)
 
 * CI support via github actions
 * improved build and installation
