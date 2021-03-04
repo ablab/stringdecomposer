@@ -1,25 +1,24 @@
 #!/usr/bin/env python
 
-from Bio.Seq import Seq
-from Bio import SeqIO
-from Bio import SearchIO
-from Bio.SeqRecord import SeqRecord
-
 import os
 from os import listdir
 from os.path import join, isfile
 import sys
 import argparse
-
+import random
+import joblib
 import subprocess
 
 import numpy as np; np.random.seed(0)
 import pandas as pd
 
+from Bio.Seq import Seq
+from Bio import SeqIO
+from Bio import SearchIO
+from Bio.SeqRecord import SeqRecord
+
 import re
 import edlib
-
-import joblib
 
 p = os.path.abspath(__file__)
 logreg_file = os.path.join(os.path.dirname(p),
@@ -144,7 +143,7 @@ def convert_read(decomposition, read, monomers, light = False):
     res = classify(res)
     return res
 
-def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
+def print_read(fout, fout_alt, fout_bed, dec, read, monomers, identity_th, light):
     dec = convert_read(dec, read, monomers, light)
     for d in dec:
         if d["score"] >= identity_th:
@@ -152,6 +151,13 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
                                                     d["second_best"], "{:.2f}".format(d["second_best_score"]), \
                                                     d["homo_best"], "{:.2f}".format(d["homo_best_score"]), \
                                                     d["homo_second_best"], "{:.2f}".format(d["homo_second_best_score"]), d["q"]]) + "\n")
+
+            mn_name = d["m"].rstrip("'")
+            strand = "-" if d["m"][-1] == "'" else "+"
+            r,g,b = print_read.mono.setdefault(mn_name, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
+            fout_bed.write("\t".join([read.name, d["start"], d["end"], d["m"], str(int(d["score"])), strand,\
+                                      d["start"], d["end"], ",".join([str(x) for x in (r,g,b)])]) + "\n")
+
             for a in d["alt"]:
                 star = "-"
                 if a == d["m"]:
@@ -159,6 +165,8 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
                 fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
 
 def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
+    fout_bed = open(outfile[:-len(".tsv")] + ".bed", "w")
+    print_read.mono={}
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
         with open(outfile, "w") as fout:
             cur_dec = []
@@ -168,13 +176,14 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
                 read = read.split()[0]
                 monomer = monomer.split()[0]
                 if read != prev_read and prev_read != None:
-                    print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
+                    print_read(fout, fout_alt, fout_bed, cur_dec, reads[prev_read], monomers, identity_th, light)
                     cur_dec = []
                 prev_read = read
                 start, end = int(start), int(end)
                 cur_dec.append({"m": monomer, "start": start, "end": end})
             if len(cur_dec) > 0:
-                print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
+                print_read(fout, fout_alt, fout_bed, cur_dec, reads[prev_read], monomers, identity_th, light)
+    fout_bed.close()
 
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file, ed_thr):
     ins, dels, mm, match = scoring.split(",")
