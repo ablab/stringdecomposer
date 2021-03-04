@@ -143,7 +143,7 @@ def convert_read(decomposition, read, monomers, light = False):
     res = classify(res)
     return res
 
-def print_read(fout, fout_alt, fout_bed, dec, read, monomers, identity_th, light):
+def print_read(fout, fout_alt, fout_bed, dec, read, monomers, identity_th, light, coord_in_name):
     dec = convert_read(dec, read, monomers, light)
     for d in dec:
         if d["score"] >= identity_th:
@@ -153,10 +153,13 @@ def print_read(fout, fout_alt, fout_bed, dec, read, monomers, identity_th, light
                                                     d["homo_second_best"], "{:.2f}".format(d["homo_second_best_score"]), d["q"]]) + "\n")
 
             mn_name = d["m"].rstrip("'")
+            read_name = read.name.split(":")[0] if coord_in_name else read.name
+            start_coord = int(d["start"]) + int(read.name.split(":")[-1].split("-")[0]) if coord_in_name else d["start"]
+            end_coord = int(d["end"]) + int(read.name.split(":")[-1].split("-")[0]) if coord_in_name else d["end"]
             strand = "-" if d["m"][-1] == "'" else "+"
             r,g,b = print_read.mono.setdefault(mn_name, (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)))
-            fout_bed.write("\t".join([read.name, d["start"], d["end"], d["m"], str(int(d["score"])), strand,\
-                                      d["start"], d["end"], ",".join([str(x) for x in (r,g,b)])]) + "\n")
+            fout_bed.write("\t".join([read_name, str(start_coord), str(end_coord), d["m"], str(int(d["score"])), strand,\
+                                      str(start_coord), str(end_coord), ",".join([str(x) for x in (r,g,b)])]) + "\n")
 
             for a in d["alt"]:
                 star = "-"
@@ -164,7 +167,7 @@ def print_read(fout, fout_alt, fout_bed, dec, read, monomers, identity_th, light
                     star = "*"
                 fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
 
-def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
+def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light, coord_in_name=False):
     fout_bed = open(outfile[:-len(".tsv")] + ".bed", "w")
     print_read.mono={}
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
@@ -176,13 +179,13 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
                 read = read.split()[0]
                 monomer = monomer.split()[0]
                 if read != prev_read and prev_read != None:
-                    print_read(fout, fout_alt, fout_bed, cur_dec, reads[prev_read], monomers, identity_th, light)
+                    print_read(fout, fout_alt, fout_bed, cur_dec, reads[prev_read], monomers, identity_th, light, coord_in_name)
                     cur_dec = []
                 prev_read = read
                 start, end = int(start), int(end)
                 cur_dec.append({"m": monomer, "start": start, "end": end})
             if len(cur_dec) > 0:
-                print_read(fout, fout_alt, fout_bed, cur_dec, reads[prev_read], monomers, identity_th, light)
+                print_read(fout, fout_alt, fout_bed, cur_dec, reads[prev_read], monomers, identity_th, light, coord_in_name)
     fout_bed.close()
 
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file, ed_thr):
@@ -211,6 +214,8 @@ def main():
     parser.add_argument('--second-best', dest="second_best", help='generate second best monomer and homopolymer scores', action="store_true")
     parser.add_argument('--ed_thr', help='align only monomers with edit distance less then ed_thr for each segment (by default align all monomers)', default=-1,
                         type=int, required=False)
+    parser.add_argument('--coord_in_name', help="take reads coordinates from name in sequnences "\
+                                                "fasta-file (read_name:coord_bg-coord_end)", action="store_true")
     args = parser.parse_args()
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv", args.ed_thr)
     print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
@@ -219,7 +224,8 @@ def main():
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), not args.second_best)
+    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), not args.second_best,
+                coord_in_name=args.coord_in_name)
     print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
 
 
