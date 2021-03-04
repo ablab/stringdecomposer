@@ -216,9 +216,11 @@ def elbow_calc(path_seq, tsv_B_res, Bmn, CAmn, f):
 
     elbow_str = ""
     for i in range(len(Bmn), len(CAmn) + 1):
-        sq_sum = get_subset_sq_sum(blocks, dists, CAmn, used_mn)
-        print(i, ": ", sq_sum)
-        elbow_str += "{}:\t{:.4f};\n".format(i, sq_sum)
+        if i > 0:
+            sq_sum = get_subset_sq_sum(blocks, dists, CAmn, used_mn)
+            print(i, ": ", sq_sum)
+            elbow_str += "{}({}):\t{:.4f};\n".format(i, CAmn[i].id, sq_sum)
+
         if i < len(CAmn):
             update_used_mn(blocks, dists, CAmn, used_mn)
 
@@ -323,6 +325,9 @@ def main():
     calc_mean_for_subseq(args.seq, tsv_B_res, tsv_Ivan_res, B, IVAN_mon, f)
 
     elbow_calc(args.seq, tsv_B_res, B, CA_mon, f)
+
+    f.write("\n\nElbow from zero elems\n")
+    elbow_calc(args.seq, tsv_B_res, [], CA_mon, f)
 
     global res_str
     f.write(res_str)
