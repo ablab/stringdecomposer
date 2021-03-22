@@ -38,6 +38,7 @@ def handle_cen(cenid, args, df):
     dmon = {mn.id: mn for mn in mons}
     print(mn_id_sum)
 
+    all_sep = []
     mn_id_sum[0].append(100)
     mn_id_sum[0].append("-")
     for i in range(1, len(mn_id_sum)):
@@ -48,6 +49,9 @@ def handle_cen(cenid, args, df):
             nm2 = "mn_" + str(mn_id_sum[j][0])
             #print(nm1, nm2)
             sep = SDutils.seq_identity(str(dmon[nm1].seq), str(dmon[nm2].seq))
+            if sep < 11:
+                all_sep.append([mn_id_sum[i][0], mn_id_sum[i][1], sep, nm2])
+
             if sep < cur_sep:
                 cur_sep = sep
                 b_mn = nm2
@@ -55,7 +59,9 @@ def handle_cen(cenid, args, df):
         mn_id_sum[i].append(b_mn)
 
     df = pd.DataFrame(mn_id_sum, columns=["MnId", "Cnt", "Sep", "ClosestMn"])
+    df2 = pd.DataFrame(all_sep, columns=["MnId", "Cnt", "Sep", "ClosestMn"])
     df.to_csv(os.path.join(args.o, cenid + ".csv"))
+    df2.to_csv(os.path.join(args.o, cenid + "all.csv"))
 
 def main():
     args = parse_args()

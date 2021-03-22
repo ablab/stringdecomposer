@@ -7,13 +7,15 @@ import sys
 from Bio import SeqIO
 import pandas as pd
 import numpy as np
-import SDutils
 import csv
 import math
 from matplotlib import pyplot as plt
 from subprocess import check_call
 import networkx as nx
 from networkx.algorithms import bipartite
+
+import TriplesMatrix
+import SDutils
 
 def parse_args():
     parser = argparse.ArgumentParser(description="")
@@ -24,10 +26,8 @@ def parse_args():
 
     return parser.parse_args()
 
-def calc_mn_order_stat(sdtsv, cenid, maxk = 1):
+def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
     k_cnt = [{} for k in range(maxk)]
-    RC_cnt = 0
-    FR_cnt = 0
     rows = []
     with open(sdtsv, "r") as f:
         csv_reader = csv.reader(f, delimiter='\t')
@@ -36,18 +36,25 @@ def calc_mn_order_stat(sdtsv, cenid, maxk = 1):
                 continue
             if row[2] == "start":
                 continue
-
+            if cenid == "cen1_" and row[1][-1] == "'":
+                continue
+            row[1] = row[1].rstrip("'")
+            if exchange is not None and row[1] in exchange:
+                row[1] = exchange[row[1]]
             rows.append(row)
 
+    if exchTrp is not None:
+        for i in range(1, len(rows) - 1):
+            #if rows[i][1] == "mn_43":
+            #    print((rows[i+1][1],rows[i][1],rows[i-1][1]))
+
+            if (rows[i+1][1],rows[i][1],rows[i-1][1]) in exchTrp:
+                #print("exchange")
+                rows[i][1] = exchTrp[(rows[i+1][1],rows[i][1],rows[i-1][1])]
+
     for i, row in enumerate(rows):
-        cur_mons = ()
         identity = float(row[4])
         mon = row[1]
-        if mon[-1] == "'":
-            mon = mon[:-1]
-            RC_cnt += 1
-        else:
-            FR_cnt += 1
         if row[-1] == '?':
             continue
 
@@ -212,25 +219,44 @@ def save_edges_sep_mn(fw, mns, sepdict):
         if vt1 not in mns:
             continue
         vt1 = vt1[0]
-        vt2 = sepdict[vt1][0]
-        scr = sepdict[vt1][1]
-        if (vt2,) not in mns:
-            continue
+        vser = vt1.split(".")[0]
+        for v1, vt2, scr in sepdict:
+            if v1 != vser:
+                continue
+            if (vt2,) not in mns:
+                continue
 
-        thr_wg = [1, 2, 5, 10, 500]
-        wgs = [4, 3, 2, 1, 0]
-        wg = 3
-        while (scr < thr_wg[wg]):
-            wg -= 1
+            thr_wg = [1, 2, 5, 10, 500]
+            wgs = [4, 3, 2, 1, 0]
+            wg = 3
+            while (scr < thr_wg[wg]):
+                wg -= 1
 
-        if scr > 10:
-            continue
+            if scr > 10:
+                continue
 
-        fw.write(" " * 4 + "\"" + vt1 + "\" -> \"" + vt2 + "\"")
-        fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " color=red constraint=true];\n")
+            fw.write(" " * 4 + "\"" + vt1 + "\" -> \"" + vt2 + "\"")
+            fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " color=red constraint=true];\n")
 
 
-def printk_graph(kcnt, cenid, matching, out, k, sepdict):
+def save_edges_posscore(fw, mns, posscore):
+    for v1 in sorted(mns):
+        for v2 in sorted(mns):
+            vt1 = v1[0]
+            vt2 = v2[0]
+            if (vt1 == vt2):
+                continue
+
+            scr = posscore[(vt1, vt2)]
+
+            if scr < 0.4:
+                continue
+
+            fw.write(" " * 4 + "\"" + vt1 + "\" -> \"" + vt2 + "\"")
+            fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=2 color=orange constraint=true];\n")
+
+
+def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore):
     mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > 100} | \
              {tuple(list(x)[1:]) for x, y in kcnt.items() if y > 100}
 
@@ -244,6 +270,7 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict):
         save_edges_mn(fw, list(mn_set), kcnt, matching)
         if k == 1:
             save_edges_sep_mn(fw, list(mn_set), sepdict)
+            save_edges_posscore(fw, list(mn_set), posscore)
         fw.write("}\n")
 
     try:
@@ -297,17 +324,45 @@ def GetMaxMatching(kcnt):
     return matching
 
 
+def mergeMon(sepdict, posscore):
+    exch = {}
+    for mn, mn2, cnt1 in sepdict:
+        if (cnt1 < 10):
+            if (mn, mn2) in posscore:
+                scr = posscore[(mn, mn2)]
+                if scr > 0.5:
+                    exch[mn] = mn2
+    return exch
+
+
 def handle_cen(cenid, args):
     maxk = 4
     k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk)
-    df = pd.read_csv(os.path.join(args.sep, cenid + ".csv")).values.tolist()
-    sepdict = {"mn_" + str(x[1]) : (x[-1], x[-2]) for x in df}
-    print(sepdict)
 
+    df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
+    sepdict = {("mn_" + str(x[1]), x[-1], x[-2]) for x in df}
+    PositionScore = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+
+    exch = mergeMon(sepdict, PositionScore)
+
+    k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch)
+    PositionScore = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    exch2 = mergeMon(sepdict, PositionScore)
+    for x, y in exch2.items():
+        exch[x] = y
+
+    exchTrp = TriplesMatrix.SplitAllMn(k_cnt[1], k_cnt[0])
+    print("====EXCHANGE====")
+    print(exchTrp)
+
+    k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch, exchTrp=exchTrp)
+    PositionScore = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+
+    print(k_cnt)
     for k in range(1, maxk + 1):
         matching = GetMaxMatching(k_cnt[k - 1])
         #print_dual_graph(db_cnt, cenid, args.o)
-        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict)
+        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
