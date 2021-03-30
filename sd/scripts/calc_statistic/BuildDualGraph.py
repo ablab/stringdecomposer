@@ -38,6 +38,7 @@ def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
                 continue
             if cenid == "cen1_" and row[1][-1] == "'":
                 continue
+            #print(row[1], end=" ")
             row[1] = row[1].rstrip("'")
             if exchange is not None and row[1] in exchange:
                 row[1] = exchange[row[1]]
@@ -323,40 +324,79 @@ def GetMaxMatching(kcnt):
     matching = bipartite.matching.minimum_weight_full_matching(B, list(mn_set), "weight")
     return matching
 
+def diffcenpos(cenv1, cenv2):
+    mx1 = (0, 0)
+    mx2 = (0, 0)
 
-def mergeMon(sepdict, posscore):
+    for i in range(len(cenv1)):
+        for j in range(len(cenv1[0])):
+            if cenv1[i][j] > cenv1[mx1[0]][mx1[1]]:
+                mx1 = (i, j)
+
+
+    for i in range(len(cenv2)):
+        for j in range(len(cenv2[0])):
+            if cenv2[i][j] > cenv2[mx2[0]][mx2[1]]:
+                mx2 = (i, j)
+
+    return mx1[0] != mx2[0] and mx1[1] != mx2[1]
+
+def mergeMon(sepdict, posscore, cenposvector):
     exch = {}
     for mn, mn2, cnt1 in sepdict:
-        if (cnt1 < 10):
+        if (cnt1 < 6):
             if (mn, mn2) in posscore:
+                #if diffcenpos(cenposvector[mn], cenposvector[mn2]):
+                #    continue
                 scr = posscore[(mn, mn2)]
-                if scr > 0.5:
+                if scr > 0.3:
                     exch[mn] = mn2
     return exch
 
-
 def handle_cen(cenid, args):
-    maxk = 4
+    maxk = 15
     k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk)
 
     df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
     sepdict = {("mn_" + str(x[1]), x[-1], x[-2]) for x in df}
-    PositionScore = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
 
-    exch = mergeMon(sepdict, PositionScore)
+    exch = mergeMon(sepdict, PositionScore, cenvec)
 
     k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch)
-    PositionScore = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
-    exch2 = mergeMon(sepdict, PositionScore)
+    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    exch2 = mergeMon(sepdict, PositionScore, cenvec)
     for x, y in exch2.items():
         exch[x] = y
+
+    PrefixPosScore, cenvec = TriplesMatrix.PrefixPosScore(k_cnt[1], k_cnt[0])
+    exch3 = mergeMon(sepdict, PrefixPosScore, cenvec)
+    for x, y in exch3.items():
+        if x not in exch:
+            exch[x] = y
+
+    SuffixPosScore, cenvec = TriplesMatrix.SuffixPosScore(k_cnt[1], k_cnt[0])
+    exch4 = mergeMon(sepdict, SuffixPosScore, cenvec)
+    for x, y in exch4.items():
+        if x not in exch:
+            exch[x] = y
+
+    while True:
+        update = False
+        for x, y in exch.items():
+            if y in exch:
+                update = True
+                exch[x] = exch[y]
+        if not update:
+            break
+
 
     exchTrp = TriplesMatrix.SplitAllMn(k_cnt[1], k_cnt[0])
     print("====EXCHANGE====")
     print(exchTrp)
 
     k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch, exchTrp=exchTrp)
-    PositionScore = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
 
     print(k_cnt)
     for k in range(1, maxk + 1):
@@ -369,7 +409,7 @@ def handle_cen(cenid, args):
 
 def main():
     args = parse_args()
-    for i in range(1, 23):
+    for i in range(9, 10):
         handle_cen("cen"+str(i)+"_", args)
     handle_cen("cenX_", args)
 
