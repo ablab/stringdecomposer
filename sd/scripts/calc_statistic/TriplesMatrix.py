@@ -1,4 +1,59 @@
 import numpy as np
+import csv
+
+def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
+    k_cnt = [{} for k in range(maxk)]
+    rows = []
+    with open(sdtsv, "r") as f:
+        csv_reader = csv.reader(f, delimiter='\t')
+        for row in csv_reader:
+            if cenid not in row[0]:
+                continue
+            if row[2] == "start":
+                continue
+            if cenid == "cen1_" and row[1][-1] == "'":
+                continue
+            #print(row[1], end=" ")
+            row[1] = row[1].rstrip("'")
+            if exchange is not None and row[1] in exchange:
+                row[1] = exchange[row[1]]
+            rows.append(row)
+
+    if exchTrp is not None:
+        for i in range(1, len(rows) - 1):
+            #if rows[i][1] == "mn_43":
+            #    print((rows[i+1][1],rows[i][1],rows[i-1][1]))
+
+            if (rows[i+1][1],rows[i][1],rows[i-1][1]) in exchTrp:
+                #print("exchange")
+                rows[i][1] = exchTrp[(rows[i+1][1],rows[i][1],rows[i-1][1])]
+
+    for i, row in enumerate(rows):
+        identity = float(row[4])
+        mon = row[1]
+        if row[-1] == '?':
+            continue
+
+        cur_mons = (mon,)
+
+        for k in range(1, maxk + 1):
+            if i - k >= 0 and rows[i - k] != []:
+                pident = float(rows[i - k][4])
+                pmon = rows[i - k][1]
+                if pmon[-1] == "'":
+                    pmon = pmon[:-1]
+
+                if rows[i - k][-1] == '?':
+                    break
+
+                cur_mons = (*cur_mons, pmon)
+                if cur_mons not in k_cnt[k - 1]:
+                    k_cnt[k - 1][cur_mons] = 0
+                k_cnt[k - 1][cur_mons] += 1
+            else:
+                break
+
+    return k_cnt
 
 def BuildTriplesM(trp_cnt, mnid, mnlist):
     res = [[0] * len(mnlist) for i in range(len(mnlist))]
@@ -62,12 +117,12 @@ def GetCenVec(mnlist, trp_cnt):
     return trps
 
 
-def handleAllMn(trp_cnt, db_cnt):
+def handleAllMn(trp_cnt, db_cnt, thr=100):
     mncnt = {x[0]: 0 for x in db_cnt.keys()}
     for x, y in db_cnt.items():
         mncnt[x[0]] += y
 
-    mnlist = [x for x, y in mncnt.items() if y > 100]
+    mnlist = [x for x, y in mncnt.items() if y > thr]
 
     trps = []
 
@@ -84,12 +139,12 @@ def handleAllMn(trp_cnt, db_cnt):
     return PositionScore, GetCenVec(mnlist, trp_cnt)
 
 
-def PrefixPosScore(trp_cnt, db_cnt):
+def PrefixPosScore(trp_cnt, db_cnt, thr=100):
     mncnt = {x[0]: 0 for x in db_cnt.keys()}
     for x, y in db_cnt.items():
         mncnt[x[0]] += y
 
-    mnlist = [x for x, y in mncnt.items() if y > 100]
+    mnlist = [x for x, y in mncnt.items() if y > thr]
 
     trps = []
 
@@ -104,12 +159,12 @@ def PrefixPosScore(trp_cnt, db_cnt):
     return PositionScore, GetCenVec(mnlist, trp_cnt)
 
 
-def SuffixPosScore(trp_cnt, db_cnt):
+def SuffixPosScore(trp_cnt, db_cnt, thr = 100):
     mncnt = {x[0]: 0 for x in db_cnt.keys()}
     for x, y in db_cnt.items():
         mncnt[x[0]] += y
 
-    mnlist = [x for x, y in mncnt.items() if y > 100]
+    mnlist = [x for x, y in mncnt.items() if y > thr]
 
     trps = []
 
@@ -124,12 +179,12 @@ def SuffixPosScore(trp_cnt, db_cnt):
     return PositionScore, GetCenVec(mnlist, trp_cnt)
 
 
-def SplitAllMn(trp_cnt, db_cnt):
+def SplitAllMn(trp_cnt, db_cnt, thr=100):
     mncnt = {x[0]: 0 for x in db_cnt.keys()}
     for x, y in db_cnt.items():
         mncnt[x[0]] += y
 
-    mnlist = [x for x, y in mncnt.items() if y > 100]
+    mnlist = [x for x, y in mncnt.items() if y > thr]
     splTrp = {}
 
     for mn in mnlist:

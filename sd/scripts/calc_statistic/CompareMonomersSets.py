@@ -7,41 +7,16 @@ import sys
 from Bio import SeqIO
 import pandas as pd
 import numpy as np
+import SDutils
+from SDutils import get_blocks
+from SDutils import  rc
+from SDutils import sys_call
+from SDutils import unique
+from SDutils import load_fasta
+from SDutils import run_SD
+import ExtractValuableMonomers
 
 res_str = ""
-
-def process_readline(line, is_python3=sys.version.startswith("3.")):
-    if is_python3:
-        return str(line, "utf-8").rstrip()
-    return line.rstrip()
-
-def sys_call(cmd):
-    import shlex
-    import subprocess
-
-    if isinstance(cmd, list):
-        cmd_list = cmd
-    else:
-        cmd_list = shlex.split(cmd)
-
-    proc = subprocess.Popen(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-    while not proc.poll():
-        line = process_readline(proc.stdout.readline())
-        if line:
-            print(line)
-        if proc.returncode is not None:
-            break
-
-    for line in proc.stdout.readlines():
-        line = process_readline(line)
-        if line:
-            print(line)
-
-    if proc.returncode:
-        print("system call for: \"%s\" finished abnormally, OS return value: %d" % (cmd, proc.returncode))
-
-
 
 pathToSD = "/Bmo/kolga/soft/stringdecomposer/sd/run_decomposer.py"
 
@@ -58,9 +33,6 @@ def local_dist(a, b):
         return 10**9
     return result["editDistance"]
 
-
-def load_fasta(filename):
-    return list(SeqIO.parse(filename, "fasta"))
 
 
 def parse_args():
@@ -82,16 +54,6 @@ def getSameMons(CA_mon, Ivan_mon):
 
     Bsubset = list(set(Bsubset))
     return Bsubset
-
-
-def run_SD(pathToMon, seqPath, outName):
-    os.makedirs(outName, exist_ok=True)
-    origin_dir = os.path.abspath(os.getcwd())
-    os.chdir(outName)
-    if not os.path.exists("final_decomposition.tsv"):
-        sys_call(["python3", pathToSD, seqPath, pathToMon, "-t", "30", "--fast"])
-    os.chdir(origin_dir)
-    return os.path.join(outName, "final_decomposition.tsv")
 
 
 def run_SD_mn(mnList, seqPath, outName):
@@ -125,27 +87,6 @@ def get_squere_mean(tsv_path, mns):
     return (sum((np.array([100] * len(df_sd)) - np.array(df_sd.iloc[:, 4]))**2)/len(df_sd))**(1/2)
 
 
-def unique(lst_rec):
-    return [val for key, val in {x.id : x for x in lst_rec}.items()]
-
-
-def rc(blc):
-    change = {"A":"T", "C":"G", "G":"C", "T":"A", "N":"N"}
-    return "".join([change[ch] for ch in blc.upper()[::-1]])
-
-
-def get_blocks(path_seq, tsv_B_res):
-    seqs_dict = {}
-    for record in SeqIO.parse(path_seq, "fasta"):
-        seqs_dict[record.id] = str(record.seq).upper()
-
-    df_sd = pd.read_csv(tsv_B_res, "\t")
-    print(df_sd.head())
-    blocks = []
-    for i in range(len(df_sd)):
-        if df_sd.iloc[i,4] > 60:
-            blocks.append(seqs_dict[df_sd.iloc[i,0]][df_sd.iloc[i,2]:(df_sd.iloc[i,3] + 1)])
-    return blocks
 
 
 def get_blocks_interseq(path_seq, tsva, tsvb):
@@ -229,6 +170,31 @@ def elbow_calc(path_seq, tsv_B_res, Bmn, CAmn, f):
     f.write("elbow " + elbow_str + "\n")
 
 
+def getValuableMonomers(path_seq, tsv_res, CAmn):
+    blocks = get_blocks(path_seq, tsv_res)
+    dists = [[min(seq_identity(str(mn.seq), bl), seq_identity(str(mn.seq), rc(bl))) for mn in CAmn] for bl in blocks]
+
+    used_mn = set()
+
+    prev_mn = ""
+    pr_sqsum = 100
+    for i in range(0, len(CAmn) + 1):
+        if i > 0:
+            sq_sum = get_subset_sq_sum(blocks, dists, CAmn, used_mn)
+            if pr_sqsum < sq_sum * 1.05:
+                used_mn.remove(prev_mn)
+                MonomersNew = [mn for mn in CAmn if mn.id in used_mn]
+                return MonomersNew
+            pr_sqsum = sq_sum
+
+        if i < len(CAmn):
+            prev_mn = update_used_mn(blocks, dists, CAmn, used_mn)
+
+    MonomersNew = [mn for mn in CAmn if mn.id in used_mn]
+    print(MonomersNew)
+    return MonomersNew
+
+
 def calc_mean_for_subseq(seq, tsv_B_res, tsv_Ivan_res, CAmn, IAmn, f):
     blocks = get_blocks_interseq(seq, tsv_B_res, tsv_Ivan_res)
     f.write("#blocks after interseq: " + str(len(blocks)) + "\n")
@@ -285,6 +251,46 @@ def blocks_sqmean(path_seq, tsv, mns, f, name):
 
     global res_str
     res_str += "\t" + "{:.4f}".format(sq_sum)
+    return sq_sum
+
+
+def DaviesBouldinIndex(path_seq, tsv, mns, f, name):
+    blocks = get_blocks(path_seq, tsv)
+    f.write("#blocks in " + name + ": " + str(len(blocks)) + "\n")
+
+    dists = [[min(seq_identity(str(mn.seq), bl), seq_identity(str(mn.seq), rc(bl))) for mn in mns] for bl in blocks]
+    blmn = [dists[i].index(min(dists[i])) for i in range(len(blocks))]
+    radius = [0] * len(mns)
+    for i in range(len(blocks)):
+        radius[blmn[i]] = max(radius[blmn[i]], dists[i][blmn[i]])
+
+    DBindex = 0
+    for i in range(len(mns)):
+        dbmx = 0
+        for j in range(len(mns)):
+            if i == j:
+                continue
+            if seq_identity(mns[i].seq, mns[j].seq) == 0:
+                dbmx = 100
+                continue
+            if seq_identity(mns[i].seq, rc(mns[j].seq)) == 0:
+                dbmx = 100
+                continue
+
+            print(seq_identity(mns[i].seq, mns[j].seq))
+            print(seq_identity(mns[i].seq, rc(mns[j].seq)))
+            dbmx = max(dbmx,
+                       (radius[i] + radius[j])/min(seq_identity(mns[i].seq, mns[j].seq),
+                                                   seq_identity(mns[i].seq, rc(mns[j].seq))))
+
+        DBindex += dbmx
+    DBindex /= len(mns)
+
+    f.write("DBindex for blocks (" + name + "): " + str(DBindex) + "\n")
+    f.flush()
+    return DBindex
+
+
 
 def main():
     args = parse_args()
@@ -292,6 +298,7 @@ def main():
         os.makedirs(args.outdir)
 
     f = open(os.path.join(args.outdir, "summary"), "w")
+    fa = open(os.path.join(args.outdir, "..", "MonomerComparasio.csv"), "a")
 
     CA_mon = unique(load_fasta(args.camon))
     IVAN_mon = unique([x for x in load_fasta(args.ivanmon) if "H1" in x.id])
@@ -303,8 +310,16 @@ def main():
     print(BsubsetIDX)
 
     f.write("CA matched subset#: " + str(len(BsubsetIDX)) + "\n")
-
     tsv_res = run_SD(args.camon, args.seq, os.path.join(args.outdir, "CAmon"))
+
+    MonomersNew = ExtractValuableMonomers.getValuableMonomers(args.seq, tsv_res, CA_mon, args.outdir)
+    print("Valuable mon cnt:", len(MonomersNew))
+    print(MonomersNew)
+    SDutils.savemn(os.path.join(args.outdir, "valm.fa"), MonomersNew)
+    print(MonomersNew[0].seq)
+
+
+
     B = addMostFreq(CA_mon, BsubsetIDX, tsv_res, len(IVAN_mon) - len(BsubsetIDX))
     print(len(B))
     print(len(IVAN_mon))
@@ -321,17 +336,24 @@ def main():
     print("Bsq mean: ", Bsq_mean)
     print("Isq mean: ", Isq_mean)
 
-    blocks_sqmean(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmn")
-    blocks_sqmean(args.seq, tsv_B_res, B, f, "CAmn")
+    fa.write(str(blocks_sqmean(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmn")) + " ")
+    fa.write(str(DaviesBouldinIndex(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmon")) + " ")
+    fa.write(str(len(CA_mon)) + " ")
+    fa.write(str(len(MonomersNew)) + " ")
 
-    calc_mean_for_subseq(args.seq, tsv_B_res, tsv_Ivan_res, B, IVAN_mon, f)
+    fa.write(str(blocks_sqmean(args.seq, tsv_B_res, B, f, "CAmn")) + " ")
 
-    f.write("\n\nElbow from zero elems\n")
-    elbow_calc(args.seq, tsv_B_res, [], CA_mon, f)
+    fa.write(str(blocks_sqmean(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + " ")
+    fa.write(str(DaviesBouldinIndex(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + "\n")
+    fa.close()
 
-    f.write("\n\nElbow from B set\n")
-    elbow_calc(args.seq, tsv_B_res, B, CA_mon, f)
+    #calc_mean_for_subseq(args.seq, tsv_B_res, tsv_Ivan_res, B, IVAN_mon, f)
 
+    #f.write("\n\nElbow from zero elems\n")
+    #elbow_calc(args.seq, tsv_B_res, [], CA_mon, f)
+
+    #f.write("\n\nElbow from B set\n")
+    #elbow_calc(args.seq, tsv_B_res, B, CA_mon, f)
 
 
     global res_str

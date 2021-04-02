@@ -15,70 +15,18 @@ import networkx as nx
 from networkx.algorithms import bipartite
 
 import TriplesMatrix
+from TriplesMatrix import calc_mn_order_stat
 import SDutils
 
 def parse_args():
     parser = argparse.ArgumentParser(description="")
 
     parser.add_argument("-sdtsv")
-    parser.add_argument("-sep")
+    parser.add_argument("-sep", default="-")
+    parser.add_argument("-mon", default="-")
     parser.add_argument("-o")
 
     return parser.parse_args()
-
-def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
-    k_cnt = [{} for k in range(maxk)]
-    rows = []
-    with open(sdtsv, "r") as f:
-        csv_reader = csv.reader(f, delimiter='\t')
-        for row in csv_reader:
-            if cenid not in row[0]:
-                continue
-            if row[2] == "start":
-                continue
-            if cenid == "cen1_" and row[1][-1] == "'":
-                continue
-            #print(row[1], end=" ")
-            row[1] = row[1].rstrip("'")
-            if exchange is not None and row[1] in exchange:
-                row[1] = exchange[row[1]]
-            rows.append(row)
-
-    if exchTrp is not None:
-        for i in range(1, len(rows) - 1):
-            #if rows[i][1] == "mn_43":
-            #    print((rows[i+1][1],rows[i][1],rows[i-1][1]))
-
-            if (rows[i+1][1],rows[i][1],rows[i-1][1]) in exchTrp:
-                #print("exchange")
-                rows[i][1] = exchTrp[(rows[i+1][1],rows[i][1],rows[i-1][1])]
-
-    for i, row in enumerate(rows):
-        identity = float(row[4])
-        mon = row[1]
-        if row[-1] == '?':
-            continue
-
-        cur_mons = (mon,)
-
-        for k in range(1, maxk + 1):
-            if i - k >= 0 and rows[i - k] != []:
-                pident = float(rows[i - k][4])
-                pmon = rows[i - k][1]
-                if pmon[-1] == "'":
-                    pmon = pmon[:-1]
-
-                if rows[i - k][-1] == '?':
-                    break
-
-                cur_mons = (*cur_mons, pmon)
-                if cur_mons not in k_cnt[k - 1]:
-                    k_cnt[k - 1][cur_mons] = 0
-                k_cnt[k - 1][cur_mons] += 1
-            else:
-                break
-
-    return k_cnt
 
 def save_vert(fw, mn1, mn2, cenName, cnt_mon1, cnt_mon2):
     fw.write("graph " + cenName + " {\n")
@@ -115,9 +63,9 @@ def save_vert_mn(fw, mn1, cenName, cnt_mon1):
                     lg = math.log(cnt_mn)
             clr = ["red", "#cd5700", "orange", "#ffb300", "yellow", "#ceff1d", "#a7fc00", "#00ff00", "#e0ffff", "#f5fffa"]
             #print(int(lg))
-            vertn = "-".join([x[3:] for x in list(vert)])
+            #vertn = "-".join([x[3:] for x in list(vert)])
             vert = "-".join(list(vert))
-            fw.write(" " * 4 + '"' + vert + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vertn + "[" + str(cnt_mn) + "]\"];\n")
+            fw.write(" " * 4 + '"' + vert + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vert + "[" + str(cnt_mn) + "]\"];\n")
 
 
 def save_edges(fw, mn1, mn2, db_cnt):
@@ -257,9 +205,9 @@ def save_edges_posscore(fw, mns, posscore):
             fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=2 color=orange constraint=true];\n")
 
 
-def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore):
-    mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > 100} | \
-             {tuple(list(x)[1:]) for x, y in kcnt.items() if y > 100}
+def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, thr=100):
+    mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > thr} | \
+             {tuple(list(x)[1:]) for x, y in kcnt.items() if y > thr}
 
     cnt_mon = {x: 0 for x in mn_set}
     for x in kcnt.keys():
@@ -353,63 +301,79 @@ def mergeMon(sepdict, posscore, cenposvector):
                     exch[mn] = mn2
     return exch
 
+
+def getMnSim(mon):
+    sim = {}
+    for mn1 in mon:
+        for mn2 in mon:
+            sim[(mn1.id, mn2.id)] = min(SDutils.seq_identity(mn1.seq, mn2.seq),
+                                        SDutils.seq_identity(mn1.seq, SDutils.rc(mn2.seq)))
+    return sim
+
+
 def handle_cen(cenid, args):
-    maxk = 15
+    maxk = 3
     k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk)
 
-    df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
-    sepdict = {("mn_" + str(x[1]), x[-1], x[-2]) for x in df}
-    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    if args.sep != "-":
+        df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
+        sepdict = {("mn_" + str(x[1]), x[-1], x[-2]) for x in df}
+    else:
+        mons = SDutils.unique(SDutils.load_fasta(os.path.join(args.mon, cenid + "mn.fa")))
+        sim = getMnSim(mons)
+        sepdict = {(k[0], k[1], x) for k, x in sim.items() if x <= 10 and k[0] < k[1]}
 
-    exch = mergeMon(sepdict, PositionScore, cenvec)
+    # PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    #
+    # exch = mergeMon(sepdict, PositionScore, cenvec)
+    #
+    # k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch)
+    # PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    # exch2 = mergeMon(sepdict, PositionScore, cenvec)
+    # for x, y in exch2.items():
+    #     exch[x] = y
+    #
+    # PrefixPosScore, cenvec = TriplesMatrix.PrefixPosScore(k_cnt[1], k_cnt[0])
+    # exch3 = mergeMon(sepdict, PrefixPosScore, cenvec)
+    # for x, y in exch3.items():
+    #     if x not in exch:
+    #         exch[x] = y
+    #
+    # SuffixPosScore, cenvec = TriplesMatrix.SuffixPosScore(k_cnt[1], k_cnt[0])
+    # exch4 = mergeMon(sepdict, SuffixPosScore, cenvec)
+    # for x, y in exch4.items():
+    #     if x not in exch:
+    #         exch[x] = y
+    #
+    # while True:
+    #     update = False
+    #     for x, y in exch.items():
+    #         if y in exch:
+    #             update = True
+    #             exch[x] = exch[y]
+    #     if not update:
+    #         break
+    #
+    #
+    # exchTrp = TriplesMatrix.SplitAllMn(k_cnt[1], k_cnt[0])
+    # print("====EXCHANGE====")
+    # print(exchTrp)
 
-    k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch)
-    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
-    exch2 = mergeMon(sepdict, PositionScore, cenvec)
-    for x, y in exch2.items():
-        exch[x] = y
-
-    PrefixPosScore, cenvec = TriplesMatrix.PrefixPosScore(k_cnt[1], k_cnt[0])
-    exch3 = mergeMon(sepdict, PrefixPosScore, cenvec)
-    for x, y in exch3.items():
-        if x not in exch:
-            exch[x] = y
-
-    SuffixPosScore, cenvec = TriplesMatrix.SuffixPosScore(k_cnt[1], k_cnt[0])
-    exch4 = mergeMon(sepdict, SuffixPosScore, cenvec)
-    for x, y in exch4.items():
-        if x not in exch:
-            exch[x] = y
-
-    while True:
-        update = False
-        for x, y in exch.items():
-            if y in exch:
-                update = True
-                exch[x] = exch[y]
-        if not update:
-            break
-
-
-    exchTrp = TriplesMatrix.SplitAllMn(k_cnt[1], k_cnt[0])
-    print("====EXCHANGE====")
-    print(exchTrp)
-
-    k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch, exchTrp=exchTrp)
-    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
+    #k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch, exchTrp=exchTrp)
+    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0], thr=0)
 
     print(k_cnt)
     for k in range(1, maxk + 1):
         matching = GetMaxMatching(k_cnt[k - 1])
         #print_dual_graph(db_cnt, cenid, args.o)
-        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore)
+        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, thr=0)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
 
 def main():
     args = parse_args()
-    for i in range(9, 10):
+    for i in range(4, 5):
         handle_cen("cen"+str(i)+"_", args)
     handle_cen("cenX_", args)
 
