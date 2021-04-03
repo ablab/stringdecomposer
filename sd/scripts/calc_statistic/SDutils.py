@@ -37,8 +37,10 @@ def get_blocks(path_seq, tsv_B_res, mnidList=None):
     blocks = []
     for i in range(len(df_sd)):
         if df_sd.iloc[i,4] > 60:
-            if mnidList is None or df_sd.iloc[i, 1] in mnidList:
+            if mnidList is None or df_sd.iloc[i, 1].rstrip("'") in mnidList:
                 blocks.append(seqs_dict[df_sd.iloc[i,0]][df_sd.iloc[i,2]:(df_sd.iloc[i,3] + 1)])
+                if df_sd.iloc[i, 1][-1] == "'":
+                    blocks[-1] = rc(blocks[-1])
     return blocks
 
 def rc(blc):

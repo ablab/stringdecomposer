@@ -68,7 +68,7 @@ def save_vert_mn(fw, mn1, cenName, cnt_mon1):
             fw.write(" " * 4 + '"' + vert + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vert + "[" + str(cnt_mn) + "]\"];\n")
 
 
-def save_edges(fw, mn1, mn2, db_cnt):
+def save_edges(fw, mn1, mn2, db_cnt, thr=100):
     for vt1 in sorted(mn1):
         fw.write(" " * 4 + "\"" + vt1 + "\" -- \"" + vt1 + "_" + "\"\n")
         for vt2 in sorted(mn2):
@@ -82,7 +82,7 @@ def save_edges(fw, mn1, mn2, db_cnt):
             while (scr > thr_wg[wg]):
                 wg -= 1
 
-            if scr > 100:
+            if scr > thr:
                 fw.write(" " * 4 + "\"" + vt1 + "\" -- \"" + vt2 + "\"")
                 fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + "];\n")
             else:
@@ -92,7 +92,7 @@ def save_edges(fw, mn1, mn2, db_cnt):
     fw.write("}\n")
 
 
-def save_edges_mn(fw, mn1, kcnt, matching):
+def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
     for vt1 in sorted(mn1):
         for vt2 in sorted(mn1):
             #print(vt1, vt2)
@@ -114,7 +114,7 @@ def save_edges_mn(fw, mn1, kcnt, matching):
                 vrt2 = "-".join(list(vt2))
                 fw.write(" " * 4 + "\"" + vrt1 + "\" -> \"" + vrt2 + "\"")
                 fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " color=blue];\n")
-            elif scr > 100:
+            elif scr > thr:
                 vrt1 = "-".join(list(vt1))
                 vrt2 = "-".join(list(vt2))
                 fw.write(" " * 4 + "\"" + vrt1 + "\" -> \"" + vrt2 + "\"")
@@ -136,7 +136,7 @@ def print_dual_graph(db_cnt, cenid, out):
     db_cnt2 = {(x[0], x[1] + "_"): y for x, y in db_cnt.items()}
     with open(os.path.join(out, cenid + ".dot"), "w") as fw:
         save_vert(fw, list(mn_set), list(mn_set2), cenid, cnt_mon, cnt_mon2)
-        save_edges(fw, list(mn_set), list(mn_set2), db_cnt2)
+        save_edges(fw, list(mn_set), list(mn_set2), db_cnt2, 10)
 
     try:
         check_call(['dot', '-Tpng', os.path.join(out, cenid + ".dot"), '-o', os.path.join(out, cenid + ".png")])
@@ -154,7 +154,7 @@ def print_monomer_graph(db_cnt, cenid, matching, out):
 
     with open(os.path.join(out, "mn_" + cenid + ".dot"), "w") as fw:
         save_vert_mn(fw, list(mn_set), cenid, cnt_mon)
-        save_edges_mn(fw, list(mn_set), db_cnt, matching)
+        save_edges_mn(fw, list(mn_set), db_cnt, matching, 10)
         fw.write("}\n")
 
     try:
@@ -175,14 +175,15 @@ def save_edges_sep_mn(fw, mns, sepdict):
             if (vt2,) not in mns:
                 continue
 
-            thr_wg = [1, 2, 5, 10, 500]
-            wgs = [4, 3, 2, 1, 0]
-            wg = 3
-            while (scr < thr_wg[wg]):
-                wg -= 1
+            thr_wg = [-1, 1, 2, 5, 11, 5000]
+            wgs = [5, 4, 3, 2, 1, 0]
+            wg = 4
 
             if scr > 10:
                 continue
+
+            while (scr < thr_wg[wg]):
+                wg -= 1
 
             fw.write(" " * 4 + "\"" + vt1 + "\" -> \"" + vt2 + "\"")
             fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " color=red constraint=true];\n")
@@ -216,7 +217,7 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, thr=100):
 
     with open(os.path.join(out, "k" + str(k) + "_" + cenid + ".dot"), "w") as fw:
         save_vert_mn(fw, list(mn_set), cenid, cnt_mon)
-        save_edges_mn(fw, list(mn_set), kcnt, matching)
+        save_edges_mn(fw, list(mn_set), kcnt, matching, 10)
         if k == 1:
             save_edges_sep_mn(fw, list(mn_set), sepdict)
             save_edges_posscore(fw, list(mn_set), posscore)
@@ -313,7 +314,7 @@ def getMnSim(mon):
 
 def handle_cen(cenid, args):
     maxk = 3
-    k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk)
+    k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=maxk)
 
     if args.sep != "-":
         df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
@@ -373,8 +374,12 @@ def handle_cen(cenid, args):
 
 def main():
     args = parse_args()
-    for i in range(4, 5):
-        handle_cen("cen"+str(i)+"_", args)
+    for i in range(1, 23):
+        #try:
+            handle_cen("cen"+str(i)+"_", args)
+        #except Exception:
+        #    continue
+
     handle_cen("cenX_", args)
 
 

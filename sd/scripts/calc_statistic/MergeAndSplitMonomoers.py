@@ -3,6 +3,7 @@
 import argparse
 import edlib
 import os
+import shutil
 import sys
 import pandas as pd
 import numpy as np
@@ -90,13 +91,17 @@ def get_blocks(trpl, path_seq, tsv_res):
     df_sd = pd.read_csv(tsv_res, "\t")
     for i in range(1, len(df_sd) - 1):
         if df_sd.iloc[i,4] > 60:
-            if df_sd.iloc[i, 1] == trpl[1]:
+            if df_sd.iloc[i, 1].rstrip("'") == trpl[1]:
                 #print(df_sd.iloc[i - 1, 1], df_sd.iloc[i, 1], df_sd.iloc[i + 1, 1])
                 #print(trpl)
-                if df_sd.iloc[i + 1, 1] == trpl[0] and df_sd.iloc[i - 1, 1] == trpl[2]:
+                if df_sd.iloc[i + 1, 1].rstrip("'") == trpl[0] and df_sd.iloc[i - 1, 1].rstrip("'") == trpl[2]:
                     block2.append(seqs_dict[df_sd.iloc[i,0]][df_sd.iloc[i,2]:(df_sd.iloc[i,3] + 1)])
+                    if df_sd.iloc[i, 1][-1] == "'":
+                        block2[-1] = rc(block2[-1])
                 else:
                     block1.append(seqs_dict[df_sd.iloc[i, 0]][df_sd.iloc[i, 2]:(df_sd.iloc[i, 3] + 1)])
+                    if df_sd.iloc[i, 1][-1] == "'":
+                        block1[-1] = rc(block1[-1])
     return block1, block2
 
 
@@ -134,7 +139,7 @@ def Iteration(iterNum, args, monsPath):
         os.makedirs(odir)
 
     tsv_res = run_SD(monsPath, args.seq, os.path.join(odir, "InitSD"))
-    k_cnt = TriplesMatrix.calc_mn_order_stat(tsv_res, args.cenID, maxk=3)
+    k_cnt = TriplesMatrix.calc_mn_order_stat(tsv_res, "cen" + str(args.cenID) + "_", maxk=3)
     posscore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0], thr=0)
 
     def get_best(posscore):
@@ -196,9 +201,12 @@ def main():
     fa.write(str(args.cenID) + " ")
     fa.write(str(len(unique(load_fasta(args.mon)))) + " ")
     cmonPath = args.mon
+    shutil.copyfile(cmonPath, os.path.join(args.outdir, "mn.fa"))
+
     iterNum = 0
     while(Iteration(iterNum, args, cmonPath)):
         iterNum += 1
+        shutil.copyfile(cmonPath, os.path.join(args.outdir, "mn.fa"))
         cmonPath = os.path.join(args.outdir, "i" + str(iterNum - 1), "mn.fa")
 
     fa.write(str(cntMerge) + " " + str(cntSplit) + " ")
