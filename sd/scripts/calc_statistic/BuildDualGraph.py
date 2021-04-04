@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 from subprocess import check_call
 import networkx as nx
 from networkx.algorithms import bipartite
+from MonorunGraph import BuildAndShowMonorunGraph
 
 import TriplesMatrix
 from TriplesMatrix import calc_mn_order_stat
@@ -370,6 +371,8 @@ def handle_cen(cenid, args):
         printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, thr=0)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
+
+    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"))
 
 
 def main():
