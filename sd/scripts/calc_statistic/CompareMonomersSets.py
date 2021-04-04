@@ -14,25 +14,19 @@ from SDutils import sys_call
 from SDutils import unique
 from SDutils import load_fasta
 from SDutils import run_SD
+from SDutils import seq_identity
 import ExtractValuableMonomers
 
 res_str = ""
 
 pathToSD = "/Bmo/kolga/soft/stringdecomposer/sd/run_decomposer.py"
 
-def seq_identity(a, b):
-    result = edlib.align(a, b, mode="NW", task="locations")
-    if result["editDistance"] == -1:
-        return 10**9
-    return result["editDistance"] * 100 / max(len(a), len(b))
-
 
 def local_dist(a, b):
     result = edlib.align(b, a, mode="HW", task="locations")
     if result["editDistance"] == -1:
         return 10**9
-    return result["editDistance"]
-
+    return result["editDistance"]*100/len(b)
 
 
 def parse_args():
@@ -85,8 +79,6 @@ def addMostFreq(CA_mon, BsubsetIDX, tsv_res, cntAdd):
 def get_squere_mean(tsv_path, mns):
     df_sd = pd.read_csv(tsv_path, "\t")
     return (sum((np.array([100] * len(df_sd)) - np.array(df_sd.iloc[:, 4]))**2)/len(df_sd))**(1/2)
-
-
 
 
 def get_blocks_interseq(path_seq, tsva, tsvb):
@@ -213,6 +205,8 @@ def calc_mean_for_subseq(seq, tsv_B_res, tsv_Ivan_res, CAmn, IAmn, f):
     res_str += "\t" + "{:.4f}".format(IA_sq_sum)
     res_str += "\t" + "{:.4f}".format(CA_sq_sum)
 
+    return CA_sq_sum, IA_sq_sum
+
 
 def blocks_stats(res_tsv1, res_tsv2, f):
     df1 = pd.read_csv(res_tsv1, "\t", header=None)
@@ -306,48 +300,35 @@ def main():
     f.write("CA monomers#: " + str(len(CA_mon)) + "\n")
     f.write("IA monomers#: " + str(len(IVAN_mon)) + "\n")
 
-    BsubsetIDX = getSameMons(CA_mon, IVAN_mon)
-    print(BsubsetIDX)
-
-    f.write("CA matched subset#: " + str(len(BsubsetIDX)) + "\n")
     tsv_res = run_SD(args.camon, args.seq, os.path.join(args.outdir, "CAmon"))
-
     MonomersNew = ExtractValuableMonomers.getValuableMonomers(args.seq, tsv_res, CA_mon, args.outdir)
     print("Valuable mon cnt:", len(MonomersNew))
     print(MonomersNew)
     SDutils.savemn(os.path.join(args.outdir, "valm.fa"), MonomersNew)
     print(MonomersNew[0].seq)
 
+    MonomersNew_ = getSameMons(MonomersNew, IVAN_mon)
+    print(MonomersNew_)
+    f.write("MonomerNew_ matched subset#: " + str(len(MonomersNew_)) + "\n")
 
+    MonomersNew_ = addMostFreq(MonomersNew, MonomersNew_, tsv_res, len(IVAN_mon) - len(MonomersNew_))
 
-    B = addMostFreq(CA_mon, BsubsetIDX, tsv_res, len(IVAN_mon) - len(BsubsetIDX))
-    print(len(B))
+    print(len(MonomersNew_))
     print(len(IVAN_mon))
-    tsv_B_res = run_SD_mn(B, args.seq, os.path.join(args.outdir, "Bmon"))
+
+    tsv_MN_res = run_SD_mn(MonomersNew_, args.seq, os.path.join(args.outdir, "MN_mon"))
     tsv_Ivan_res = run_SD_mn(IVAN_mon, args.seq, os.path.join(args.outdir, "IVAN_mon"))
 
-    blocks_stats(tsv_B_res, tsv_Ivan_res, f)
+    sqdMN, sqdIV = calc_mean_for_subseq(args.seq, tsv_MN_res, tsv_Ivan_res, MonomersNew_, IVAN_mon, f)
 
-    Bsq_mean = get_squere_mean(tsv_B_res, B)
-    Isq_mean = get_squere_mean(tsv_Ivan_res, IVAN_mon)
-
-    f.write("Bsq mean: " + str(Bsq_mean) + "\n")
-    f.write("Isq mean: " + str(Isq_mean) + "\n")
-    print("Bsq mean: ", Bsq_mean)
-    print("Isq mean: ", Isq_mean)
-
-    fa.write(str(blocks_sqmean(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmn")) + " ")
-    fa.write(str(DaviesBouldinIndex(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmon")) + " ")
-    fa.write(str(len(CA_mon)) + " ")
-    fa.write(str(len(MonomersNew)) + " ")
-
-    fa.write(str(blocks_sqmean(args.seq, tsv_B_res, B, f, "CAmn")) + " ")
-
-    fa.write(str(blocks_sqmean(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + " ")
-    fa.write(str(DaviesBouldinIndex(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + "\n")
+    fa.write(str(len(IVAN_mon)) + "/" + str(len(MonomersNew_)) + "\t")
+    fa.write("{:.2f}".format(sqdIV) + "/" + "{:.2f}".format(sqdMN) + "\t")
+    fa.write("{:.2f}".format(DaviesBouldinIndex(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmon")) + "\t")
+    fa.write(str(len(CA_mon)) + "\t")
+    fa.write(str(len(MonomersNew)) + "\t")
+    fa.write("{:.2f}".format(blocks_sqmean(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + "\t")
+    fa.write("{:.2f}".format(DaviesBouldinIndex(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + "\n")
     fa.close()
-
-    #calc_mean_for_subseq(args.seq, tsv_B_res, tsv_Ivan_res, B, IVAN_mon, f)
 
     #f.write("\n\nElbow from zero elems\n")
     #elbow_calc(args.seq, tsv_B_res, [], CA_mon, f)

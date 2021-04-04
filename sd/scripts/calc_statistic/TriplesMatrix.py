@@ -201,14 +201,14 @@ def SplitAllMn(trp_cnt, db_cnt, thr=100):
             isIndependent = True
             scb = bst_lst[i]
             bst = bst_lst[0]
-            if not Trp[bst[0]][bst[1]] < 10 * Trp[scb[0]][scb[1]]:
+            if not Trp[bst[0]][bst[1]] < 5 * Trp[scb[0]][scb[1]]:
                 continue
             for j in range(0, len(bst_lst)):
                     if i == j:
                         continue
                     bst = bst_lst[j]
-                    if ((j < i and Trp[bst[0]][bst[1]] < 10 * Trp[scb[0]][scb[1]]) or
-                       (i < j and Trp[bst[0]][bst[1]] * 10 > Trp[scb[0]][scb[1]])):
+                    if ((j < i and Trp[bst[0]][bst[1]] < 5 * Trp[scb[0]][scb[1]]) or
+                       (i < j and Trp[bst[0]][bst[1]] * 5 > Trp[scb[0]][scb[1]])):
                         if bst[0] == scb[0] or bst[1] == scb[1]:
                             print("DEPEND", mn, mnlist[bst[0]], mnlist[bst[1]], mnlist[scb[0]], mnlist[scb[1]])
                             isIndependent = False

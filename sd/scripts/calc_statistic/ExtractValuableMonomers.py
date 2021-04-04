@@ -45,6 +45,7 @@ def getValuableMonomers(path_seq, tsv_res, CAmn, odir):
     CntVal = 0
 
     pr_sqsum = 100
+    lstFrq = 0
     for i in range(0, len(CAmn)):
         curMn = CAmn[OrderMn[i][1]].id
         idmn = OrderMn[i][1]
@@ -54,8 +55,9 @@ def getValuableMonomers(path_seq, tsv_res, CAmn, odir):
         sq_allUsed = get_subset_sq_sum(blocks, dists, CAmn, all_mn | {curMn})
         mnStatistic[-1][-3] = sq_allUsed/get_subset_sq_sum(blocks, dists, CAmn, all_mn)
         mnStatistic[-1][-2] = sq_sumUsed/get_subset_sq_sum(blocks, dists, CAmn, used_mn)
-        if CntAll/len(blocks) < 0.99:
+        if CntAll/len(blocks) < 0.90 or lstFrq < 1.5*mnCnt[idmn]/len(blocks):
             cfreq.add(curMn)
+            lstFrq = mnCnt[idmn]/len(blocks)
 
         CntAll += mnCnt[idmn]
         all_mn.add(curMn)
