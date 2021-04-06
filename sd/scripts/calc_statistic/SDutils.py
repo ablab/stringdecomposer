@@ -132,8 +132,8 @@ def DaviesBouldinIndex(path_seq, tsv, mns):
                 dbmx = 100
                 continue
 
-            print(seq_identity(mns[i].seq, mns[j].seq))
-            print(seq_identity(mns[i].seq, rc(mns[j].seq)))
+            #print(seq_identity(mns[i].seq, mns[j].seq))
+            #print(seq_identity(mns[i].seq, rc(mns[j].seq)))
             dbmx = max(dbmx,
                        (radius[i] + radius[j])/min(seq_identity(mns[i].seq, mns[j].seq),
                                                    seq_identity(mns[i].seq, rc(mns[j].seq))))

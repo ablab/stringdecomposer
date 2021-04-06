@@ -25,27 +25,11 @@ def parse_args():
     parser.add_argument("-sdtsv")
     parser.add_argument("-sep", default="-")
     parser.add_argument("-mon", default="-")
+    parser.add_argument("--blue", dest="blue", action='store_true')
+    parser.add_argument("--red", dest="red", action="store_true")
     parser.add_argument("-o")
 
     return parser.parse_args()
-
-def save_vert(fw, mn1, mn2, cenName, cnt_mon1, cnt_mon2):
-    fw.write("graph " + cenName + " {\n")
-    fw.write(" "* 4 + "rankdir=LR;\n")
-
-    for mn, cnt_mon in [(mn1, cnt_mon1), (mn2, cnt_mon2)]:
-        for vert in mn:
-            cnt_mn = 0
-            lg = 0.01
-            if vert in cnt_mon:
-                cnt_mn = cnt_mon[vert]
-                lg = math.log(cnt_mn)
-            clr = ["red", "#cd5700", "orange", "#ffb300", "yellow", "#ceff1d", "#a7fc00", "#00ff00", "#e0ffff", "#f5fffa"]
-            #print(int(lg))
-            fw.write(" " * 4 + '"' + vert + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vert + "[" + str(cnt_mn) + "]\"];\n")
-
-    fw.write(" "*4 + "{rank = same; " + "; ".join(mn1) + ";}\n")
-    fw.write(" "*4 + "{rank = same; " + "; ".join(mn2) + ";}\n")
 
 
 def save_vert_mn(fw, mn1, cenName, cnt_mon1):
@@ -67,30 +51,6 @@ def save_vert_mn(fw, mn1, cenName, cnt_mon1):
             #vertn = "-".join([x[3:] for x in list(vert)])
             vert = "-".join(list(vert))
             fw.write(" " * 4 + '"' + vert + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vert + "[" + str(cnt_mn) + "]\"];\n")
-
-
-def save_edges(fw, mn1, mn2, db_cnt, thr=100):
-    for vt1 in sorted(mn1):
-        fw.write(" " * 4 + "\"" + vt1 + "\" -- \"" + vt1 + "_" + "\"\n")
-        for vt2 in sorted(mn2):
-            if (vt1, vt2) not in db_cnt:
-                continue
-            scr = db_cnt[(vt1, vt2)]
-
-            thr_wg = [100000000, 1000, 500, 100, 1]
-            wgs = [7, 5, 3, 1, 0]
-            wg = 3
-            while (scr > thr_wg[wg]):
-                wg -= 1
-
-            if scr > thr:
-                fw.write(" " * 4 + "\"" + vt1 + "\" -- \"" + vt2 + "\"")
-                fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + "];\n")
-            else:
-                pass
-                #fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " constraint=false];\n")
-
-    fw.write("}\n")
 
 
 def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
@@ -125,46 +85,8 @@ def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
                 #fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " constraint=false];\n")
 
 
-def print_dual_graph(db_cnt, cenid, out):
-    mn_set = {x[0] for x in db_cnt.keys()}
-    mn_set2 = {x[0] + "_" for x in db_cnt.keys()}
-
-    cnt_mon = {x: 0 for x in mn_set}
-    for x in db_cnt.keys():
-        cnt_mon[x[0]] += db_cnt[x]
-    cnt_mon2 = {x + "_": y for x, y in cnt_mon.items()}
-
-    db_cnt2 = {(x[0], x[1] + "_"): y for x, y in db_cnt.items()}
-    with open(os.path.join(out, cenid + ".dot"), "w") as fw:
-        save_vert(fw, list(mn_set), list(mn_set2), cenid, cnt_mon, cnt_mon2)
-        save_edges(fw, list(mn_set), list(mn_set2), db_cnt2, 10)
-
-    try:
-        check_call(['dot', '-Tpng', os.path.join(out, cenid + ".dot"), '-o', os.path.join(out, cenid + ".png")])
-    except Exception:
-        return
-
-
-def print_monomer_graph(db_cnt, cenid, matching, out):
-    mn_set = {x[0] for x in db_cnt.keys()}
-
-    cnt_mon = {x: 0 for x in mn_set}
-    for x in db_cnt.keys():
-        cnt_mon[x[0]] += db_cnt[x]
-
-
-    with open(os.path.join(out, "mn_" + cenid + ".dot"), "w") as fw:
-        save_vert_mn(fw, list(mn_set), cenid, cnt_mon)
-        save_edges_mn(fw, list(mn_set), db_cnt, matching, 10)
-        fw.write("}\n")
-
-    try:
-        check_call(['dot', '-Tpng', os.path.join(out, "mn_" + cenid + ".dot"), '-o', os.path.join(out, "mn_" + cenid + ".png")])
-    except Exception:
-        return
-
-
 def save_edges_sep_mn(fw, mns, sepdict):
+    print("EdgeSep")
     for vt1 in sorted(mns):
         if vt1 not in mns:
             continue
@@ -207,7 +129,7 @@ def save_edges_posscore(fw, mns, posscore):
             fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=2 color=orange constraint=true];\n")
 
 
-def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, thr=100):
+def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, thr=100, edgeThr=100):
     mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > thr} | \
              {tuple(list(x)[1:]) for x, y in kcnt.items() if y > thr}
 
@@ -218,8 +140,8 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, thr=100):
 
     with open(os.path.join(out, "k" + str(k) + "_" + cenid + ".dot"), "w") as fw:
         save_vert_mn(fw, list(mn_set), cenid, cnt_mon)
-        save_edges_mn(fw, list(mn_set), kcnt, matching, 10)
-        if k == 1:
+        save_edges_mn(fw, list(mn_set), kcnt, matching, edgeThr)
+        if k == 1 and args.red:
             save_edges_sep_mn(fw, list(mn_set), sepdict)
             save_edges_posscore(fw, list(mn_set), posscore)
         fw.write("}\n")
@@ -227,24 +149,6 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, thr=100):
     try:
         check_call(['dot', '-Tpng', os.path.join(out, "k" + str(k) + "_" + cenid + ".dot"), '-o',
                     os.path.join(out, "k" + str(k) + "_" + cenid + ".png")])
-    except Exception:
-        return
-
-    pass
-
-
-def print_k2_graph(trp_cnt, db_cnt, cenid, out):
-    mn_set = {x[0] + "-" + x[1] for x,y in db_cnt.items() if y >= 100}
-    cnt_mon = {x[0] + "-" + x[1] : y for x,y in db_cnt.items()}
-
-    db2 = {(x[0] + "-" + x[1], x[1] + "-" + x[2]): y for x, y in trp_cnt.items()}
-    with open(os.path.join(out, "k2_" + cenid + ".dot"), "w") as fw:
-        save_vert_mn(fw, list(mn_set), cenid, cnt_mon)
-        save_edges_mn(fw, list(mn_set), db2, {})
-
-    try:
-        check_call(['dot', '-Tpng', os.path.join(out, "k2_" + cenid + ".dot"), '-o',
-                    os.path.join(out, "k2_" + cenid + ".png")])
     except Exception:
         return
 
@@ -313,9 +217,19 @@ def getMnSim(mon):
     return sim
 
 
+def getEdheThr(k2cnt):
+    vcnt = {v : 0 for v, u in k2cnt.keys()}
+    for vu, cnt in k2cnt.items():
+        vcnt[vu[0]] += cnt
+
+    minW = min(100, min([cnt for v, cnt in vcnt.items()])*0.9)
+    return minW
+
+
 def handle_cen(cenid, args):
     maxk = 3
     k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=maxk)
+    edgeThr = getEdheThr(k_cnt[0])
 
     if args.sep != "-":
         df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
@@ -364,15 +278,17 @@ def handle_cen(cenid, args):
     #k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch, exchTrp=exchTrp)
     PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0], thr=0)
 
-    print(k_cnt)
+    #print(k_cnt)
     for k in range(1, maxk + 1):
-        matching = GetMaxMatching(k_cnt[k - 1])
+        matching = {}
+        if args.blue:
+            matching = GetMaxMatching(k_cnt[k - 1])
         #print_dual_graph(db_cnt, cenid, args.o)
-        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, thr=0)
+        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, thr=0, edgeThr=edgeThr)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
-    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"))
+    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), vLim=0, eLim=edgeThr)
 
 
 def main():

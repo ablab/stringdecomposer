@@ -35,7 +35,7 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, vLim=100, eLim = 100):
     for vu, cnt in k2cnt.items():
         vcnt[vu[0]] += cnt
 
-    print(vcnt)
+    #print(vcnt)
 
     ine = {v : [] for v, cnt in vcnt.items() if cnt >= vLim}
     oute = {v : [] for v, cnt in vcnt.items() if cnt >= vLim}
@@ -88,13 +88,14 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, vLim=100, eLim = 100):
             mnrunG.add_node(le.name)
 
     for le in lesall:
-        print(le.epath)
+        print(le.name, le.epath)
         for le2 in lesall:
             if le.epath[-1] == le2.epath[0]:
-                print(len(le.epath), len(le2.epath))
+                #print(len(le.epath), len(le2.epath))
 
-                print(le2.epath)
-                if k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])] >= eLim:
+                #print(le2.epath)
+                if (le.epath[-2], le2.epath[0], le2.epath[1]) in k3cnt and \
+                        k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])] >= eLim:
                     mnrunG.add_edge(le.name, le2.name,
                                     penwidth=1.5*(math.log(float(k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])])) - 4),
                                     label=str(k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])]))

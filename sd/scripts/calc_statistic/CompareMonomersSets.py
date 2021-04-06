@@ -200,13 +200,11 @@ def calc_mean_for_subseq(seq, tsv_B_res, tsv_Ivan_res, CAmn, IAmn, f):
     f.write("CA sq sum for interseq blocks: " + str(CA_sq_sum) + "\n")
     f.write("IA sq sum for interseq blocks: " + str(IA_sq_sum) + "\n")
 
-
     global res_str
     res_str += "\t" + "{:.4f}".format(IA_sq_sum)
     res_str += "\t" + "{:.4f}".format(CA_sq_sum)
 
     return CA_sq_sum, IA_sq_sum
-
 
 def blocks_stats(res_tsv1, res_tsv2, f):
     df1 = pd.read_csv(res_tsv1, "\t", header=None)
@@ -248,11 +246,8 @@ def blocks_sqmean(path_seq, tsv, mns, f, name):
     return sq_sum
 
 
-def DaviesBouldinIndex(path_seq, tsv, mns, f, name):
-    blocks = get_blocks(path_seq, tsv)
-    f.write("#blocks in " + name + ": " + str(len(blocks)) + "\n")
-
-    dists = [[min(seq_identity(str(mn.seq), bl), seq_identity(str(mn.seq), rc(bl))) for mn in mns] for bl in blocks]
+def DBindex_inner(blocks, distfun, mns):
+    dists = [[min(distfun(str(mn.seq), bl), distfun(str(mn.seq), rc(bl))) for mn in mns] for bl in blocks]
     blmn = [dists[i].index(min(dists[i])) for i in range(len(blocks))]
     radius = [0] * len(mns)
     for i in range(len(blocks)):
@@ -264,27 +259,36 @@ def DaviesBouldinIndex(path_seq, tsv, mns, f, name):
         for j in range(len(mns)):
             if i == j:
                 continue
-            if seq_identity(mns[i].seq, mns[j].seq) == 0:
+            if distfun(mns[i].seq, mns[j].seq) == 0:
                 dbmx = 100
                 continue
-            if seq_identity(mns[i].seq, rc(mns[j].seq)) == 0:
+            if distfun(mns[i].seq, rc(mns[j].seq)) == 0:
                 dbmx = 100
                 continue
 
-            print(seq_identity(mns[i].seq, mns[j].seq))
-            print(seq_identity(mns[i].seq, rc(mns[j].seq)))
             dbmx = max(dbmx,
-                       (radius[i] + radius[j])/min(seq_identity(mns[i].seq, mns[j].seq),
-                                                   seq_identity(mns[i].seq, rc(mns[j].seq))))
+                       (radius[i] + radius[j]) / min(distfun(mns[i].seq, mns[j].seq),
+                                                     distfun(mns[i].seq, rc(mns[j].seq))))
 
         DBindex += dbmx
     DBindex /= len(mns)
+    return DBindex
 
+
+def DaviesBouldinIndex(path_seq, tsv, mns, f, name):
+    blocks = get_blocks(path_seq, tsv)
+    f.write("#blocks in " + name + ": " + str(len(blocks)) + "\n")
+    DBindex = DBindex_inner(blocks, seq_identity, mns)
     f.write("DBindex for blocks (" + name + "): " + str(DBindex) + "\n")
     f.flush()
     return DBindex
 
+def calc_DBindex_subseq(seq, tsv_B_res, tsv_Ivan_res, CAmn, IAmn, f):
+    blocks = get_blocks_interseq(seq, tsv_B_res, tsv_Ivan_res)
+    DBindMN = DBindex_inner(blocks, local_dist, CAmn)
+    DBindIV = DBindex_inner(blocks, local_dist, IAmn)
 
+    return DBindMN, DBindIV
 
 def main():
     args = parse_args()
@@ -320,10 +324,11 @@ def main():
     tsv_Ivan_res = run_SD_mn(IVAN_mon, args.seq, os.path.join(args.outdir, "IVAN_mon"))
 
     sqdMN, sqdIV = calc_mean_for_subseq(args.seq, tsv_MN_res, tsv_Ivan_res, MonomersNew_, IVAN_mon, f)
+    dbiMN, dbiIV = calc_DBindex_subseq(args.seq, tsv_MN_res, tsv_Ivan_res, MonomersNew_, IVAN_mon, f)
 
     fa.write(str(len(IVAN_mon)) + "/" + str(len(MonomersNew_)) + "\t")
     fa.write("{:.2f}".format(sqdIV) + "/" + "{:.2f}".format(sqdMN) + "\t")
-    fa.write("{:.2f}".format(DaviesBouldinIndex(args.seq, tsv_Ivan_res, IVAN_mon, f, "IAmon")) + "\t")
+    fa.write("{:.2f}".format(dbiIV) + "/" + "{:.2f}".format(dbiMN) + "\t")
     fa.write(str(len(CA_mon)) + "\t")
     fa.write(str(len(MonomersNew)) + "\t")
     fa.write("{:.2f}".format(blocks_sqmean(args.seq, tsv_res, MonomersNew, f, "MonomersNew")) + "\t")

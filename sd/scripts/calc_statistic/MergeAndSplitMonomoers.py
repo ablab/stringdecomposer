@@ -209,6 +209,9 @@ def main():
         shutil.copyfile(cmonPath, os.path.join(args.outdir, "mn.fa"))
         cmonPath = os.path.join(args.outdir, "i" + str(iterNum - 1), "mn.fa")
 
+    print(os.path.join(args.outdir, "i" + str(iterNum), "InitSD" ,"final_decomposition.tsv"))
+    shutil.copyfile(os.path.join(args.outdir, "i" + str(iterNum), "InitSD" ,"final_decomposition.tsv"), os.path.join(args.outdir, "fdec.tsv"))
+
     fa.write(str(cntMerge) + " " + str(cntSplit) + " ")
     finalm = unique(load_fasta(cmonPath))
 
