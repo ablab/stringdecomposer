@@ -284,7 +284,7 @@ def handle_cen(cenid, args):
         if args.blue:
             matching = GetMaxMatching(k_cnt[k - 1])
         #print_dual_graph(db_cnt, cenid, args.o)
-        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, thr=0, edgeThr=edgeThr)
+        #printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, thr=0, edgeThr=edgeThr)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
