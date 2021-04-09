@@ -43,6 +43,17 @@ def get_blocks(path_seq, tsv_B_res, mnidList=None):
                     blocks[-1] = rc(blocks[-1])
     return blocks
 
+def get_monocent(tsv_res):
+    df_sd = pd.read_csv(tsv_res, "\t")
+    mncent = []
+    for i in range(len(df_sd)):
+        if df_sd.iloc[i, 4] > 60:
+            if "cen1_" in df_sd.iloc[i, 0] and df_sd.iloc[i, 1][-1] == "'":
+                continue
+            mncent.append(df_sd.iloc[i, 1])
+    return mncent
+
+
 def rc(blc):
     change = {"A":"T", "C":"G", "G":"C", "T":"A", "N":"N"}
     return "".join([change[ch] for ch in blc.upper()[::-1]])

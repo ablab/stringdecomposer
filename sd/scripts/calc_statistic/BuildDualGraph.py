@@ -288,7 +288,9 @@ def handle_cen(cenid, args):
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
-    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), vLim=0, eLim=edgeThr)
+    mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
+    mncen.reverse()
+    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, vLim=0, eLim=edgeThr)
 
 
 def main():

@@ -4,6 +4,7 @@ import math
 import networkx as nx
 from networkx.drawing.nx_agraph import write_dot
 from subprocess import check_call
+import numpy as np
 
 class LongEdge:
     def __init__(self):
@@ -111,13 +112,30 @@ def SplitMnrunVert(mnrunG, epaths, k3cnt):
 
 
 def genCycleInner(mnrunG, prefixCycle, usedEdges, usedV, cycleList):
-    if len(prefixCycle) > 1 and prefixCycle[0] == prefixCycle[1]:
-        cycleList.append(prefixCycle)
+    def samecc(c1, c2):
+        if len(c1) != len(c2):
+            return False
+        for j in range(len(c1) - 1):
+            if c1[j:-1] + c1[:j] == c2[:-1]:
+                return True
+        return False
+
+    if len(prefixCycle) > 2 and prefixCycle[-1] == prefixCycle[-2]:
+        return
+
+    if len(prefixCycle) > 1 and prefixCycle[0] == prefixCycle[-1]:
+        for cc in cycleList:
+            if samecc(cc, prefixCycle):
+                break
+        else:
+            cycleList.append(prefixCycle)
+
+    if len(prefixCycle) > 1 and prefixCycle[-1] == prefixCycle[-2]:
+        return
 
     v = prefixCycle[-1]
-    usedV.add(v)
     for e in mnrunG.edges(v):
-        if e not in usedEdges:
+        if e not in usedEdges and e[1] not in usedV:
             genCycleInner(mnrunG, prefixCycle + [e[1]], usedEdges | {e}, usedV, cycleList)
 
 
@@ -127,9 +145,57 @@ def genAllCycles(mnrunG):
     for v in mnrunG.nodes():
         if v not in usedV:
             genCycleInner(mnrunG, [v], set(), usedV, cycleList)
+            usedV.add(v)
+
     return cycleList
 
-def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, vLim=100, eLim = 100):
+
+def monomrunHOR2monomersHOR(cc, epaths):
+    print(cc)
+    mncc = []
+    for i in range(len(cc) - 1):
+        mncc += epaths[cc[i]][:-1]
+    return mncc
+
+
+def getHORcnt(mnHOR, monocen):
+    cnt = 0
+    for i in range(0, len(monocen) - len(mnHOR)):
+        if mnHOR == monocen[i:i + len(mnHOR)]:
+            cnt += 1
+    return cnt
+
+
+def isDecompose(cl, cls):
+    isDecom = [False] * (len(cl))
+    isDecom[len(cl) - 1] = True
+    for j in range(len(cl) - 2, -1, -1):
+        for k in range(len(cls)):
+            if cls[k] == cl:
+                continue
+            if j + len(cls[k]) < len(cl) + 1:
+                if cls[k] == cl[j:j + len(cls[k])]:
+                    isDecom[j] = max(isDecom[j], isDecom[j + len(cls[k]) - 1])
+
+    return isDecom[0]
+
+def getHORs(exCls, cenid):
+    hors = []
+    for i in range(len(exCls)):
+        if not isDecompose(exCls[i], exCls):
+            nm = "C" + cenid[3:-1] + "H" + str(len(hors) + 1)
+            hors.append((nm, exCls[i]))
+
+    return hors
+
+
+def getHORcntMR(HOR, mnrunG):
+    mnEdge = 100000
+    for i in range(len(HOR) - 1):
+        mnEdge = min(mnEdge, int(mnrunG[HOR[i]][HOR[i + 1]]["label"]))
+    return mnEdge
+
+def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, vLim=100, eLim = 100):
     vcnt = {v : 0 for v, u in k2cnt.keys()}
     for vu, cnt in k2cnt.items():
         vcnt[vu[0]] += cnt
@@ -215,5 +281,27 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, vLim=100, eLim = 100):
     except Exception:
         return
 
+
+
     clsList = genAllCycles(mnrunG)
-    print(clsList)
+    mnPotentialHOR = [monomrunHOR2monomersHOR(cc, epaths) for cc in clsList]
+    HORcnt = [getHORcnt(mnHOR + mnHOR, monocen) for mnHOR in mnPotentialHOR]
+    print("AllCycles:")
+    print(np.array(clsList))
+    print("potential HOR:")
+    with open("HORs.tsv", "a") as fw:
+        for i in range(len(HORcnt)):
+            fw.write(str(clsList[i]) +  "\t" + str(mnPotentialHOR[i]) +  "\t" + str(HORcnt[i]) + "\n")
+
+    exCls = [clsList[i] for i in range(len(clsList)) if HORcnt[i] > 0]
+    HORs = getHORs(exCls, cenid)
+    print(HORs)
+    with open("HORs/HOR" + cenid[3:-1] + ".tsv", "w") as fw:
+        for i in range(len(HORs)):
+            hor = monomrunHOR2monomersHOR(HORs[i][1], epaths)
+            fw.write(HORs[i][0] + "\t" + ",".join(hor) + "\t" + ",".join(HORs[i][1]) + "\n")
+
+    with open("HORscnt.tsv", "a") as fw:
+        for i in range(len(HORs)):
+            hor = monomrunHOR2monomersHOR(HORs[i][1], epaths)
+            fw.write(HORs[i][0] + ": "+"+".join(HORs[i][1][:-1]) + "(" + str(len(hor)) + "-mer)" + "\t" + str(getHORcntMR(HORs[i][1], mnrunG)) + "\n")
