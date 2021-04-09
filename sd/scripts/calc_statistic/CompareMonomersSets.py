@@ -314,7 +314,6 @@ def main():
     MonomersNew_ = getSameMons(MonomersNew, IVAN_mon)
     print(MonomersNew_)
     f.write("MonomerNew_ matched subset#: " + str(len(MonomersNew_)) + "\n")
-
     MonomersNew_ = addMostFreq(MonomersNew, MonomersNew_, tsv_res, len(IVAN_mon) - len(MonomersNew_))
 
     print(len(MonomersNew_))
@@ -322,6 +321,12 @@ def main():
 
     tsv_MN_res = run_SD_mn(MonomersNew_, args.seq, os.path.join(args.outdir, "MN_mon"))
     tsv_Ivan_res = run_SD_mn(IVAN_mon, args.seq, os.path.join(args.outdir, "IVAN_mon"))
+
+    if len(IVAN_mon) > len(MonomersNew_):
+        Ivan_mon_ = getSameMons(IVAN_mon, MonomersNew_)
+        Ivan_mon_ = addMostFreq(IVAN_mon, Ivan_mon_, tsv_Ivan_res, len(MonomersNew_) - len(Ivan_mon_))
+        IVAN_mon = Ivan_mon_
+        tsv_Ivan_res = run_SD_mn(IVAN_mon, args.seq, os.path.join(args.outdir, "IVAN_mon_"))
 
     sqdMN, sqdIV = calc_mean_for_subseq(args.seq, tsv_MN_res, tsv_Ivan_res, MonomersNew_, IVAN_mon, f)
     dbiMN, dbiIV = calc_DBindex_subseq(args.seq, tsv_MN_res, tsv_Ivan_res, MonomersNew_, IVAN_mon, f)
