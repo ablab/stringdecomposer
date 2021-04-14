@@ -333,7 +333,22 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, CAIA, vLim=100
             hor = monomrunHOR2monomersHOR(HORs[i][1], epaths)
             fw.write(HORs[i][0] + "\t" + ",".join(hor) + "\t" + ",".join(HORs[i][1]) + "\n")
 
+
+    def formatIAhors(horIA):
+        strn = horIA[0].split('.')[0] + "."
+        for hr in horIA:
+            thr = hr.split('.')[-1].split("-")[0]
+            thr = thr if len(thr) == 1 else f'({thr})'
+            strn += thr
+
+        if "-rev" in horIA[0]:
+            strn += "-rev"
+        return strn
+
     with open("HORscnt.tsv", "a") as fw:
         for i in range(len(HORs)):
             hor = monomrunHOR2monomersHOR(HORs[i][1], epaths)
-            fw.write(HORs[i][0] + ": "+"+".join(HORs[i][1][:-1]) + "(" + str(len(hor)) + "-mer)" + "\t" + str(getHORcntMR(HORs[i][1], mnrunG)) + "\n")
+            horIA = CAtoIA(CAIA, hor)
+            fw.write(HORs[i][0] + ": "+"+".join(HORs[i][1][:-1]) + "(" + str(len(hor)) + "-mer)" + "\t" +
+                     formatIAhors(horIA) + "\t" +
+                     str(getHORcntMR(HORs[i][1], mnrunG)) + "\n")
