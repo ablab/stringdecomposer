@@ -40,13 +40,11 @@ def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
             if i - k >= 0 and rows[i - k] != []:
                 pident = float(rows[i - k][4])
                 pmon = rows[i - k][1]
-                if pmon[-1] == "'":
-                    pmon = pmon[:-1]
+                cur_mons = (pmon, *cur_mons) if pmon[-1] != "'" else (*cur_mons, pmon[:-1])
 
                 if rows[i - k][-1] == '?':
                     break
 
-                cur_mons = (*cur_mons, pmon)
                 if cur_mons not in k_cnt[k - 1]:
                     k_cnt[k - 1][cur_mons] = 0
                 k_cnt[k - 1][cur_mons] += 1

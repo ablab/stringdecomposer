@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument("-sdtsv")
     parser.add_argument("-sep", default="-")
     parser.add_argument("-mon", default="-")
+    parser.add_argument("-monIA", default="-")
     parser.add_argument("--blue", dest="blue", action='store_true')
     parser.add_argument("--red", dest="red", action="store_true")
     parser.add_argument("-o")
@@ -32,7 +33,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def save_vert_mn(fw, mn1, cenName, cnt_mon1):
+def save_vert_mn(fw, mn1, cenName, cnt_mon1, CAIA):
     fw.write("digraph " + cenName + " {\n")
     #fw.write(" "* 4 + "rankdir=LR;\n")
     fw.write(" " * 4 + "ratio = 1.0;\n")
@@ -50,10 +51,14 @@ def save_vert_mn(fw, mn1, cenName, cnt_mon1):
             #print(int(lg))
             #vertn = "-".join([x[3:] for x in list(vert)])
             vert = "-".join(list(vert))
-            fw.write(" " * 4 + '"' + vert + "\" [style=filled fillcolor=\"" + clr[int(lg)] + "\" label=\"" + vert + "[" + str(cnt_mn) + "]\"];\n")
+            if vert in CAIA:
+                fw.write(f'    "{vert}" [style=filled fillcolor="{clr[int(lg)]}" label="{vert}({CAIA[vert]}) [{str(int(cnt_mn))}]"];\n')
+            else:
+                fw.write(f'    "{vert}" [style=filled fillcolor="{clr[int(lg)]}" label="{vert}[{str(int(cnt_mn))}]"];\n')
 
 
 def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
+    ecnt = 0
     for vt1 in sorted(mn1):
         for vt2 in sorted(mn1):
             #print(vt1, vt2)
@@ -70,19 +75,23 @@ def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
             while (scr > thr_wg[wg]):
                 wg -= 1
 
+            if scr > thr:
+                ecnt += 1
+
             if matching.get(vt1, "") == (*vt2, "_"):
                 vrt1 = "-".join(list(vt1))
                 vrt2 = "-".join(list(vt2))
                 fw.write(" " * 4 + "\"" + vrt1 + "\" -> \"" + vrt2 + "\"")
-                fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " color=blue];\n")
+                fw.write(" [label=\"" +  str(int(scr)) + "\" penwidth=" + str(wgs[wg]) + " color=blue];\n")
             elif scr > thr:
                 vrt1 = "-".join(list(vt1))
                 vrt2 = "-".join(list(vt2))
                 fw.write(" " * 4 + "\"" + vrt1 + "\" -> \"" + vrt2 + "\"")
-                fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + "];\n")
+                fw.write(" [label=\"" + str(int(scr)) + "\" penwidth=" + str(wgs[wg]) + "];\n")
             else:
                 pass
                 #fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " constraint=false];\n")
+    return ecnt
 
 
 def save_edges_sep_mn(fw, mns, sepdict):
@@ -129,7 +138,7 @@ def save_edges_posscore(fw, mns, posscore):
             fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=2 color=orange constraint=true];\n")
 
 
-def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, thr=100, edgeThr=100):
+def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, thr=100, edgeThr=100):
     mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > thr} | \
              {tuple(list(x)[1:]) for x, y in kcnt.items() if y > thr}
 
@@ -138,13 +147,18 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, thr=100
         if tuple(list(x)[:-1]) in cnt_mon:
             cnt_mon[tuple(list(x)[:-1])] += kcnt[x]
 
+    vcnt = len(mn_set)
+    ecnt = 0
     with open(os.path.join(out, "k" + str(k) + "_" + cenid + ".dot"), "w") as fw:
-        save_vert_mn(fw, list(mn_set), cenid, cnt_mon)
-        save_edges_mn(fw, list(mn_set), kcnt, matching, edgeThr)
+        save_vert_mn(fw, list(mn_set), cenid, cnt_mon, CAIA)
+        ecnt += save_edges_mn(fw, list(mn_set), kcnt, matching, edgeThr)
         if k == 1 and args.red:
             save_edges_sep_mn(fw, list(mn_set), sepdict)
             save_edges_posscore(fw, list(mn_set), posscore)
         fw.write("}\n")
+
+    with open(os.path.join(out, "MG_vecnt.csv"), "a") as fw:
+        fw.write(f'{cenid}, {vcnt}, {ecnt}\n')
 
     try:
         check_call(['dot', '-Tpng', os.path.join(out, "k" + str(k) + "_" + cenid + ".dot"), '-o',
@@ -226,6 +240,24 @@ def getEdheThr(k2cnt):
     return minW
 
 
+def mapCAIAmn(mnCA, mnIA):
+    monCA = SDutils.load_fasta(mnCA)
+    monIA = SDutils.load_fasta(mnIA)
+
+    mapCAIA = {}
+    for mCA in monCA:
+        bstidn = 100
+        for mIA in monIA:
+            bstidn = min(SDutils.seq_identity(str(mCA.seq), str(mIA.seq)), SDutils.seq_identity(str(mCA.seq), SDutils.rc(mIA.seq)), bstidn)
+
+        for mIA in monIA:
+            if SDutils.seq_identity(str(mCA.seq), str(mIA.seq)) == bstidn:
+                mapCAIA[mCA.id] = mIA.id
+            if SDutils.seq_identity(str(mCA.seq), SDutils.rc(mIA.seq)) == bstidn:
+                mapCAIA[mCA.id] = mIA.id + "-rev"
+    return mapCAIA
+
+
 def handle_cen(cenid, args):
     maxk = 3
     k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=maxk)
@@ -239,6 +271,7 @@ def handle_cen(cenid, args):
         sim = getMnSim(mons)
         sepdict = {(k[0], k[1], x) for k, x in sim.items() if x <= 10 and k[0] < k[1]}
 
+    CAIA = mapCAIAmn(os.path.join(args.mon, cenid + "mn.fa"), os.path.join(args.monIA, cenid + "mn.fa"))
     # PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
     #
     # exch = mergeMon(sepdict, PositionScore, cenvec)
@@ -284,13 +317,12 @@ def handle_cen(cenid, args):
         if args.blue:
             matching = GetMaxMatching(k_cnt[k - 1])
         #print_dual_graph(db_cnt, cenid, args.o)
-        #printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, thr=0, edgeThr=edgeThr)
+        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, thr=0, edgeThr=edgeThr)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
-    mncen.reverse()
-    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, vLim=0, eLim=edgeThr)
+    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
 
 
 def main():

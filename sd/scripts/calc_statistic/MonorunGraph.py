@@ -5,6 +5,7 @@ import networkx as nx
 from networkx.drawing.nx_agraph import write_dot
 from subprocess import check_call
 import numpy as np
+import SDutils
 
 class LongEdge:
     def __init__(self):
@@ -64,11 +65,18 @@ def SplitV(v, mnrunG, rG, epaths, k3cnt, handledV, srunG):
 
             srunG.add_edge(vlist[-1], e0[1])
             v1 = e1[1]
+            if e1[1][-1] in alph:
+                v1 = e1[1][:-1]
+
             u1 = v
             if len(ine) == 1:
                 v1 = v
                 u1 = u
-
+            print(list(srunG.nodes()))
+            print(list(srunG.edges()))
+            print(srunG)
+            print(e1)
+            print(list(mnrunG.nodes()))
             srunG[e1[1]][vlist[-1]]["penwidth"] = mnrunG[v1][u1]["penwidth"]
             srunG[e1[1]][vlist[-1]]["label"] = mnrunG[v1][u1]["label"]
             srunG[vlist[-1]][e0[1]]["penwidth"] = mnrunG[v1][u1]["penwidth"]
@@ -195,7 +203,12 @@ def getHORcntMR(HOR, mnrunG):
         mnEdge = min(mnEdge, int(mnrunG[HOR[i]][HOR[i + 1]]["label"]))
     return mnEdge
 
-def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, vLim=100, eLim = 100):
+
+def CAtoIA(CAIA, epath):
+    return [CAIA[mn] for mn in epath]
+
+
+def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, CAIA, vLim=100, eLim = 100):
     vcnt = {v : 0 for v, u in k2cnt.keys()}
     for vu, cnt in k2cnt.items():
         vcnt[vu[0]] += cnt
@@ -251,9 +264,28 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, vLim=100, eLim
             lesall.append(le)
             mnrunG.add_node(le.name)
 
+    def smpl(vr):
+        plv = vr.split("+")
+        rplv = []
+        for cv in plv:
+            rrv = ""
+            while len(rrv) + 1 < len(cv) and cv[:len(rrv) + 1].isalpha():
+                rrv += cv[len(rrv)]
+
+            if len(cv.split(".")) > 1:
+                rrv += cv.split(".")[-1]
+            rplv.append(rrv)
+
+        rv = "+".join(rplv)
+        if len(rv) > 1:
+            rv = f'({rv})'
+        return rv
+
     epaths = {}
     for le in lesall:
-        print(le.name, le.epath)
+        with open("L.csv", "a") as fw:
+            tmpia = CAtoIA(CAIA, le.epath)
+            fw.write(le.name + "\t" + "".join([smpl(vr) for vr in le.epath]) + "\t" + str(tmpia[0]) + "," + ",".join([vl.split('.')[-1] for vl in tmpia[1:]]) + "\n")
         epaths[le.name] = le.epath
         for le2 in lesall:
             if le.epath[-1] == le2.epath[0]:
