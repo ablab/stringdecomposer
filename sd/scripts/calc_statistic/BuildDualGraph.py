@@ -11,13 +11,14 @@ import csv
 import math
 from matplotlib import pyplot as plt
 from subprocess import check_call
-import networkx as nx
-from networkx.algorithms import bipartite
+
 from MonorunGraph import BuildAndShowMonorunGraph
 
 import TriplesMatrix
 from TriplesMatrix import calc_mn_order_stat
 import SDutils
+import HybridUtils
+import SimplifiedMonomerGraph
 
 def parse_args():
     parser = argparse.ArgumentParser(description="")
@@ -33,7 +34,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def save_vert_mn(fw, mn1, cenName, cnt_mon1, CAIA):
+def save_vert_mn(fw, mn1, cenName, cnt_mon1, CAIA, HybridSet):
     fw.write("digraph " + cenName + " {\n")
     #fw.write(" "* 4 + "rankdir=LR;\n")
     fw.write(" " * 4 + "ratio = 1.0;\n")
@@ -51,10 +52,13 @@ def save_vert_mn(fw, mn1, cenName, cnt_mon1, CAIA):
             #print(int(lg))
             #vertn = "-".join([x[3:] for x in list(vert)])
             vert = "-".join(list(vert))
+            curc = clr[int(lg)]
+            #if vert in HybridSet:
+            #    curc = "pink"
             if vert in CAIA:
-                fw.write(f'    "{vert}" [style=filled fillcolor="{clr[int(lg)]}" label="{vert}({CAIA[vert]}) [{str(int(cnt_mn))}]"];\n')
+                fw.write(f'    "{vert}" [style=filled fillcolor="{curc}" label="{vert}({CAIA[vert]}) [{str(int(cnt_mn))}]"];\n')
             else:
-                fw.write(f'    "{vert}" [style=filled fillcolor="{clr[int(lg)]}" label="{vert}[{str(int(cnt_mn))}]"];\n')
+                fw.write(f'    "{vert}" [style=filled fillcolor="{curc}" label="{vert}[{str(int(cnt_mn))}]"];\n')
 
 
 def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
@@ -138,7 +142,7 @@ def save_edges_posscore(fw, mns, posscore):
             fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=2 color=orange constraint=true];\n")
 
 
-def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, thr=100, edgeThr=100):
+def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, HybridINFO, thr=100, edgeThr=100):
     mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > thr} | \
              {tuple(list(x)[1:]) for x, y in kcnt.items() if y > thr}
 
@@ -150,7 +154,7 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, t
     vcnt = len(mn_set)
     ecnt = 0
     with open(os.path.join(out, "k" + str(k) + "_" + cenid + ".dot"), "w") as fw:
-        save_vert_mn(fw, list(mn_set), cenid, cnt_mon, CAIA)
+        save_vert_mn(fw, list(mn_set), cenid, cnt_mon, CAIA, HybridINFO)
         ecnt += save_edges_mn(fw, list(mn_set), kcnt, matching, edgeThr)
         if k == 1 and args.red:
             save_edges_sep_mn(fw, list(mn_set), sepdict)
@@ -165,32 +169,6 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, t
                     os.path.join(out, "k" + str(k) + "_" + cenid + ".png")])
     except Exception:
         return
-
-
-def GetMaxMatching(kcnt):
-    mn_set = {tuple(list(x)[:-1]) for x in kcnt.keys()} | {tuple(list(x)[1:]) for x in kcnt.keys()}
-
-    cnt_mon = {x: 0 for x in mn_set}
-    for x in kcnt.keys():
-        cnt_mon[tuple(list(x)[:-1])] += kcnt[x]
-
-    B = nx.Graph()
-    B.add_nodes_from(list(mn_set), bipartite=0)
-    B.add_nodes_from(list([(*x,"_") for x in mn_set]), bipartite=1)
-
-    for x, w in kcnt.items():
-        B.add_edge(tuple(list(x)[:-1]), tuple((list(x)[1:] + ["_"])), weight=-w)
-    for x in mn_set:
-        for y in mn_set:
-            if list(x)[1:] != list(y)[:-1]:
-                B.add_edge(x, (*y, "_"), weight=1000)
-                continue
-
-            if (*x, y[-1]) not in kcnt:
-                B.add_edge(x, (*y, "_"), weight=0)
-
-    matching = bipartite.matching.minimum_weight_full_matching(B, list(mn_set), "weight")
-    return matching
 
 def diffcenpos(cenv1, cenv2):
     mx1 = (0, 0)
@@ -259,9 +237,13 @@ def mapCAIAmn(mnCA, mnIA):
 
 
 def handle_cen(cenid, args):
-    maxk = 3
+    maxk = 2
     k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=maxk)
     edgeThr = getEdheThr(k_cnt[0])
+
+    vcnt = {v : 0 for v, u in k_cnt[0].keys()}
+    for vu, cnt in k_cnt[0].items():
+        vcnt[vu[0]] += cnt
 
     if args.sep != "-":
         df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
@@ -272,6 +254,9 @@ def handle_cen(cenid, args):
         sepdict = {(k[0], k[1], x) for k, x in sim.items() if x <= 10 and k[0] < k[1]}
 
     CAIA = mapCAIAmn(os.path.join(args.mon, cenid + "mn.fa"), os.path.join(args.monIA, cenid + "mn.fa"))
+    HybridINFO = HybridUtils.getHybridINFO(os.path.join(args.mon, cenid + "mn.fa"), vcnt)
+    print("HybridSet:", HybridINFO)
+
     # PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
     #
     # exch = mergeMon(sepdict, PositionScore, cenvec)
@@ -315,15 +300,15 @@ def handle_cen(cenid, args):
     for k in range(1, maxk + 1):
         matching = {}
         if args.blue:
-            matching = GetMaxMatching(k_cnt[k - 1])
+            matching = SimplifiedMonomerGraph.GetMaxMatching(k_cnt[k - 1])
         #print_dual_graph(db_cnt, cenid, args.o)
-        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, thr=0, edgeThr=edgeThr)
+        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
         #print_monomer_graph(db_cnt, cenid, matching, args.o)
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
-    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
-
+    #BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
+    SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid, edgeThr=edgeThr)
 
 def main():
     args = parse_args()
