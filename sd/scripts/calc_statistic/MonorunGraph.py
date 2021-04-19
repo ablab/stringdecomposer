@@ -285,7 +285,12 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, CAIA, vLim=100
     for le in lesall:
         with open("L.csv", "a") as fw:
             tmpia = CAtoIA(CAIA, le.epath)
-            fw.write(le.name + "\t" + "".join([smpl(vr) for vr in le.epath]) + "\t" + str(tmpia[0]) + "," + ",".join([vl.split('.')[-1] for vl in tmpia[1:]]) + "\n")
+            multipl = []
+            for i in range(1, len(le.epath)):
+                multipl.append(k2cnt[(le.epath[i - 1], le.epath[i])])
+            multipl.sort()
+            fw.write(le.name + "\t" + "".join([smpl(vr) for vr in le.epath]) + "\t" + str(tmpia[0]) + "," +
+                     ",".join([vl.split('.')[-1] for vl in tmpia[1:]]) + "\t" + str(multipl[(len(multipl)-1)//2]) + "\n")
         epaths[le.name] = le.epath
         for le2 in lesall:
             if le.epath[-1] == le2.epath[0]:
@@ -303,6 +308,9 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, CAIA, vLim=100
         check_call(['dot', '-Tpng', ofile, '-o', ".".join(ofile.split(".")[:-1]) + ".png"])
     except Exception:
         return
+
+    with open("Monorunscnt.csv", "a") as fw:
+        fw.write(str(len(mnrunG.nodes())) + "\n")
 
     srunG = SplitMnrunVert(mnrunG, epaths, k3cnt)
     sruno = ".".join(ofile.split(".")[:-1]) + "_splv.dot"

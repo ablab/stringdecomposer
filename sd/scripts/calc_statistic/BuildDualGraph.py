@@ -24,6 +24,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="")
 
     parser.add_argument("-sdtsv")
+    parser.add_argument("-seq")
     parser.add_argument("-sep", default="-")
     parser.add_argument("-mon", default="-")
     parser.add_argument("-monIA", default="-")
@@ -254,6 +255,9 @@ def handle_cen(cenid, args):
         sepdict = {(k[0], k[1], x) for k, x in sim.items() if x <= 10 and k[0] < k[1]}
 
     CAIA = mapCAIAmn(os.path.join(args.mon, cenid + "mn.fa"), os.path.join(args.monIA, cenid + "mn.fa"))
+    with open("map_" + cenid[:-1] + ".tsv", "w") as fw:
+        for ca, ia in CAIA.items():
+            fw.write(f'{ca}\t{ia}\n')
     HybridINFO = HybridUtils.getHybridINFO(os.path.join(args.mon, cenid + "mn.fa"), vcnt)
     print("HybridSet:", HybridINFO)
 
@@ -307,8 +311,12 @@ def handle_cen(cenid, args):
         #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
-    #BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
-    SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid, edgeThr=edgeThr)
+    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
+    SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
+                                                os.path.join(args.sdtsv, cenid + "dec.tsv"),
+                                                os.path.join(args.seq, cenid[:-1] + "ct.fa"),
+                                                os.path.join(args.mon, cenid + "mn.fa"),
+                                                edgeThr=edgeThr)
 
 def main():
     args = parse_args()

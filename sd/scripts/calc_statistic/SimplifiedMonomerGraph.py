@@ -5,7 +5,12 @@ from networkx.drawing.nx_agraph import write_dot
 from subprocess import check_call
 import math
 import os
-
+import pandas as pd
+from Bio import SeqIO
+from SDutils import rc
+import SDutils
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 def GetMaxMatching(kcnt):
     mn_set = {tuple(list(x)[:-1]) for x in kcnt.keys()} | {tuple(list(x)[1:]) for x in kcnt.keys()}
@@ -53,8 +58,68 @@ def addEdges(G, mn1, mn2, cnt, thr):
     if scr > thr:
         G.add_edge(mn1, mn2, label=f'{scr}', penwidth=f'{wgs[wg]}')
 
+def save_seqs(blocks, cluster_seqs_path):
+    with open(cluster_seqs_path, "w") as fa:
+        for i in range(len(blocks)):
+            name = "block" + str(i)
+            new_record = SeqRecord(Seq(blocks[i]), id=name, name=name, description="")
+            SeqIO.write(new_record, fa, "fasta")
 
-def PrintSimplifiedGraph(kcnt, mncnt, CAIA, HybridSet, outd, cenid, edgeThr=100):
+
+def get_consensus_seq(cluster_seqs_path, arg_threads):
+    from Bio.Align.Applications import ClustalwCommandline
+    from Bio.Align.Applications import ClustalOmegaCommandline
+    from Bio import AlignIO
+    from Bio.Align import AlignInfo
+    from Bio.Align import MultipleSeqAlignment
+
+    aln_file = '.'.join(cluster_seqs_path.split('.')[:-1]) + "_aln.fasta"
+    cmd = ClustalOmegaCommandline(infile=cluster_seqs_path, outfile=aln_file, force=True, threads=arg_threads)
+    stdout, stderr = cmd()
+    align = AlignIO.read(aln_file, "fasta")
+
+    summary_align = AlignInfo.SummaryInfo(align)
+    consensus = summary_align.gap_consensus(threshold=0, ambiguous='N')
+    consensus = str(consensus).replace('-', '')
+    return consensus
+
+def get_blocks(trpl, path_seq, tsv_res):
+    blocks = []
+    seqs_dict = {}
+    for record in SeqIO.parse(path_seq, "fasta"):
+        seqs_dict[record.id] = str(record.seq).upper()
+
+    df_sd = pd.read_csv(tsv_res, "\t")
+    print(df_sd.head())
+    for i in range(1, len(df_sd) - 1):
+        if df_sd.iloc[i,4] > 60:
+            if df_sd.iloc[i, 1].rstrip("'") == trpl[1]:
+                if df_sd.iloc[i - 1, 1].rstrip("'") == trpl[0] and df_sd.iloc[i + 1, 1].rstrip("'") == trpl[2]:
+                    blocks.append(seqs_dict[df_sd.iloc[i,0]][df_sd.iloc[i,2]:(df_sd.iloc[i,3] + 1)])
+                    if df_sd.iloc[i, 1][-1] == "'":
+                        blocks[-1] = rc(blocks[-1])
+    return blocks
+
+def SplitMonomers(MnToSplit, mnpath,  sdtsv, path_seq, outd, cenid):
+    mnlist = SDutils.load_fasta(mnpath)
+    for mn in MnToSplit.keys():
+        resmns = [mon for mon in mnlist if mon.id != mn]
+        ci = 0
+        for ctx in MnToSplit[mn]:
+            blocks = get_blocks((ctx[0], mn, ctx[1]), sdtsv, path_seq)
+            save_seqs(blocks, os.path.join(outd, "blseq" + cenid + ".fa"))
+            consensus = get_consensus_seq(os.path.join(outd, "blseq" + cenid + ".fa"), 16)
+            name = mn + "." + str(ci)
+            ci += 1
+            new_record = SeqRecord(Seq(consensus), id=name, name=name, description="")
+            resmns.append(new_record)
+
+        mnlist = resmns
+
+    SDutils.savemn(os.path.join(outd, "u" + cenid + "mn.fa"), mnlist)
+
+
+def PrintSimplifiedGraph(kcnt, mncnt, CAIA, HybridSet, outd, cenid, path_seq, sdtsv, mnpath, edgeThr=100):
     matching = GetMaxMatching(kcnt)
     G = nx.DiGraph()
     for mn in mncnt.keys():
@@ -71,7 +136,7 @@ def PrintSimplifiedGraph(kcnt, mncnt, CAIA, HybridSet, outd, cenid, edgeThr=100)
             if cycleid[mn] == c1 or cycleid[mn] == c2:
                cycleid[mn] = mnclr
 
-
+    lwe = set()
     for mn1, mn2 in matching.items():
         if len(mn1) > 1:
             continue
@@ -79,10 +144,13 @@ def PrintSimplifiedGraph(kcnt, mncnt, CAIA, HybridSet, outd, cenid, edgeThr=100)
         if (mn1[0], mn2[0]) in kcnt:
             redrw(mn1[0], mn2[0])
             addEdges(G, mn1[0], mn2[0], kcnt[(mn1[0], mn2[0])], edgeThr)
+        else:
+            lwe.add(mn1[0])
+            lwe.add(mn2[0])
 
     print("CycleID", cycleid)
     for mn1, mn2 in kcnt.keys():
-        if cycleid[mn1] != cycleid[mn2]:
+        if cycleid[mn1] != cycleid[mn2] or (mn1 in lwe) or (mn2 in lwe):
             addEdges(G, mn1, mn2, kcnt[mn1, mn2], edgeThr)
 
     sruno = os.path.join(outd, "simpl" + cenid + ".dot")
@@ -92,4 +160,21 @@ def PrintSimplifiedGraph(kcnt, mncnt, CAIA, HybridSet, outd, cenid, edgeThr=100)
         check_call(['dot', '-Tpng', sruno, '-o', srunopng])
     except Exception:
         return
-    pass
+
+    if nx.is_eulerian(G):
+        ndCnt = {mn: 0 for mn in mncnt}
+        elrCirc = list(nx.eulerian_circuit(G))
+        for x, y in elrCirc:
+            ndCnt[x] += 1
+
+        print("ElerovCirculatin: ", elrCirc)
+        print("MAX vcnt in", max(ndCnt.values()))
+        if max(ndCnt.values()) > 1:
+            spltNode = {mn: [] for mn, cnt in ndCnt.items() if cnt > 1}
+            for i in range(len(elrCirc)):
+                x = elrCirc[i][0]
+                if ndCnt[x] > 1:
+                    spltNode[x].append((elrCirc[i - 1][0], elrCirc[i][1]))
+            print("SplitNode: ", spltNode)
+
+            SplitMonomers(spltNode, mnpath, sdtsv, path_seq, outd, cenid)
