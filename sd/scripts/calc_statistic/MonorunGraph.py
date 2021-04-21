@@ -290,7 +290,7 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, CAIA, vLim=100
                 multipl.append(k2cnt[(le.epath[i - 1], le.epath[i])])
             multipl.sort()
             fw.write(le.name + "\t" + "".join([smpl(vr) for vr in le.epath]) + "\t" + str(tmpia[0]) + "," +
-                     ",".join([vl.split('.')[-1] for vl in tmpia[1:]]) + "\t" + str(multipl[(len(multipl)-1)//2]) + "\n")
+                     ",".join([vl.split('.')[-1] for vl in tmpia[1:]]) + "\t" + str(min(multipl)) + "\n")
         epaths[le.name] = le.epath
         for le2 in lesall:
             if le.epath[-1] == le2.epath[0]:

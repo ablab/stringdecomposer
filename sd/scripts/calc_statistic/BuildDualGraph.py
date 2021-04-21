@@ -312,11 +312,11 @@ def handle_cen(cenid, args):
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
     BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
-    SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
-                                                os.path.join(args.sdtsv, cenid + "dec.tsv"),
-                                                os.path.join(args.seq, cenid[:-1] + "ct.fa"),
-                                                os.path.join(args.mon, cenid + "mn.fa"),
-                                                edgeThr=edgeThr)
+    #SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
+    #                                            os.path.join(args.sdtsv, cenid + "dec.tsv"),
+    #                                            os.path.join(args.seq, cenid[:-1] + "ct.fa"),
+    #                                            os.path.join(args.mon, cenid + "mn.fa"),
+    #                                            edgeThr=edgeThr)
 
 def main():
     args = parse_args()

@@ -88,6 +88,8 @@ def get_blocks_interseq(path_seq, tsva, tsvb):
 
     df1 = pd.read_csv(tsva, "\t", header=None)
     df2 = pd.read_csv(tsvb, "\t", header=None)
+    bl1cnt = 0
+    bl2cnt = 0
 
     blocks_inter = []
     i = 0
@@ -107,11 +109,22 @@ def get_blocks_interseq(path_seq, tsva, tsvb):
         if rgt + 1 - lft > 150:
             blocks_inter.append(seqs_dict[df1.iloc[i, 0]][lft:rgt + 1])
 
-        if df1.iloc[i, 2] < df2.iloc[j, 2]:
+        if (int(df1.iloc[i, 0].split(":")[0].split("_")[-1]), df1.iloc[i, 2]) < (int(df2.iloc[j, 0].split(":")[0].split("_")[-1]), df2.iloc[j, 2]):
             i += 1
         else:
             j += 1
 
+    for i in range(len(df1)):
+        if float(df1.iloc[i, 4]) >= 60:
+            bl1cnt += 1
+
+
+    for i in range(len(df2)):
+        if float(df2.iloc[i, 4]) >= 60:
+            bl2cnt += 1
+
+    with open("cntBlocks.csv", "a") as fw:
+        fw.write(f'{path_seq}\t{bl2cnt}\\{bl1cnt}\\{len(blocks_inter)}\n')
     return blocks_inter
 
 
