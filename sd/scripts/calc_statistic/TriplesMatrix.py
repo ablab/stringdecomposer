@@ -2,22 +2,21 @@ import numpy as np
 import csv
 
 def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
-    k_cnt = [{} for k in range(maxk)]
+    k_cnt = [{} for k in range(maxk + 1)]
     rows = []
     with open(sdtsv, "r") as f:
         csv_reader = csv.reader(f, delimiter='\t')
         for row in csv_reader:
-            if cenid not in row[0]:
-                continue
             if row[2] == "start":
                 continue
             if cenid == "cen1_" and row[1][-1] == "'":
                 continue
             #print(row[1], end=" ")
+            revv = True if row[1][-1] == "'" else False
             row[1] = row[1].rstrip("'")
             if exchange is not None and row[1] in exchange:
                 row[1] = exchange[row[1]]
-            rows.append(row)
+            rows.append(row + [revv])
 
     if exchTrp is not None:
         for i in range(1, len(rows) - 1):
@@ -35,19 +34,22 @@ def calc_mn_order_stat(sdtsv, cenid, maxk = 1, exchange=None, exchTrp=None):
             continue
 
         cur_mons = (mon,)
+        if mon not in k_cnt[0]:
+            k_cnt[0][mon] = 0
+        k_cnt[0][mon] += 1
 
         for k in range(1, maxk + 1):
-            if i - k >= 0 and rows[i - k] != []:
+            if i - k >= 0 and rows[i - k] != [] and rows[i - k][0] == rows[i][0]:
                 pident = float(rows[i - k][4])
                 pmon = rows[i - k][1]
-                cur_mons = (pmon, *cur_mons) if pmon[-1] != "'" else (*cur_mons, pmon[:-1])
+                cur_mons = (pmon, *cur_mons) if (not rows[i - k][-1]) else (*cur_mons, pmon)
 
                 if rows[i - k][-1] == '?':
                     break
 
-                if cur_mons not in k_cnt[k - 1]:
-                    k_cnt[k - 1][cur_mons] = 0
-                k_cnt[k - 1][cur_mons] += 1
+                if cur_mons not in k_cnt[k]:
+                    k_cnt[k][cur_mons] = 0
+                k_cnt[k][cur_mons] += 1
             else:
                 break
 
