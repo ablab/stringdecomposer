@@ -1,4 +1,4 @@
-#Monomer Graphs
+# Monomer Graphs
 The main script for drawing monomer graph is `BuildDualGraph.py`
 
 Running example
@@ -6,7 +6,7 @@ Running example
 python3 BuildDualGraph.py -sdtsv sdres -mon mon -monIA monIA -seq seq  -o graphMS
 ```
 
-###Input:
+### Input:
 * sdres -- folder with results of StringDecomposer for all centromers. The name of SD output for centromere N 
   should have a name "cenN_dec.tsv"(sdres/cen1_dec.tsv, sdres/cen2_dec.tsv...)
     
@@ -22,14 +22,14 @@ python3 BuildDualGraph.py -sdtsv sdres -mon mon -monIA monIA -seq seq  -o graphM
 
 Files name sre important
 
-###Extra args: 
+### Extra args: 
 * --red for showing red edges in graph which represent monomers with small edit distance
 * --blue for showing edges from perfect matching
 * --norm for normalizing weight on the #the most frequent monomer
 * --maxk show De Bruijn Graph for k=1..maxk (default=1). For k=1 is just simple monomer graph
 * --monorun also build and show monorun graph
 
-###Other output files
+### Other output files
 * HORscnt.tsv -- file in directory from which script are running. Contain information about HORs and multiplicity. 
   Each run append to the end of file.
   
