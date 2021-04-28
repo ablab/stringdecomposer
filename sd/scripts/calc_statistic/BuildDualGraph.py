@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument("--blue", dest="blue", action='store_true')
     parser.add_argument("--red", dest="red", action="store_true")
     parser.add_argument("--norm", dest="norm", action="store_true")
-    parser.add_argument("--maxk", dest="maxk", type=int)
+    parser.add_argument("--maxk", dest="maxk", default=1, type=int)
     parser.add_argument("--monorun", dest="monorun", action="store_true")
     parser.add_argument("-o")
 
@@ -257,8 +257,8 @@ def handle_cen(cenid, args):
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
     if args.monorun:
-        BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
-        SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
+        BuildAndShowMonorunGraph(k_cnt[1], k_cnt[2], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
+        SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[1], k_cnt[0], CAIA, HybridINFO, args.o, cenid,
                                                     os.path.join(args.sdtsv, cenid + "dec.tsv"),
                                                     os.path.join(args.seq, cenid[:-1] + "ct.fa"),
                                                     os.path.join(args.mon, cenid + "mn.fa"),

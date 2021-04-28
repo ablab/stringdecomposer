@@ -200,7 +200,7 @@ def getHORs(exCls, cenid):
 def getHORcntMR(HOR, mnrunG):
     mnEdge = 100000
     for i in range(len(HOR) - 1):
-        mnEdge = min(mnEdge, int(mnrunG[HOR[i]][HOR[i + 1]]["label"]))
+        mnEdge = min(mnEdge, int(float(mnrunG[HOR[i]][HOR[i + 1]]["label"])))
     return mnEdge
 
 
@@ -301,7 +301,7 @@ def BuildAndShowMonorunGraph(k2cnt, k3cnt, ofile, monocen, cenid, CAIA, vLim=100
                         k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])] >= eLim:
                     mnrunG.add_edge(le.name, le2.name,
                                     penwidth=1.5*(math.log(float(k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])])) - 4),
-                                    label=str(k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])]))
+                                    label=str(int(k3cnt[(le.epath[-2], le2.epath[0], le2.epath[1])])))
 
     write_dot(mnrunG, ofile)
     try:
