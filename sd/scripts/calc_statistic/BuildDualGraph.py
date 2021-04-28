@@ -30,6 +30,7 @@ def parse_args():
     parser.add_argument("-monIA", default="-")
     parser.add_argument("--blue", dest="blue", action='store_true')
     parser.add_argument("--red", dest="red", action="store_true")
+    parser.add_argument("--norm", dest="norm", action="store_true")
     parser.add_argument("-o")
 
     return parser.parse_args()
@@ -49,8 +50,8 @@ def save_vert_mn(fw, mn1, cenName, cnt_mon1, CAIA, HybridSet):
                 lg = 0
                 if cnt_mn > 0:
                     lg = math.log(cnt_mn)
-            clr = ["red", "#cd5700", "orange", "#ffb300", "yellow", "#ceff1d", "#a7fc00", "#00ff00", "#e0ffff", "#f5fffa"]
-            #print(int(lg))
+            clr = ["red", "#cd5700", "orange", "#ffb300", "yellow", "#ceff1d", "#a7fc00", "#00ff00", "#e0ffff", "#f5fffa", "#f5fffa", "#f5fffa", "#f5fffa", "#f5fffa"]
+            print(int(lg))
             #vertn = "-".join([x[3:] for x in list(vert)])
             vert = "-".join(list(vert))
             curc = clr[int(lg)]
@@ -92,7 +93,11 @@ def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
                 vrt1 = "-".join(list(vt1))
                 vrt2 = "-".join(list(vt2))
                 fw.write(" " * 4 + "\"" + vrt1 + "\" -> \"" + vrt2 + "\"")
-                fw.write(" [label=\"" + str(int(scr)) + "\" penwidth=" + str(wgs[wg]) + "];\n")
+                fw.write(" [label=\"" + str(int(scr)) + "\" penwidth=" + str(wgs[wg]))
+                if scr < 5:
+                    fw.write(" constraint = false];\n")
+                else:
+                    fw.write("];\n")
             else:
                 pass
                 #fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=" + str(wgs[wg]) + " constraint=false];\n")
@@ -158,8 +163,8 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, H
         save_vert_mn(fw, list(mn_set), cenid, cnt_mon, CAIA, HybridINFO)
         ecnt += save_edges_mn(fw, list(mn_set), kcnt, matching, edgeThr)
         if k == 1 and args.red:
-            save_edges_sep_mn(fw, list(mn_set), sepdict)
-            save_edges_posscore(fw, list(mn_set), posscore)
+             save_edges_sep_mn(fw, list(mn_set), sepdict)
+             save_edges_posscore(fw, list(mn_set), posscore)
         fw.write("}\n")
 
     with open(os.path.join(out, "MG_vecnt.csv"), "a") as fw:
@@ -170,35 +175,6 @@ def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, H
                     os.path.join(out, "k" + str(k) + "_" + cenid + ".png")])
     except Exception:
         return
-
-def diffcenpos(cenv1, cenv2):
-    mx1 = (0, 0)
-    mx2 = (0, 0)
-
-    for i in range(len(cenv1)):
-        for j in range(len(cenv1[0])):
-            if cenv1[i][j] > cenv1[mx1[0]][mx1[1]]:
-                mx1 = (i, j)
-
-
-    for i in range(len(cenv2)):
-        for j in range(len(cenv2[0])):
-            if cenv2[i][j] > cenv2[mx2[0]][mx2[1]]:
-                mx2 = (i, j)
-
-    return mx1[0] != mx2[0] and mx1[1] != mx2[1]
-
-def mergeMon(sepdict, posscore, cenposvector):
-    exch = {}
-    for mn, mn2, cnt1 in sepdict:
-        if (cnt1 < 6):
-            if (mn, mn2) in posscore:
-                #if diffcenpos(cenposvector[mn], cenposvector[mn2]):
-                #    continue
-                scr = posscore[(mn, mn2)]
-                if scr > 0.3:
-                    exch[mn] = mn2
-    return exch
 
 
 def getMnSim(mon):
@@ -214,6 +190,8 @@ def getEdheThr(k2cnt):
     vcnt = {v : 0 for v, u in k2cnt.keys()}
     for vu, cnt in k2cnt.items():
         vcnt[vu[0]] += cnt
+
+    print(vcnt)
 
     minW = min(100, min([cnt for v, cnt in vcnt.items()])*0.9)
     return minW
@@ -236,15 +214,21 @@ def mapCAIAmn(mnCA, mnIA):
                 mapCAIA[mCA.id] = mIA.id + "-rev"
     return mapCAIA
 
+def normalize(k_cnt):
+    maxCnt = max(k_cnt[0].values())
+    for i in range(len(k_cnt)):
+        for ky in k_cnt[i].keys():
+             k_cnt[i][ky] = k_cnt[i][ky]/maxCnt*100
+    return k_cnt
+
 
 def handle_cen(cenid, args):
-    maxk = 2
+    maxk = 3
     k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=maxk)
-    edgeThr = getEdheThr(k_cnt[0])
+    if args.norm:
+        k_cnt = normalize(k_cnt)
 
-    vcnt = {v : 0 for v, u in k_cnt[0].keys()}
-    for vu, cnt in k_cnt[0].items():
-        vcnt[vu[0]] += cnt
+    edgeThr = getEdheThr(k_cnt[1])
 
     if args.sep != "-":
         df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
@@ -258,60 +242,19 @@ def handle_cen(cenid, args):
     with open("map_" + cenid[:-1] + ".tsv", "w") as fw:
         for ca, ia in CAIA.items():
             fw.write(f'{ca}\t{ia}\n')
-    HybridINFO = HybridUtils.getHybridINFO(os.path.join(args.mon, cenid + "mn.fa"), vcnt)
+    HybridINFO = HybridUtils.getHybridINFO(os.path.join(args.mon, cenid + "mn.fa"), k_cnt[0])
     print("HybridSet:", HybridINFO)
 
-    # PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
-    #
-    # exch = mergeMon(sepdict, PositionScore, cenvec)
-    #
-    # k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch)
-    # PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0])
-    # exch2 = mergeMon(sepdict, PositionScore, cenvec)
-    # for x, y in exch2.items():
-    #     exch[x] = y
-    #
-    # PrefixPosScore, cenvec = TriplesMatrix.PrefixPosScore(k_cnt[1], k_cnt[0])
-    # exch3 = mergeMon(sepdict, PrefixPosScore, cenvec)
-    # for x, y in exch3.items():
-    #     if x not in exch:
-    #         exch[x] = y
-    #
-    # SuffixPosScore, cenvec = TriplesMatrix.SuffixPosScore(k_cnt[1], k_cnt[0])
-    # exch4 = mergeMon(sepdict, SuffixPosScore, cenvec)
-    # for x, y in exch4.items():
-    #     if x not in exch:
-    #         exch[x] = y
-    #
-    # while True:
-    #     update = False
-    #     for x, y in exch.items():
-    #         if y in exch:
-    #             update = True
-    #             exch[x] = exch[y]
-    #     if not update:
-    #         break
-    #
-    #
-    # exchTrp = TriplesMatrix.SplitAllMn(k_cnt[1], k_cnt[0])
-    # print("====EXCHANGE====")
-    # print(exchTrp)
+    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[2], k_cnt[1], thr=0)
 
-    #k_cnt = calc_mn_order_stat(args.sdtsv, cenid, maxk=maxk, exchange=exch, exchTrp=exchTrp)
-    PositionScore, cenvec = TriplesMatrix.handleAllMn(k_cnt[1], k_cnt[0], thr=0)
-
-    #print(k_cnt)
     for k in range(1, maxk + 1):
         matching = {}
         if args.blue:
-            matching = SimplifiedMonomerGraph.GetMaxMatching(k_cnt[k - 1])
-        #print_dual_graph(db_cnt, cenid, args.o)
-        printk_graph(k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
-        #print_monomer_graph(db_cnt, cenid, matching, args.o)
-        #print_k2_graph(trp_cnt, db_cnt, cenid, args.o)
+            matching = SimplifiedMonomerGraph.GetMaxMatching(k_cnt[k])
+        printk_graph(k_cnt[k], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
-    BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
+    #BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
     #SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
     #                                            os.path.join(args.sdtsv, cenid + "dec.tsv"),
     #                                            os.path.join(args.seq, cenid[:-1] + "ct.fa"),
@@ -320,11 +263,11 @@ def handle_cen(cenid, args):
 
 def main():
     args = parse_args()
-    for i in range(1, 23):
-        #try:
-            handle_cen("cen"+str(i)+"_", args)
-        #except Exception:
-        #    continue
+    #for i in range(13, 14):
+    #    try:
+    #        handle_cen("cen"+str(i)+"_", args)
+    #    except Exception:
+    #        continue
 
     handle_cen("cenX_", args)
 
