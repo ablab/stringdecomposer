@@ -31,6 +31,8 @@ def parse_args():
     parser.add_argument("--blue", dest="blue", action='store_true')
     parser.add_argument("--red", dest="red", action="store_true")
     parser.add_argument("--norm", dest="norm", action="store_true")
+    parser.add_argument("--maxk", dest="maxk", type=int)
+    parser.add_argument("--monorun", dest="monorun", action="store_true")
     parser.add_argument("-o")
 
     return parser.parse_args()
@@ -223,8 +225,8 @@ def normalize(k_cnt):
 
 
 def handle_cen(cenid, args):
-    maxk = 3
-    k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=maxk)
+    maxk = args.maxk
+    k_cnt = calc_mn_order_stat(os.path.join(args.sdtsv, cenid + "dec.tsv"), cenid, maxk=max(2, maxk))
     if args.norm:
         k_cnt = normalize(k_cnt)
 
@@ -254,20 +256,21 @@ def handle_cen(cenid, args):
         printk_graph(k_cnt[k], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
-    #BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
-    #SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
-    #                                            os.path.join(args.sdtsv, cenid + "dec.tsv"),
-    #                                            os.path.join(args.seq, cenid[:-1] + "ct.fa"),
-    #                                            os.path.join(args.mon, cenid + "mn.fa"),
-    #                                            edgeThr=edgeThr)
+    if args.monorun:
+        BuildAndShowMonorunGraph(k_cnt[0], k_cnt[1], os.path.join(args.o, cenid + "mnrun.dot"), mncen, cenid, CAIA, vLim=0, eLim=edgeThr)
+        SimplifiedMonomerGraph.PrintSimplifiedGraph(k_cnt[0], vcnt, CAIA, HybridINFO, args.o, cenid,
+                                                    os.path.join(args.sdtsv, cenid + "dec.tsv"),
+                                                    os.path.join(args.seq, cenid[:-1] + "ct.fa"),
+                                                    os.path.join(args.mon, cenid + "mn.fa"),
+                                                    edgeThr=edgeThr)
 
 def main():
     args = parse_args()
-    #for i in range(13, 14):
-    #    try:
-    #        handle_cen("cen"+str(i)+"_", args)
-    #    except Exception:
-    #        continue
+    for i in range(1, 23):
+        try:
+            handle_cen("cen"+str(i)+"_", args)
+        except Exception:
+            continue
 
     handle_cen("cenX_", args)
 
