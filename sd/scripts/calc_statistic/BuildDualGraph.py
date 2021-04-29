@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument("--red", dest="red", action="store_true")
     parser.add_argument("--norm", dest="norm", action="store_true")
     parser.add_argument("--maxk", dest="maxk", default=1, type=int)
+    parser.add_argument("--edgeThr", default="auto")
     parser.add_argument("--monorun", dest="monorun", action="store_true")
     parser.add_argument("-o")
 
@@ -229,7 +230,11 @@ def handle_cen(cenid, args):
     if args.norm:
         k_cnt = normalize(k_cnt)
 
-    edgeThr = getEdheThr(k_cnt[1])
+    edgeThr = 100
+    if args.edgeThr == "auto":
+        edgeThr = getEdheThr(k_cnt[1])
+    else:
+        edgeThr = int(args.edgeThr)
 
     if args.sep != "-":
         df = pd.read_csv(os.path.join(args.sep, cenid + "all.csv")).values.tolist()
