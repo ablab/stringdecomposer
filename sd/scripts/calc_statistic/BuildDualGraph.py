@@ -150,14 +150,13 @@ def save_edges_posscore(fw, mns, posscore):
             fw.write(" [label=\"" + "%.2f" % scr + "\" penwidth=2 color=orange constraint=true];\n")
 
 
-def printk_graph(kcnt, cenid, matching, out, k, sepdict, posscore, args, CAIA, HybridINFO, thr=100, edgeThr=100):
+def printk_graph(kcnt, cnt_mon, cenid, matching, out, k, sepdict, posscore, args, CAIA, HybridINFO, thr=100, edgeThr=100):
     mn_set = {tuple(list(x)[:-1]) for x, y in kcnt.items() if y > thr} | \
              {tuple(list(x)[1:]) for x, y in kcnt.items() if y > thr}
 
-    cnt_mon = {x: 0 for x in mn_set}
-    for x in kcnt.keys():
-        if tuple(list(x)[:-1]) in cnt_mon:
-            cnt_mon[tuple(list(x)[:-1])] += kcnt[x]
+    if k == 1:
+        cntmn2 = {(mn,): cnt for mn, cnt in cnt_mon.items()}
+        cnt_mon = cntmn2
 
     vcnt = len(mn_set)
     ecnt = 0
@@ -253,7 +252,7 @@ def handle_cen(cenid, args):
         matching = {}
         if args.blue:
             matching = SimplifiedMonomerGraph.GetMaxMatching(k_cnt[k])
-        printk_graph(k_cnt[k], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
+        printk_graph(k_cnt[k], k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
     if args.monorun:
