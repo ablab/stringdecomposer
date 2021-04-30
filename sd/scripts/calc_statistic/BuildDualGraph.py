@@ -33,6 +33,7 @@ def parse_args():
     parser.add_argument("--norm", dest="norm", action="store_true")
     parser.add_argument("--maxk", dest="maxk", default=1, type=int)
     parser.add_argument("--edgeThr", default="auto")
+    parser.add_argument("--vertThr", default=1, type=int)
     parser.add_argument("--monorun", dest="monorun", action="store_true")
     parser.add_argument("-o")
 
@@ -78,7 +79,7 @@ def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
             if (*vt1, vt2[-1]) in kcnt:
                 scr = kcnt[(*vt1, vt2[-1])]
 
-            thr_wg = [100000000, 1000, 500, 100, 1]
+            thr_wg = [200, 100, 50, 25, 1] #[100000000, 1000, 500, 100, 1]
             wgs = [7, 5, 3, 1, 0]
             wg = 3
             while (scr > thr_wg[wg]):
@@ -97,7 +98,7 @@ def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
                 vrt2 = "-".join(list(vt2))
                 fw.write(" " * 4 + "\"" + vrt1 + "\" -> \"" + vrt2 + "\"")
                 fw.write(" [label=\"" + str(int(scr)) + "\" penwidth=" + str(wgs[wg]))
-                if scr < 5:
+                if scr < 1:
                     fw.write(" constraint = false];\n")
                 else:
                     fw.write("];\n")
@@ -108,7 +109,6 @@ def save_edges_mn(fw, mn1, kcnt, matching, thr=100):
 
 
 def save_edges_sep_mn(fw, mns, sepdict):
-    print("EdgeSep")
     for vt1 in sorted(mns):
         if vt1 not in mns:
             continue
@@ -257,7 +257,7 @@ def handle_cen(cenid, args):
         matching = {}
         if args.blue:
             matching = SimplifiedMonomerGraph.GetMaxMatching(k_cnt[k])
-        printk_graph(k_cnt[k], k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=0, edgeThr=edgeThr)
+        printk_graph(k_cnt[k], k_cnt[k - 1], cenid, matching, args.o, k, sepdict, PositionScore, args, CAIA, HybridINFO, thr=args.vertThr, edgeThr=edgeThr)
 
     mncen = SDutils.get_monocent(os.path.join(args.sdtsv, cenid + "dec.tsv"))
     if args.monorun:
@@ -273,7 +273,8 @@ def main():
     for i in range(1, 23):
         try:
             handle_cen("cen"+str(i)+"_", args)
-        except Exception:
+        except Exception as ex:
+            print(ex)
             continue
 
     handle_cen("cenX_", args)
