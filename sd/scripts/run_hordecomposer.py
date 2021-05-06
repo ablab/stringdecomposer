@@ -9,6 +9,7 @@ import os
 from os import listdir
 from os.path import isfile, isdir, join
 import argparse
+import pandas as pd
 
 def load_monodec(filename):
     dec = []
@@ -123,44 +124,31 @@ def decompose(monodec, hors, max_len):
     hordec = hordec[::-1]
     return hordec
 
-def decompose_new_reads(monodec, hors):
+def decompose_new(monodec, hors, rev=False):
     hordec = []
-    inhor, cur_read_seq, cur_read = 1, [monodec[0]], monodec[0][0]
+    if len(monodec) == 0:
+        return hordec
+    
+    fp = 0 if not rev else len(monodec) - 1
+
+    inhor, cur_hor = 1, [monodec[fp]]
     cur_hor_name = None
     for h in hors:
-        if monodec[0][1] in hors[h][0]:
+        if monodec[fp][1] in hors[h][0]:
             cur_hor_name = h
-    for i in range(1, len(monodec)):
-        prev, cur = cur_hor[-1][1], monodec[i][1]
-        if cur_read != monodec[i][0]:
-            l, r = 0, len(cur_read_seq) - 1
-            while l < len(cur_read_seq) and float(cur_read_seq[l][4]) < 90:
-                l += 1
-            while r >= 0 and float(cur_read_seq[r][4]) < 90:
-                r -= 1
-            cur_read_seq = cur_read_seq[l: r+1]
-            for h in hors:
-                if monodec[0][1] in hors[h][0]:
-                    cur_hor_name = h
-            for j in range(len(cur_read_seq)-1):
-                if cur_hor_name in hors and hors[cur_hor_name][0][prev] == cur
-        else:
-            cur_read_seq.append(monodec[i])
-
-
-def decompose_new(monodec, hors):
-    hordec = []
-    inhor, cur_hor = 1, [monodec[0]]
-    cur_hor_name = None
-    for h in hors:
-        if monodec[0][1] in hors[h][0]:
-            cur_hor_name = h
-    for i in range(1, len(monodec)):
-        prev, cur = cur_hor[-1][1], monodec[i][1]
+    
+    bgp, edp, stp = (1, len(monodec), 1) if not rev else (len(monodec) - 2, -1, -1)
+    
+    for i in range(bgp, edp, stp):
+        prev, cur = (cur_hor[-1][1], monodec[i][1]) if stp == 1 else (monodec[i][1], cur_hor[0][1])
 #        print(monodec[i], int(cur_hor[-1][3]), monodec[i][2])
-        if float(monodec[i][4]) > 80 and cur_hor_name in hors and prev in hors[cur_hor_name][0] and hors[cur_hor_name][0][prev] == cur and hors[cur_hor_name][1] > inhor and abs(int(cur_hor[-1][3]) - int(monodec[i][2])) < 5:
+        mndist = abs(int(cur_hor[-1][3]) - int(monodec[i][2])) if stp == 1 else abs(int(monodec[i][3]) - int(cur_hor[0][2]))
+        if float(monodec[i][4]) > 80 and cur_hor_name in hors and prev in hors[cur_hor_name][0] and hors[cur_hor_name][0][prev] == cur and hors[cur_hor_name][1] > inhor and mndist  < 5:
             inhor += 1
-            cur_hor.append(monodec[i])
+            if stp == 1:
+                cur_hor.append(monodec[i])
+            else:
+                cur_hor = [monodec[i]] + cur_hor
         else:
             idnt = sum([float(x[4]) for x in cur_hor])/len(cur_hor)
             hordec.append([cur_hor[0][0], ",".join([x[1] for x in cur_hor]), cur_hor[0][2], cur_hor[-1][3], "{:.2f}".format(idnt), cur_hor_name ])
@@ -173,6 +161,72 @@ def decompose_new(monodec, hors):
     idnt = sum([float(x[4]) for x in cur_hor])/len(cur_hor)
     hordec.append([cur_hor[0][0], ",".join([x[1] for x in cur_hor]), cur_hor[0][2], cur_hor[-1][3], "{:.2f}".format(idnt), cur_hor_name] )
     return hordec
+
+
+def handle_one_read(monodec, hors):
+    #print("monodec", monodec)
+    #print("hors", hors)
+
+    hordec = []
+    cur_hor_name = None
+    for h in hors:
+        if monodec[0][1] in hors[h][0]:
+            cur_hor_name = h
+    
+    def get_hord_pos():
+        for i in range(1, len(monodec)):
+            prev, cur = monodec[i - 1][1], monodec[i][1]
+            if float(monodec[i][4]) < 80 or (cur_hor_name not in hors or prev not in hors[cur_hor_name][0] or hors[cur_hor_name][0][prev] != cur) or (abs(int(monodec[i - 1][3]) - int(monodec[i][2])) > 5):
+                   return i
+
+        return 0
+   
+    hord_pos = get_hord_pos()
+    #print("hord pos: ", hord_pos)
+
+    def decsuf(sp):
+        md = monodec[sp:]
+        return decompose_new(md, hors)
+
+    def decpref(sp):
+        md = monodec[:sp]
+        return decompose_new(md, hors, rev=True)
+    
+    hordec = decpref(hord_pos) + decsuf(hord_pos)
+    if len(hordec) > 0:
+        hordec = hordec[:-1]
+    if len(hordec) > 0:
+        hordec = hordec[1:]
+    
+    #print("suffix hord dec: ", hordec)
+
+    return hordec
+
+def decompose_new_reads(monodec, hors):
+    hordec = []
+    inhor, cur_read_seq, cur_read = 1, [monodec[0]], monodec[0][0]
+
+    md = monodec.copy()
+    md.append(["END"])
+    for i in range(1, len(md)):
+        if cur_read != md[i][0]:
+            l, r = 0, len(cur_read_seq) - 1
+            while l < len(cur_read_seq) and float(cur_read_seq[l][4]) < 90:
+                l += 1
+            while r >= 0 and float(cur_read_seq[r][4]) < 90:
+                r -= 1
+            if l > r:
+                cur_read_seq, cur_read = [md[i]], md[i][0]
+                continue
+            cur_read_seq = cur_read_seq[l: r+1]
+            
+            hordec += handle_one_read(cur_read_seq, hors)
+            cur_read_seq, cur_read = [md[i]], md[i][0]
+        else:
+            cur_read_seq.append(md[i])
+    
+    return hordec
+
 
 def collapse_name(mono_seq, mono_mp, hor, hor_id):
     mono_lst = mono_seq.split(",")
@@ -294,6 +348,15 @@ def load_ivan_mapping(filename):
            res[mon + "'"] = ivan_mon.split(".")[0] + "'." + ivan_mon.split(".")[1]
     return res
 
+
+def printStats(hordec_c, outfile):
+    cnt_hor = {(oh[-1], 'c' if oh[1][0] == 'c' else oh[1].split('<sup>')[0]): 0 for oh in hordec_c}
+    cnt_hor = [[k, sum([1 if '<sup>' not in oh[1] else int(oh[1].split('<sup>')[-1][:-len("</sup>")]) for oh in hordec_c if oh[-1] == k[0] and oh[1].startswith(k[1])])] for k in cnt_hor]
+    cnt_hor.sort(key=lambda x: -x[1])
+    df = pd.DataFrame(cnt_hor)
+    df.to_csv(outfile)
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 4:
        print("Check arguments! Failed")
@@ -306,11 +369,15 @@ if __name__ == "__main__":
     #for m in monomers:
     #    hors.append([m, m, 1])
     #hordec = decompose(monodec, hors, max_len)
-    hordec = decompose_new(monodec, hors)
+    hordec = decompose_new_reads(monodec, hors)
+    
     with open(outfilename, "w") as fout:
         for i in range(len(hordec)):
            fout.write("\t".join(hordec[i]) + "\n")
     hordec_c, hordec_c_ivan = collapse_hordec(hordec, mono_mp, hors, hor_id, ivan_mp)
+    
+    printStats(hordec_c, outfilename[:-len(".tsv")] + "stat.csv")
+
     with open(outfilename[:-len(".tsv")]+"_collapsed.tsv", "w") as fout:
         #for m in sorted(mono_mp.keys()):
         #    fout.write("\t".join([m, str(mono_mp[m])]) + "\n")
