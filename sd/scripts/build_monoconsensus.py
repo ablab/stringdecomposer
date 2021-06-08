@@ -20,7 +20,6 @@ import subprocess
 
 import edlib
 import random
-random.seed(123)
 
 MONOIDNT = 95
 INF=10000000
@@ -92,7 +91,7 @@ def load_horascycle(filename):
                 continue
             hor_name, hor_seq = ln.strip().split("\t")[:2]
             hor_lst = hor_seq.split(",")
-            hor_lst = shift(hor_lst)
+            #hor_lst = shift(hor_lst)
             print(hor_lst)
             hors.append([hor_name, hor_lst])
     return hors
@@ -105,8 +104,8 @@ def run_clustal(mappings, clustal_dir, pair_name):
     else:
         save_fasta(os.path.join(clustal_dir, pair_name + "_seq.fasta"), mappings)
 
-    #cline = ClustalwCommandline(clustalw_exe, infile=os.path.join(clustal_dir, pair_name + "_seq.fasta"), outfile=os.path.join(clustal_dir, pair_name + "_seq.clu"))
-    #stdout, stderr = cline()
+    cline = ClustalwCommandline(clustalw_exe, infile=os.path.join(clustal_dir, pair_name + "_seq.fasta"), outfile=os.path.join(clustal_dir, pair_name + "_seq.clu"))
+    stdout, stderr = cline()
 
     filename = os.path.join(clustal_dir, pair_name + "_seq.clu")
     total_alns = []
@@ -143,6 +142,7 @@ def run_clustal(mappings, clustal_dir, pair_name):
 
 def extract_consensus(total_alns):
     consensus = ""
+    scores = []
     #print(len(total_alns[0]), total_alns[0])
     #print(len(total_alns[1]), total_alns[1])
     #print(len(total_alns[2]), total_alns[2])
@@ -151,12 +151,13 @@ def extract_consensus(total_alns):
         for j in range(len(total_alns)):
             score[total_alns[j][i]] += 1
         scores_lst = sorted([[it, score[it]] for it in score ], key = lambda x: -x[1])
+        scores.append(scores_lst)
         max_score = scores_lst[0][0]
         if scores_lst[0][1] == scores_lst[1][1]:
             max_score = "N"
         if max_score != "-":
             consensus += max_score
-    return consensus
+    return consensus, scores
 
 def align_mappings(mappings, clustal_dir, pair_name):
     pair_name = pair_name.replace("/", "_")
@@ -164,9 +165,9 @@ def align_mappings(mappings, clustal_dir, pair_name):
     pair_name = pair_name.replace(")", "_")
     pair_name = pair_name.replace(".", "_")
     algns = run_clustal(mappings, clustal_dir, pair_name)
-    consensus = extract_consensus(algns)
+    consensus, scores = extract_consensus(algns)
     print(len(consensus))
-    return consensus
+    return consensus, scores
 
 def edist(lst):
     if len(str(lst[0])) == 0:
@@ -199,9 +200,8 @@ def glue_pairs(p1, p2):
     print("")
     return i, j
 
-def build_monoconsensus(monodec, ref, clustal_dir):
+def build_monoconsensus(monodec, ref, step, clustal_dir):
     mappings = {}
-    step = 4
     for i in range(len(monodec)):
         m_name, m_s, m_e, m_idnt = monodec[i][1], int(monodec[i][2]), int(monodec[i][3]), float(monodec[i][4])
         if m_idnt > MONOIDNT:
@@ -212,11 +212,15 @@ def build_monoconsensus(monodec, ref, clustal_dir):
             else:
                 mappings[m_name].append(make_record(ref[monodec[i][0]].seq[m_s - step: m_e + 1 + step].reverse_complement(), m_name + str(m_s) + "_rev", m_name + str(m_s) + "_rev"))
     m_consensus = []
+    m_scores = {}
     for m in mappings:
         print(m)
-        cur_consensus = make_record(Seq(align_mappings(mappings[m], clustal_dir, m)[step:-step]), m, m)
+        consensus, scores = align_mappings(mappings[m], clustal_dir, m)
+        consensus, scores = consensus[step : -step], scores[step: -step]
+        cur_consensus = make_record(Seq(consensus), m, m)
         m_consensus.append(cur_consensus)
-    return m_consensus
+        m_scores[m] = scores
+    return m_consensus, m_scores
 
 def build_pairconsensus(hors, monodec, ref, clustal_dir):
     hors_seq = []
@@ -238,22 +242,23 @@ def build_pairconsensus(hors, monodec, ref, clustal_dir):
                             mappings.append(make_record(ref[monodec[j][0]].seq[s1: e2 + 1].reverse_complement(), m1+"_" + m2 + str(s1) + "_rev", m1 + "_" +m2 + str(s1) + "_rev" ))
             print("pair: ", m1, m2, len(mappings))
             if len(mappings) > 0:
-                pairs_consensus.append(align_mappings(mappings, clustal_dir, m1+"_" + m2))
-        cur_consensus = ""
-        border = []
-        for i in range(len(pairs_consensus)):
-            print("Pair ", i)
-            border.append(glue_pairs(pairs_consensus[i], pairs_consensus[(i+1)%len(pairs_consensus)]))
-        l, r = border[len(pairs_consensus)-1][1], 0
-        for i in range(len(pairs_consensus)):
-            r = border[i][0]
-            if l > r:
-               print("Something went wrong!", i, l, r)
-               exit(-1)
-            cur_consensus += pairs_consensus[i][l: r]
-            l = border[i][1]
-        print(len(cur_consensus))
-        hors_seq.append(make_record(Seq(cur_consensus), hor_desc[0], hor_desc[0], str(len(cur_consensus)) + "bp " + ",".join(hor) ))
+                pairs_consensus.append(align_mappings(mappings, clustal_dir, m1+"_" + m2)[0])
+        if len(pairs_consensus) > 0:
+            cur_consensus = ""
+            border = []
+            for i in range(len(pairs_consensus)):
+                print("Pair ", i)
+                border.append(glue_pairs(pairs_consensus[i], pairs_consensus[(i+1)%len(pairs_consensus)]))
+            l, r = border[len(pairs_consensus)-1][1], 0
+            for i in range(len(pairs_consensus)):
+                r = border[i][0]
+                if l > r:
+                   print("Something went wrong!", i, l, r)
+                   exit(-1)
+                cur_consensus += pairs_consensus[i][l: r]
+                l = border[i][1]
+            print(len(cur_consensus))
+            hors_seq.append(make_record(Seq(cur_consensus), hor_desc[0], hor_desc[0], str(len(cur_consensus)) + "bp " + ",".join(hor) ))
     return hors_seq
 
 
@@ -269,36 +274,28 @@ def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     return raw_decomposition
 
 
-# def divide_into_monomers(hors, monomers, outtsv):
-#     double_hors = []
-#     for h in hors:
-#         double_hors.append(make_record(Seq(h.seq + h.seq), h.id, h.name, h.description))
-#     decomposition = run(double_hors, monomers, "1", "-1,-1,-1,1", "5000", outtsv)
-    
-#     new_monomers = {}
-#     for ln in decomposition.split("\n")[:-1]:
-#         ref, mono, start, end, score = ln.split("\t")[:5]
-#         score = int(score)
-#         if mono not in monomers or new_monomers[mono]["score"] < score:
-#             h_ind = [h.id for h in hors].index(ref)
-#             new_monomers[mono] = {"score": score, "seq": hors[h_ind][int(start): int(end) + 1], "c": [start, end]}
-#     res = []
-#     for m in monomers:
-#         res.append(make_record(new_monomers[m.id].seq, m.id, m.name, m.description))
-#     return res
-
-def divide_into_monomers(hors, monomers, horfile, monofile, outtsv):
-    decomposition = run(horfile, monofile, "1", "-1,-1,-1,1", "5000", outtsv)
-
-    res, bed = [], []
-    for ln in decomposition.split("\n")[:-1]:
-        ref, mono, start, end, score = ln.split("\t")[:5]
-        h_ind = [h.id for h in hors].index(ref)
-        res.append(make_record(hors[h_ind].seq[int(start): int(end) + 1], mono, mono, ref + ":" + start + "-" + end ))
-        r, g, b = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
-        bed.append("\t".join([ref, start, end, mono, str(int(float(score))), "+", start, end, ",".join([str(r), str(g), str(b)]) ]))
-
-    return res, bed
+def divide_into_monomers(hors_lst, hors, monomers, horfile, monofile, outtsv):
+    hors_res, res, bed = [], [], []
+    for i in range(len(hors)):
+        h, start_mono, hor_len = hors[i], hors_lst[i][1][0], len(hors_lst[i][1])
+        triple_hors = []
+        triple_hors.append(make_record(h.seq + h.seq + h.seq, h.id, h.name, h.description))
+        save_fasta(horfile, triple_hors)
+        decomposition = run(horfile, monofile, "1", "-1,-1,-1,1", "5000", outtsv)
+        inHOR, start_shift = False, 0
+        newhor_seq = ""
+        for ln in decomposition.split("\n")[1:-1]:
+            ref, mono, start, end, score = ln.split("\t")[:5]
+            if mono == start_mono:
+                inHOR, start_shift = True, int(start)
+                print("shift", start_shift)
+            if inHOR and len(res) < hor_len:
+                res.append(make_record(triple_hors[0].seq[int(start): int(end) + 1], mono, mono, ref + ":" + str(int(start) - start_shift) + "-" + str(int(end) + 1 - start_shift) ))
+                r, g, b = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                bed.append("\t".join([ref, str(int(start) - start_shift), str(int(end) + 1 - start_shift), mono, str(int(float(score))), "+", str(int(start) - start_shift), str(int(end) + 1 - start_shift), ",".join([str(r), str(g), str(b)]) ]))
+                newhor_seq += triple_hors[0].seq[int(start): int(end) + 1]
+        hors_res.append(make_record(newhor_seq, h.id, h.id, str(len(newhor_seq)) + "bp " + ",".join(hors_lst[i][1]) ))
+    return hors_res, res, bed
 
 
 def main():
@@ -307,36 +304,48 @@ def main():
     parser.add_argument('annotation', help='bed-file with annotation')
     parser.add_argument('outdir', help='output directory')
     parser.add_argument('--hors',  help='tsv-file with HOR description', required=False)
+    parser.add_argument('--extend',  help='number of bp to extend monomer alignment', default=4, required=False)
+    parser.add_argument('--seed',  help='seed for colors generation in bed-files', default=123, required=False)
     args = parser.parse_args()
     
+    random.seed(int(args.seed))
     ref = load_fasta(args.sequences, "map")
     bedfile = args.annotation
     
     if not os.path.exists(args.outdir):
         os.makedirs(args.outdir)
 
-    cen = sys.argv[1]
     mono_outfilename = os.path.join(args.outdir, "monomer_consensus.fasta")
     monodec, monomers = load_bedfile(bedfile)
-    consensus = build_monoconsensus(monodec, ref, os.path.join(args.outdir, "clustal_alns"))
+    consensus, scores = build_monoconsensus(monodec, ref, int(args.extend), os.path.join(args.outdir, "clustal_alns"))
     save_fasta(mono_outfilename, consensus)
+    with open(os.path.join(args.outdir, "monomer_consensus.tsv"), "w") as fout:
+        for m in scores:
+            for i in range(len(scores[m])):
+                s = scores[m][i]
+                fout.write(m + "\t" + str(i) + "\t" + "\t".join(x[0] + ":" + str(x[1]) for x in s) + "\n")
     print("Monomer consensus can be found", mono_outfilename)
 
     if args.hors != None:
        hors_tsv = args.hors
        hors = load_horascycle(hors_tsv)
        hor_consensus = build_pairconsensus(hors, monodec, ref, os.path.join(args.outdir, "clustal_alns"))
-       hor_outfilename = os.path.join(args.outdir, "hor_consensus.fasta")
-       save_fasta(hor_outfilename, hor_consensus)
-       print("HOR consensus can be found", hor_outfilename)
-       pair_monomers, bed = divide_into_monomers(hor_consensus, consensus, hor_outfilename, mono_outfilename, os.path.join(args.outdir, "sd_raw.tsv"))
-       pmono_outfilename = os.path.join(args.outdir, "monomer_paired_consensus.fasta")
-       save_fasta(pmono_outfilename, pair_monomers)
-       print("Paired monomer consensus can be found", pmono_outfilename)
-       outfilename = os.path.join(args.outdir, "monomer_paired_consensus.bed")
-       with open(outfilename, "w") as fout:
-           for ln in bed:
-               fout.write(ln + "\n")
+       if len(hor_consensus) > 0:
+           hor_outfilename = os.path.join(args.outdir, "hor_consensus.fasta")
+           hor_consensus_shifted, pair_monomers, bed = divide_into_monomers(hors, hor_consensus, consensus, hor_outfilename, mono_outfilename, os.path.join(args.outdir, "sd_raw.tsv"))
+           hor_outfilename = os.path.join(args.outdir, "hor_consensus.fasta")
+           save_fasta(hor_outfilename, hor_consensus_shifted)
+           print("HOR consensus can be found", hor_outfilename)
+           pmono_outfilename = os.path.join(args.outdir, "monomer_paired_consensus.fasta")
+           save_fasta(pmono_outfilename, pair_monomers)
+           print("Paired monomer consensus can be found", pmono_outfilename)
+           outfilename = os.path.join(args.outdir, "monomer_paired_consensus.bed")
+           with open(outfilename, "w") as fout:
+               for ln in bed:
+                   fout.write(ln + "\n")
+           print("Paired monomer consensus bed can be found", outfilename)
+       else:
+           print("Paired wasn't generated - no pairs found")
 
 if __name__ == "__main__":
     main()
