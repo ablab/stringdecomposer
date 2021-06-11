@@ -216,7 +216,7 @@ def build_monoconsensus(monodec, ref, step, clustal_dir):
     for m in mappings:
         print(m)
         consensus, scores = align_mappings(mappings[m], clustal_dir, m)
-        consensus, scores = consensus[step : -step], scores[step: -step]
+        consensus, scores = consensus[step : len(consensus)-step], scores[step: len(scores)-step]
         cur_consensus = make_record(Seq(consensus), m, m)
         m_consensus.append(cur_consensus)
         m_scores[m] = scores
