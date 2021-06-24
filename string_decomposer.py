@@ -1,23 +1,15 @@
 #!/usr/bin/env python
 
-from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
-from Bio import SeqIO
-from Bio import SearchIO
-from Bio.SeqRecord import SeqRecord
-
 import argparse
 import os
-from os import listdir
-from os.path import join, isfile
+import subprocess
 import sys
 
-import subprocess
-
-import pandas as pd
-
-import re
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 import edlib
+import pandas as pd
+import re
 
 
 CUR_FILE = os.path.abspath(__file__)
@@ -25,7 +17,7 @@ CUR_DIR = os.path.dirname(CUR_FILE)
 SD_BIN = os.path.join(CUR_DIR, 'build', 'bin', 'dp')
 LOGREG_FILE = os.path.join(CUR_DIR,
                            'models',
-                           'new_ont_logreg_model.txt')
+                           'ont_logreg_model.txt')
 with open(LOGREG_FILE) as f:
     LR_MODEL_COEF = list(map(float, f.readline().strip().split()))
 
@@ -37,6 +29,7 @@ def edist(lst):
         return -1, ""
     result = edlib.align(str(lst[0]), str(lst[1]), mode="NW", task="path")
     return result["editDistance"], result["cigar"]
+
 
 def aai(ar):
     p1, p2 = str(ar[0]), str(ar[1])
@@ -84,12 +77,14 @@ def add_rc_monomers(monomers):
         res.append(make_record(m.seq.reverse_complement(), m.name + "'", m.id + "'"))
     return res
 
+
 def convert_to_homo(seq):
     res = ""
     for c in seq:
         if len(res) == 0 or res[-1] != c:
             res += c
     return res
+
 
 def classify(reads_mapping):
     df = pd.DataFrame(reads_mapping)
@@ -101,6 +96,7 @@ def classify(reads_mapping):
         if y_pred[i] != 1:
             reads_mapping[i]["q"] = "?"
     return reads_mapping
+
 
 def convert_read(decomposition, read, monomers, light = False):
     res = []
@@ -147,6 +143,7 @@ def convert_read(decomposition, read, monomers, light = False):
     res = classify(res)
     return res
 
+
 def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
     dec = convert_read(dec, read, monomers, light)
     for d in dec:
@@ -160,6 +157,7 @@ def print_read(fout, fout_alt, dec, read, monomers, identity_th, light):
                 if a == d["m"]:
                     star = "*"
                 fout_alt.write("\t".join([read.name, a, d["start"], d["end"], "{:.2f}".format(d["alt"][a]), star]) + "\n")
+
 
 def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
     with open(outfile[:-len(".tsv")] + "_alt.tsv", "w") as fout_alt:
@@ -179,6 +177,7 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
 
+
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
     if not os.path.isfile(SD_BIN):
@@ -191,6 +190,7 @@ def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     with open(raw_file, 'r') as f:
         raw_decomposition = "".join(f.readlines())
     return raw_decomposition
+
 
 
 def main():
