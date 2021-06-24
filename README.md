@@ -21,11 +21,8 @@ Alternatively, StringDecomposer can be installed from source.
 Requirements:
 - Python3.5+
     - [biopython](https://biopython.org/wiki/Download)
-    - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
-    - [numpy](https://scipy.org/install.html)
     - [pandas](https://pypi.org/project/pandas/)
     - [python-edlib](https://pypi.org/project/edlib/)
-    - [scikit-learn](https://scikit-learn.org/stable/)
     - [setuptools](https://pypi.org/project/setuptools/)
 - g++ (version 5.3.1 or higher)
 

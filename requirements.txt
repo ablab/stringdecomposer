@@ -1,7 +1,4 @@
 biopython
-joblib
-numpy
 pandas
 python-edlib
-scikit-learn
 setuptools
