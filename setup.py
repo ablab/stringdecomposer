@@ -13,7 +13,7 @@ from setuptools import setup
 from distutils.command.build import build as DistutilsBuild
 from distutils.spawn import find_executable
 
-from sd.__version__ import __version__
+from __version__ import __version__
 
 
 # Make sure we're running from the setup.py directory.
@@ -67,8 +67,7 @@ setup(
     package_dir={'sd': 'sd'},
     package_data={'sd': ['**/*']},
     entry_points={
-        'console_scripts': ['sd=sd.run_decomposer:main',
-                            'sd_cluster_sequences=sd.cluster_sequences:main']
+        'console_scripts': ['sd=sd.string_decomposer:main']
     },
     cmdclass={'build': MakeBuild}
 )
