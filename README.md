@@ -19,16 +19,13 @@ conda install -c bioconda stringdecomposer
 Alternatively, StringDecomposer can be installed from source.
 
 Requirements:
-- Python3.5
+- Python3.5+
     - [biopython](https://biopython.org/wiki/Download)
-    - [argparse](https://pypi.org/project/argparse/)
     - [joblib](https://joblib.readthedocs.io/en/latest/installing.html)
-    - [networkx](https://pypi.org/project/networkx)
     - [numpy](https://scipy.org/install.html)
-    - [matplotlib](https://pypi.org/project/matplotlib/)
     - [pandas](https://pypi.org/project/pandas/)
     - [python-edlib](https://pypi.org/project/edlib/)
-    - [seaborn](https://pypi.org/project/seaborn/)
+    - [scikit-learn](https://scikit-learn.org/stable/)
     - [setuptools](https://pypi.org/project/setuptools/)
 - g++ (version 5.3.1 or higher)
 
@@ -57,7 +54,7 @@ Removal of StringDecomposer installed from source:
 ## Quick start
 The following command assumes that StringDecomposer is either installed through conda or from source.
 
-    run_decomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
+    string_decomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
 
 Testing run results:
 
@@ -75,7 +72,7 @@ Reliability is either equal to `?` (signifies unreliable alignment which can be 
 
 ## Synopsis
 
-    run_decomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
+    string_decomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
 
 Required arguments:
 
