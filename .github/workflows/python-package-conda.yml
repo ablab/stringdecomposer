@@ -1,4 +1,4 @@
-name: Python Package using Conda
+name: Checking build using conda
 
 on: [push, workflow_dispatch]
 
@@ -26,24 +26,10 @@ jobs:
         conda config --add channels bioconda
         conda config --add channels conda-forge
         conda install -y --file requirements.txt
-    - name: Lint with flake8 (currently disabled)
-      run: |
-        # conda install flake8
-        # stop the build if there are Python syntax errors or undefined names
-        # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        # flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Build
       run: |
         make
     - name: Run test dataset
       run: |
-        mkdir build_test
-        cd build_test
-        python ../string_decomposer.py ../test_data/read.fa ../test_data/DXZ1_star_monomers.fa
-    - name: Archive run results
-      uses: actions/upload-artifact@v2
-      with:
-        name: final_decomposition.tsv
-        path: build_test/final_decomposition.tsv
+        make test_launch
     
