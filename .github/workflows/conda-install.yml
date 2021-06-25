@@ -1,4 +1,4 @@
-name: Checking build using conda
+name: Checking install using conda
 
 on: [push, workflow_dispatch]
 
@@ -26,10 +26,9 @@ jobs:
         conda config --add channels bioconda
         conda config --add channels conda-forge
         conda install -y --file requirements.txt
-    - name: Build
+    - name: Install
       run: |
-        make
-    - name: Run test dataset
+        make install
+    - name: Run test dataset with installed StringDecomposer
       run: |
-        make test_launch
-    
+        make test_launch_install
