@@ -4,7 +4,7 @@
 
 ## Version 1.0
 
-As an input StringDecomposer (SD) algorithm takes the set of monomers (typically, alpha satellites) and a genomic segment (assembly, Oxford Nanopore or a PacBio HiFi read) that contains a tandem repeat constituted by the given monomers.
+As an input StringDecomposer algorithm takes the set of monomers (typically, alpha satellites) and a genomic segment (assembly, Oxford Nanopore or a PacBio HiFi read) that contains a tandem repeat consisting of the given monomers.
 StringDecomposer partitions this segment into distinct monomers, providing an accurate translation from the nucleotide alphabet into the monomer alphabet.
 
 
@@ -16,7 +16,7 @@ conda install -c bioconda stringdecomposer
 ```
 
 
-Alternatively, StringDecomposer can be installed from source.
+Alternatively, StringDecomposer can be build and installed from source.
 
 Requirements:
 - Python3.5+
@@ -26,7 +26,9 @@ Requirements:
     - [setuptools](https://pypi.org/project/setuptools/)
 - g++ (version 5.3.1 or higher)
 
-The required python packages can be installed through conda using ```conda install --file requirements.txt```.
+The required python packages can be installed through conda using 
+
+    conda install --file requirements.txt
 
 Local building without installation:
 
@@ -34,26 +36,39 @@ Local building without installation:
     cd stringdecomposer
     make
 
+Then, StringDecomposer is available as
+
+    python stringdecomposer.py
+
+
 Installing from source:
 
     git clone https://github.com/ablab/stringdecomposer.git
     cd stringdecomposer
-    python setup.py install --record files.txt
+    make install
+
+Then, StringDecomposer is available as
+
+    stringdecomposer
 
 Removal of StringDecomposer installed from source:
 
-    xargs rm -rf < files.txt
+    make uninstall
 
 ## Quick start
 The following command assumes that StringDecomposer is either installed through conda or from source.
 
-    string_decomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa
+    stringdecomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -o ./test_data
+
+The same result can be achieved with `make test_launch` (for local build without installation) and
+`make test_launch_install` (for installed from source or via conda).
+These `make` rules ensure correctness of StringDecomposer's output on the test dataset.
 
 Testing run results:
 
-    final_decomposition.tsv           final decomposition of sequences to monomer alphabet
-    final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
-    final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
+    ./test_data/final_decomposition.tsv           final decomposition of sequences to monomer alphabet
+    ./test_data/final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
+    ./test_data/final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
 
 Each line in final_decomposition.tsv file has the following form:
 
@@ -65,7 +80,7 @@ Reliability is either equal to `?` (signifies unreliable alignment which can be 
 
 ## Synopsis
 
-    string_decomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
+    stringdecomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
 
 Required arguments:
 
@@ -82,11 +97,11 @@ Optional arguments:
 
     -i MIN_IDENTITY, --min-identity MIN_IDENTITY       only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0%)
 
-    -s SCORING, --scoring SCORING                      set scoring scheme for SD in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")
+    -s SCORING, --scoring SCORING                      set scoring scheme for StringDecomposer in the format "insertion,deletion,mismatch,match" (by default "-1,-1,-1,1")
 
     -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
 
-    --fast                                             SD won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
+    --fast                                             StringDecomposer won't generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (very useful in case of large number of monomers)
 
 ## Latest updates
 
@@ -96,28 +111,6 @@ Optional arguments:
 * conda support
 * results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://doi.org/10.6084/m9.figshare.12783371)
 
-
-## StringDecomposer+
-
-The set of scripts help to solve decomposition-related problems are placed in `sd/scripts` directory.
-
-Script `extract_hors.py` converts monomer decomposition to HOR decomposition.
-Synopsis:
-
-    extract_hors.py <sequences> <monomers>  <decomposition> <output file> [--canonical <txt-file>] [--min-idnt MIN_IDNT] [--min-reliable MIN_RELIABLE] [--min-cnt MIN_CNT] [--min-weight MIN_WEIGHT] [--min-len MIN_LEN] [--max-len MAX_LEN]
-
-File in `--canonical` option represents a list of canonical HORs. Each line represents one HOR, HOR has to be represented as a list of monomer ids from `<monomers>` file, separated by ",".
-
-Script `extract_centromere_related_regions.py` extracts reads (or assembly segment) that are covered by the given set monomers.
-Synopsis:
-
-    extract_centromere_related_regions.py  -s <sequences> -m <monomers> -o <output file> [-d <edit-distance>]
-
-
-Script `convert_identities.py` converts decomposition with arbitrary scores to final_decomposition.tsv (with identites instead of scores).
-Synopsis:
-
-    convert_identities.py -s <sequences> -m <monomers> -d <decomposition> [-o <output file>]
 
 ## Citation
 
