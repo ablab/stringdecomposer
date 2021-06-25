@@ -38,9 +38,7 @@ jobs:
         make
     - name: Run test dataset
       run: |
-        mkdir build_test
-        cd build_test
-        python ../string_decomposer.py ../test_data/read.fa ../test_data/DXZ1_star_monomers.fa
+        make test_launch
     - name: Archive run results
       uses: actions/upload-artifact@v2
       with:
