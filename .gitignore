@@ -142,6 +142,3 @@ cython_debug/
 
 # Vim swp
 *.swp
-
-# SD bin
-build/*
