@@ -13,7 +13,7 @@ from setuptools import setup
 from distutils.command.build import build as DistutilsBuild
 from distutils.spawn import find_executable
 
-from __version__ import __version__
+from stringdecomposer.__version__ import __version__
 
 
 # Make sure we're running from the setup.py directory.
@@ -64,10 +64,10 @@ setup(
     license='GNU General Public License v2.0',
     install_requires=requirements,
     packages=['stringdecomposer'],
-    package_dir={'stringdecomposer': '.'},
-    package_data={'stringdecomposer': ['build/bin/dp', 'models/*', 'py/*']},
+    package_dir={'stringdecomposer': 'stringdecomposer'},
+    package_data={'stringdecomposer': ['build/bin/dp', 'models/*', '*']},
     entry_points={
-        'console_scripts': ['stringdecomposer=stringdecomposer.stringdecomposer:main']
+        'console_scripts': ['stringdecomposer=stringdecomposer.main:main']
     },
     cmdclass={'build': MakeBuild}
 )
