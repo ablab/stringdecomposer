@@ -12,8 +12,8 @@ import edlib
 import pandas as pd
 import re
 
-from py.standard_logger import get_logger
-from py.git import get_git_revision_short_hash
+from py import standard_logger
+from py import git
 
 
 CUR_FILE = os.path.abspath(__file__)
@@ -216,11 +216,11 @@ def main():
     args = parser.parse_args()
     pathlib.Path(args.out_dir).mkdir(parents=True, exist_ok=True)
 
-    logfn = os.path.join(args.out_dir, 'string_decomposer.log')
-    logger = get_logger(logfn, logger_name='StringDecomposer')
+    logfn = os.path.join(args.out_dir, 'stringdecomposer.log')
+    logger = standard_logger.get_logger(logfn, logger_name='StringDecomposer')
 
     logger.info(f'cmd: {sys.argv}')
-    logger.info(f'git hash: {get_git_revision_short_hash()}')
+    logger.info(f'git hash: {git.get_git_revision_short_hash()}')
 
     raw_decomp_fn = os.path.join(args.out_dir, args.out_file + "_raw.tsv")
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn, logger)
