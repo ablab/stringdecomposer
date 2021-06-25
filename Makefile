@@ -32,7 +32,7 @@ clean:
 	-rm -rf $(SD_DIR)/test_data/final_decomposition_raw.tsv
 	-rm -rf $(SD_DIR)/test_data/final_decomposition.tsv
 	-rm -rf $(SD_DIR)/test_data/stringdecomposer.log
-	-rm -rf StringDecomposer.egg-info dist
+	-rm -rf StringDecomposer.egg-info dist build
 
 uninstall:
 	@if [ -f install_footprint.txt ]; then\
