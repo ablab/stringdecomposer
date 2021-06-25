@@ -63,11 +63,11 @@ setup(
     author_email='tanunia@gmail.com',
     license='GNU General Public License v2.0',
     install_requires=requirements,
-    packages=['string_decomposer'],
-    package_dir={'string_decomposer': '.'},
-    package_data={'string_decomposer': ['build/bin/dp', 'models/*']},
+    packages=['stringdecomposer'],
+    package_dir={'stringdecomposer': '.'},
+    package_data={'stringdecomposer': ['build/bin/dp', 'models/*', 'py/*']},
     entry_points={
-        'console_scripts': ['string_decomposer=string_decomposer.string_decomposer:main']
+        'console_scripts': ['stringdecomposer=stringdecomposer.stringdecomposer:main']
     },
     cmdclass={'build': MakeBuild}
 )
