@@ -12,6 +12,9 @@ import edlib
 import pandas as pd
 import re
 
+from py.standard_logger import get_logger
+from py.git import get_git_revision_short_hash
+
 
 CUR_FILE = os.path.abspath(__file__)
 CUR_DIR = os.path.dirname(CUR_FILE)
@@ -181,13 +184,13 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
 
 
-def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
+def run(sequences, monomers, num_threads, scoring, batch_size, raw_file, logger):
     ins, dels, mm, match = scoring.split(",")
     if not os.path.isfile(SD_BIN):
-        print('The binary of String Decomposer is not available. Did you forget to run `make`? Aborting.')
+        logger.info('The binary of String Decomposer is not available. Did you forget to run `make`? Aborting.')
         sys.exit(1)
 
-    print("Run", SD_BIN, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
+    logger.info(' '.join(["Run", SD_BIN, "with parameters", sequences, monomers, str(num_threads), str(batch_size), scoring]))
     with open(raw_file, 'w') as f:
         subprocess.run([SD_BIN, sequences, monomers, num_threads, batch_size, ins, dels, mm, match], stdout = f, check = True)
     with open(raw_file, 'r') as f:
@@ -213,18 +216,24 @@ def main():
     args = parser.parse_args()
     pathlib.Path(args.out_dir).mkdir(parents=True, exist_ok=True)
 
+    logfn = os.path.join(args.out_dir, 'string_decomposer.log')
+    logger = get_logger(logfn, logger_name='StringDecomposer')
+
+    logger.info(f'cmd: {sys.argv}')
+    logger.info(f'git hash: {get_git_revision_short_hash()}')
+
     raw_decomp_fn = os.path.join(args.out_dir, args.out_file + "_raw.tsv")
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn)
-    print("Saved raw decomposition to " + raw_decomp_fn, file=sys.stderr)
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn, logger)
+    logger.info("Saved raw decomposition to " + raw_decomp_fn)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
-    print("Transforming raw alignments...", file=sys.stderr)
+    logger.info("Transforming raw alignments...")
 
     convert_tsv_fn = os.path.join(args.out_dir, args.out_file + ".tsv")
     convert_tsv(raw_decomposition, reads, monomers, convert_tsv_fn, int(args.min_identity), args.fast)
-    print("Transformation finished. Results can be found in " + convert_tsv_fn, file=sys.stderr)
+    logger.info("Transformation finished. Results can be found in " + convert_tsv_fn)
 
 
 if __name__ == "__main__":
