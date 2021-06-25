@@ -32,3 +32,7 @@ jobs:
     - name: Run test dataset with installed StringDecomposer
       run: |
         make test_launch_install
+    - name: Uninstall and clean
+      run: |
+        make uninstall
+        make clean

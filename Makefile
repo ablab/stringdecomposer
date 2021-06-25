@@ -26,17 +26,17 @@ test_launch_install: install
 	grep -q "Thank you for using StringDecomposer!" $(TEST_OUTDIR)/stringdecomposer.log
 	diff -q $(TEST_REFERENCE) $(TEST_OUTDIR)/final_decomposition.tsv
 
-
 clean:
 	-rm -rf $(BUILD_DIR)
 	-rm -rf $(SD_DIR)/test_data/final_decomposition_alt.tsv
 	-rm -rf $(SD_DIR)/test_data/final_decomposition_raw.tsv
 	-rm -rf $(SD_DIR)/test_data/final_decomposition.tsv
 	-rm -rf $(SD_DIR)/test_data/stringdecomposer.log
+	-rm -rf StringDecomposer.egg-info dist
+
+uninstall:
 	@if [ -f install_footprint.txt ]; then\
 		echo "removing install footprint from install_footprint.txt";\
 		cat install_footprint.txt | xargs rm -rf;\
 		rm -rf install_footprint.txt;\
 	fi
-	-rm -rf StringDecomposer.egg-info dist
-	python setup.py clean
