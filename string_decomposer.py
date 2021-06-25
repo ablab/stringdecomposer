@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -67,8 +68,10 @@ def load_fasta(filename, tp = "list"):
             records[i] = records[i].upper()
     return records
 
+
 def make_record(seq, name, sid, d=""):
     return SeqRecord(seq, id=sid, name=name, description = d)
+
 
 def add_rc_monomers(monomers):
     res = []
@@ -198,7 +201,8 @@ def main():
     parser.add_argument('sequences', help='fasta-file with long reads or genomic sequences')
     parser.add_argument('monomers', help='fasta-file with monomers')
     parser.add_argument('-t', '--threads',  help='number of threads (by default 1)', default="1", required=False)
-    parser.add_argument('-o', '--out-file',  help='output tsv-file (by default final_decomposition.tsv)', default="./final_decomposition.tsv", required=False)
+    parser.add_argument('-o', '--out-dir',  help='output directory (by default .)', default=".", required=False)
+    parser.add_argument('--out-file',  help='output tsv-file (by default "final_decomposition")', default="final_decomposition", required=False)
     parser.add_argument('-i', '--min-identity',  \
                          help='only monomer alignments with percent identity >= MIN_IDENTITY are printed (by default MIN_IDENTITY=0)', type=int, default=0, required=False)
     parser.add_argument('-s', '--scoring', \
@@ -207,15 +211,20 @@ def main():
     parser.add_argument('--fast',  help='doesn\'t generate second best monomer and homopolymer scores', action="store_true")
 
     args = parser.parse_args()
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, args.out_file[:-len(".tsv")] + "_raw.tsv")
-    print("Saved raw decomposition to " + args.out_file[:-len(".tsv")] + "_raw.tsv", file=sys.stderr)
+    pathlib.Path(args.out_dir).mkdir(parents=True, exist_ok=True)
+
+    raw_decomp_fn = os.path.join(args.out_dir, args.out_file + "_raw.tsv")
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn)
+    print("Saved raw decomposition to " + raw_decomp_fn, file=sys.stderr)
 
     reads = load_fasta(args.sequences, "map")
     monomers = load_fasta(args.monomers)
     monomers = add_rc_monomers(monomers)
     print("Transforming raw alignments...", file=sys.stderr)
-    convert_tsv(raw_decomposition, reads, monomers, args.out_file, int(args.min_identity), args.fast)
-    print("Transformation finished. Results can be found in " + args.out_file, file=sys.stderr)
+
+    convert_tsv_fn = os.path.join(args.out_dir, args.out_file + ".tsv")
+    convert_tsv(raw_decomposition, reads, monomers, convert_tsv_fn, int(args.min_identity), args.fast)
+    print("Transformation finished. Results can be found in " + convert_tsv_fn, file=sys.stderr)
 
 
 if __name__ == "__main__":
