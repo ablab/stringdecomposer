@@ -32,3 +32,6 @@ jobs:
     - name: Run test dataset
       run: |
         make test_launch
+    - name: Clean
+      run: |
+        make clean
