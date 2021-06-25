@@ -86,7 +86,7 @@ public:
         vector<pair<int, vector<MonomerAlignment>>> subbatches;
         for (size_t i = 0; i < new_reads.size(); i += step) {
             #pragma omp parallel for num_threads(threads)
-            for (size_t j = i; j < min(i + step, (int) new_reads.size()); ++ j) {
+            for (size_t j = i; j < min(i + step, new_reads.size()); ++ j) {
                 std::vector<MonomerAlignment> aln;
                 if (ed_thr > -1) {
                     std::vector<Seq> filter_monomers = FilterMonomersForRead(new_reads[j], ed_thr);
@@ -143,12 +143,12 @@ private:
     std::vector<Seq> FilterMonomersForRead(Seq& read, int ed_thr) {
         std::vector<Seq> monomers_for_read;
         std::vector<std::pair<double, int>> mn_edit;
-        for (int i = 0; i < monomers_.size(); ++i) {
+        for (size_t i = 0; i < monomers_.size(); ++i) {
             mn_edit.push_back(std::make_pair(MonomerEditDistance(monomers_[i], read), i));
         }
         std::sort(mn_edit.begin(), mn_edit.end());
         monomers_for_read.push_back(monomers_[mn_edit[0].second]);
-        for (int i = 1; i < mn_edit.size(); ++i) {
+        for (size_t i = 1; i < mn_edit.size(); ++i) {
             if (mn_edit[i].first <= ed_thr) {
                 monomers_for_read.push_back(monomers_[mn_edit[i].second]);
             }
@@ -156,9 +156,7 @@ private:
         return monomers_for_read;
     }
 
-    vector<MonomerAlignment> AlignPartFitting(Seq &read) {
-
-    }
+    vector<MonomerAlignment> AlignPartFitting(Seq &read) {}
 
     vector<MonomerAlignment> AlignPartClassicDP(Seq &read, std::vector<Seq>& monomers) {
         int ins = ins_;
@@ -188,8 +186,8 @@ private:
                 dp[0][j][0] = mismatch;
             }
             for (size_t k = 1; k < m.seq.size(); ++ k) {
-                int mm_score = monomers[j].seq[k] == read.seq[0] ? match: mismatch;
-                dp[0][j][k] = max(dp[0][j][k-1] + del, del*(k-1) + mm_score);
+                long long mm_score = monomers[j].seq[k] == read.seq[0] ? match: mismatch;
+                dp[0][j][k] = max(dp[0][j][k-1] + del, (long long)(del*(k-1) + mm_score));
             }
         }
         for (size_t i = 1; i < read.seq.size(); ++ i) {
