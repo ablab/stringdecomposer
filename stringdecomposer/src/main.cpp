@@ -125,14 +125,6 @@ public:
     }
 
 private:
-    void PrecalculateMonomerAlignment(){
-
-    }
-
-    void PrecalculateMonomerEdlib(){
-
-    }
-
     double MonomerEditDistance(Seq& monomer, Seq& read) {
         EdlibAlignResult result = edlibAlign(monomer.seq.c_str(), monomer.seq.size(), read.seq.c_str(), read.seq.size(), edlibNewAlignConfig(-1, EDLIB_MODE_HW, EDLIB_TASK_DISTANCE, NULL, 0));
         double res = result.editDistance;
@@ -155,8 +147,6 @@ private:
         }
         return monomers_for_read;
     }
-
-    vector<MonomerAlignment> AlignPartFitting(Seq &read) {}
 
     vector<MonomerAlignment> AlignPartClassicDP(Seq &read, std::vector<Seq>& monomers) {
         int ins = ins_;
