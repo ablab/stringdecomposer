@@ -235,6 +235,8 @@ def main():
     convert_tsv(raw_decomposition, reads, monomers, convert_tsv_fn, int(args.min_identity), args.fast)
     logger.info("Transformation finished. Results can be found in " + convert_tsv_fn)
 
+    logger.info("Thank you for using StringDecomposer!")
+
 
 if __name__ == "__main__":
     main()
