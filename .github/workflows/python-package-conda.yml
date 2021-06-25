@@ -41,4 +41,9 @@ jobs:
         mkdir build_test
         cd build_test
         python ../string_decomposer.py ../test_data/read.fa ../test_data/DXZ1_star_monomers.fa
+    - name: Archive run results
+      uses: actions/upload-artifact@v2
+      with:
+        name: final_decomposition.tsv
+        path: build_test/final_decomposition.tsv
     
