@@ -3,7 +3,7 @@
 import os
 import sys
 
-sd_root = os.path.dirname(os.path.realpath(__file__))
+sd_root = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir)
 sys.path.insert(0, sd_root)
 
 from stringdecomposer.main import main

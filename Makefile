@@ -14,7 +14,7 @@ build:
 	${CXX} -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp -fopenmp --std=c++11 -O2 -Wall -Wextra -pedantic -Wshadow -Wfloat-equal -fsanitize=address
 
 test_launch: build
-	./stringdecomposer.py $(TEST_QUERY) $(TEST_MONOMERS) -o $(TEST_OUTDIR)
+	bin/stringdecomposer $(TEST_QUERY) $(TEST_MONOMERS) -o $(TEST_OUTDIR)
 	grep -q "Thank you for using StringDecomposer!" $(TEST_OUTDIR)/stringdecomposer.log
 	diff -q $(TEST_REFERENCE) $(TEST_OUTDIR)/final_decomposition.tsv
 

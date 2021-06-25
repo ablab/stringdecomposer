@@ -38,7 +38,7 @@ Local building without installation:
 
 Then, StringDecomposer is available as
 
-    python stringdecomposer.py
+    bin/stringdecomposer
 
 
 Installing from source:
@@ -58,17 +58,21 @@ Removal of StringDecomposer installed from source:
 ## Quick start
 The following command assumes that StringDecomposer is either installed through conda or from source.
 
-    stringdecomposer ./test_data/read.fa ./test_data/DXZ1_star_monomers.fa -o ./test_data
+    stringdecomposer ./stringdecomposer/test_data/read.fa ./stringdecomposer/test_data/DXZ1_star_monomers.fa -o ./stringdecomposer/test_data
 
 The same result can be achieved with `make test_launch` (for local build without installation) and
 `make test_launch_install` (for installed from source or via conda).
 These `make` rules ensure correctness of StringDecomposer's output on the test dataset.
 
+In case StringDecomposer is built locally, the same command is
+
+    ./bin/stringdecomposer ./stringdecomposer/test_data/read.fa ./stringdecomposer/test_data/DXZ1_star_monomers.fa -o ./stringdecomposer/test_data
+
 Testing run results:
 
-    ./test_data/final_decomposition.tsv           final decomposition of sequences to monomer alphabet
-    ./test_data/final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
-    ./test_data/final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
+    ./stringdecomposer/test_data/final_decomposition.tsv           final decomposition of sequences to monomer alphabet
+    ./stringdecomposer/test_data/final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
+    ./stringdecomposer/test_data/final_decomposition_raw.tsv       raw decomposition with initial dynamic programming scores instead of identities
 
 Each line in final_decomposition.tsv file has the following form:
 
