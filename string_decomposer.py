@@ -181,8 +181,8 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
 def run(sequences, monomers, num_threads, scoring, batch_size, raw_file):
     ins, dels, mm, match = scoring.split(",")
     if not os.path.isfile(SD_BIN):
-        subprocess.run(['make', '-C' , CUR_DIR])
-        assert os.path.isfile(SD_BIN)
+        print('The binary of String Decomposer is not available. Did you forget to run `make`? Aborting.')
+        sys.exit(1)
 
     print("Run", SD_BIN, " with parameters ", sequences, monomers, num_threads, batch_size, scoring, file=sys.stderr)
     with open(raw_file, 'w') as f:
