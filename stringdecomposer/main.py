@@ -12,8 +12,8 @@ import edlib
 import pandas as pd
 import re
 
-from stringdecomposer.standard_logger import get_logger
-from stringdecomposer.git import get_git_revision_short_hash
+from stringdecomposer.py.standard_logger import get_logger
+from stringdecomposer.py.git import get_git_revision_short_hash
 
 
 CUR_FILE = os.path.abspath(__file__)
