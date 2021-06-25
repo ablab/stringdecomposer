@@ -65,7 +65,7 @@ setup(
     install_requires=requirements,
     packages=['stringdecomposer'],
     package_dir={'stringdecomposer': 'stringdecomposer'},
-    package_data={'stringdecomposer': ['build/bin/dp', 'models/*', '*']},
+    package_data={'stringdecomposer': ['build/bin/dp', 'models/*', '*', 'py/*']},
     entry_points={
         'console_scripts': ['stringdecomposer=stringdecomposer.main:main']
     },
