@@ -1,4 +1,4 @@
-name: Python Package using Conda
+name: Checking build using conda
 
 on: [push, workflow_dispatch]
 
