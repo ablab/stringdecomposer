@@ -61,13 +61,13 @@ setup(
     url='https://github.com/ablab/stringdecomposer',
     author='Tatiana Dvorkina',
     author_email='tanunia@gmail.com',
-    license='BSD-3-Clause',
+    license='GNU General Public License v2.0',
     install_requires=requirements,
-    packages=['sd'],
-    package_dir={'sd': 'sd'},
-    package_data={'sd': ['**/*']},
+    packages=['string_decomposer'],
+    package_dir={'string_decomposer': '.'},
+    package_data={'string_decomposer': ['build/bin/dp', 'models/*']},
     entry_points={
-        'console_scripts': ['sd=sd.string_decomposer:main']
+        'console_scripts': ['string_decomposer=string_decomposer.string_decomposer:main']
     },
     cmdclass={'build': MakeBuild}
 )

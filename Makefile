@@ -1,5 +1,6 @@
 export ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BIN_DIR = $(ROOT_DIR)/build/bin
+BUILD_DIR = $(ROOT_DIR)/build
+BIN_DIR = $(BUILD_DIR)/bin
 SRC_DIR = $(ROOT_DIR)/src
 
 
@@ -8,4 +9,4 @@ all:
 	${CXX} -o $(BIN_DIR)/dp $(SRC_DIR)/main.cpp -fopenmp --std=c++11
 
 clean:
-	-rm -rf $(BIN_DIR)
+	-rm -rf $(BUILD_DIR)
