@@ -13,9 +13,9 @@ using namespace std;
 
 struct ReadId {
     string name;
-    int id;
+    int id = -1;
 
-    ReadId(string name_): name(name_), id(-1) {}
+    ReadId(string name_): name(name_) {}
     ReadId(string name_, int id_): name(name_), id(id_) {}
 };
 
@@ -23,11 +23,11 @@ struct Seq {
     ReadId read_id;
     string seq;
 
-    Seq(string name_, string seq_): seq(seq_), read_id(ReadId(name_)) {
+    Seq(string name_, string seq_): read_id(ReadId(name_)), seq(seq_) {
         transform(seq.begin(), seq.end(), seq.begin(), ::toupper);
     }
 
-    Seq(string name_, string seq_, int id_): seq(seq_), read_id(ReadId(name_, id_)) {}
+    Seq(string name_, string seq_, int id_): read_id(ReadId(name_, id_)), seq(seq_)  {}
 
     size_t size() { return seq.size();}
 };
@@ -41,15 +41,6 @@ struct MonomerAlignment {
     bool best;
 
     MonomerAlignment() {}
-
-    MonomerAlignment(const MonomerAlignment & m_aln){
-        monomer_name = m_aln.monomer_name;
-        read_name = m_aln.read_name;
-        start_pos = m_aln.start_pos;
-        end_pos = m_aln.end_pos;
-        identity = m_aln.identity;
-        best = m_aln.best;
-    }
 
     MonomerAlignment(string monomer_name_, string read_name_, int start_pos_, int end_pos_, float identity_, bool best_)
     : monomer_name(monomer_name_), read_name(read_name_), start_pos(start_pos_), end_pos(end_pos_), identity(identity_), best(best_) {}
@@ -74,12 +65,12 @@ public:
     void AlignReadsSet(vector<Seq> &reads, int threads, int part_size) {
         vector<Seq> new_reads;
         vector<int> save_steps;
-        for (auto r: reads) {
+        for (const auto & r: reads) {
             int cnt = 0;
             //cout << r.seq.size() << endl;
-            for (int i = 0; i < r.seq.size(); i += part_size) {
+            for (size_t i = 0; i < r.seq.size(); i += part_size) {
                 if ((int) r.seq.size() - i >= 500 || r.seq.size() < 500) {
-                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + 500, (int) r.seq.size() - i) ), i );
+                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + 500, static_cast<int>(r.seq.size() - i)) ), i );
                     new_reads.push_back(seq);
                     ++ cnt;
                 }
@@ -88,22 +79,22 @@ public:
         }
         cerr << "Prepared reads\n";
         
-        int start = 0, p = 0;
+        size_t start = 0, p = 0;
         int step = threads*2;
         vector<pair<int, vector<MonomerAlignment>>> subbatches;
-        for (int i = 0; i < new_reads.size(); i += step) {
+        for (size_t i = 0; i < new_reads.size(); i += step) {
             #pragma omp parallel for num_threads(threads)
-            for (int j = i; j < min(i + step, (int) new_reads.size()); ++ j) {
+            for (size_t j = i; j < min(i + step, new_reads.size()); ++ j) {
                 vector<MonomerAlignment> aln = AlignPartClassicDP(new_reads[j]);
                 #pragma omp critical(aligner) 
                 {
                     subbatches.push_back(pair<int, vector<MonomerAlignment>> (j, aln));
                 }
             }
-            sort(subbatches.begin() + i, subbatches.begin() + min(i + step, (int) new_reads.size()), sortby1);
+            sort(subbatches.begin() + i, subbatches.begin() + min(i + step, new_reads.size()), sortby1);
             while (p < save_steps.size() && start + save_steps[p] <= subbatches.size()) {
                 vector<MonomerAlignment> batch;
-                for (int j = start; j < start + save_steps[p]; ++ j) {
+                for (size_t j = start; j < start + save_steps[p]; ++ j) {
                     int read_index = subbatches[j].first;
                     for (auto a: subbatches[j].second) {
                         MonomerAlignment new_m_aln(a.monomer_name, a.read_name,
@@ -126,18 +117,6 @@ public:
 
 private:
 
-    void PrecalculateMonomerAlignment(){
-
-    }
-
-    void PrecalculateMonomerEdlib(){
-
-    }
-
-    vector<MonomerAlignment> AlignPartFitting(Seq &read) {
-
-    }
-
     vector<MonomerAlignment> AlignPartClassicDP(Seq &read) {
         int ins = ins_;
         int del = del_;
@@ -145,41 +124,41 @@ private:
         int mismatch = mismatch_;
         int INF = -1000000;
         int monomers_num = (int) monomers_.size();
-        vector<vector<vector<int>>> dp(read.seq.size());
+        vector<vector<vector<long long>>> dp(read.seq.size());
         //cout << dp.size() << endl;
-        for (int i = 0; i < read.seq.size(); ++ i) {
-            for (auto m: monomers_) {
-                dp[i].push_back(vector<int>(m.seq.size()));
-                for (int k = 0; k < m.seq.size(); ++ k) {
+        for (size_t i = 0; i < read.seq.size(); ++ i) {
+            for (const auto & m: monomers_) {
+                dp[i].push_back(vector<long long>(m.seq.size()));
+                for (size_t k = 0; k < m.seq.size(); ++ k) {
                     dp[i][dp[i].size() - 1][k] = INF; 
                 }
             }
-            dp[i].push_back(vector<int>(1));
+            dp[i].push_back(vector<long long>(1));
             dp[i][monomers_num][0] = INF;
         }
 
-        for (int j = 0; j < monomers_.size(); ++ j) {
+        for (size_t j = 0; j < monomers_.size(); ++ j) {
             Seq m = monomers_[j];
             if (m.seq[0] == read.seq[0]) {
                 dp[0][j][0] = match;
             } else {
                 dp[0][j][0] = mismatch;
             }
-            for (int k = 1; k < m.seq.size(); ++ k) {
+            for (size_t k = 1; k < m.seq.size(); ++ k) {
                 int mm_score = monomers_[j].seq[k] == read.seq[0] ? match: mismatch;
-                dp[0][j][k] = max(dp[0][j][k-1] + del, del*(k-1) + mm_score);
+                dp[0][j][k] = max(dp[0][j][k-1] + del, static_cast<long long>(del*(k-1)) + mm_score);
             }
         }
-        for (int i = 1; i < read.seq.size(); ++ i) {
-            for (int j = 0; j < monomers_.size(); ++ j) {
+        for (size_t i = 1; i < read.seq.size(); ++ i) {
+            for (size_t j = 0; j < monomers_.size(); ++ j) {
                 dp[i][monomers_num][0] = max(dp[i][monomers_num][0], dp[i-1][j][monomers_[j].size() - 1]);
             }
-            for (int j = 0; j < monomers_.size(); ++ j) {
-                for (int k = 0; k < monomers_[j].size(); ++ k) {
-                    int score = INF;
+            for (size_t j = 0; j < monomers_.size(); ++ j) {
+                for (size_t k = 0; k < monomers_[j].size(); ++ k) {
+                    long long score = INF;
                     int mm_score = monomers_[j].seq[k] == read.seq[i] ? match: mismatch;
                     if (dp[i][monomers_num][0] > INF) {
-                        score = max(score, dp[i][monomers_num][0] + mm_score + k*del);
+                        score = max(score, dp[i][monomers_num][0] + mm_score + static_cast<long long>(k*del));
                     }
                     if (k > 0) {
                         if (dp[i-1][j][k-1] > INF) {
@@ -198,26 +177,26 @@ private:
         }
         int max_score = INF;
         int best_m = monomers_num;
-        for (int j = 0; j < monomers_.size(); ++ j) {
+        for (size_t j = 0; j < monomers_.size(); ++ j) {
             if (max_score < dp[read.seq.size()-1][j][monomers_[j].size() -1] ) {
                 max_score = dp[read.seq.size()-1][j][monomers_[j].size() -1];
                 best_m = j;
             }
         }
         vector<MonomerAlignment> ans;
-        int i = read.seq.size() - 1;
-        int j = best_m;
-        int k = dp[i][j].size() - 1;
+        long long i = read.seq.size() - 1;
+        long long j = best_m;
+        long long k = dp[i][j].size() - 1;
         bool monomer_changed = true;
         MonomerAlignment cur_aln;
         while (i >= 0) {
-            if (k == dp[i][j].size() - 1 && j != monomers_num && monomer_changed) {
+            if (k == static_cast<long long>(dp[i][j].size() - 1) && j != monomers_num && monomer_changed) {
                 cur_aln = MonomerAlignment(monomers_[j].read_id.name, read.read_id.name, i, i, dp[i][j][k], true);
                 monomer_changed = false;
             } 
             if (j == monomers_num) {
                 if (i != 0) {
-                    for (int p = 0; p < dp[i - 1].size(); ++ p) {
+                    for (size_t p = 0; p < dp[i - 1].size(); ++ p) {
                         if (dp[i - 1][p][dp[i - 1][p].size() - 1] == dp[i][j][k]) {
                             -- i; 
                             j = p;
@@ -319,10 +298,10 @@ vector<Seq> load_fasta(string filename) {
     }
     set<char> nucs = {'A', 'C', 'G', 'T', 'N'};
     bool hasN = false;
-    for (auto s: seqs) {
-        for (char c: s.seq) {
+    for (const auto & seq: seqs) {
+        for (char c: seq.seq) {
             if (nucs.count(c) == 0) {
-                cerr << "ERROR: Sequence " << s.read_id.name <<" contains undefined symbol (not ACGT): " << c << endl;
+                cerr << "ERROR: Sequence " << seq.read_id.name <<" contains undefined symbol (not ACGT): " << c << endl;
                 exit(-1); 
             } else if (c == 'N') {
                 hasN = true;
