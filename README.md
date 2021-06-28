@@ -64,11 +64,11 @@ The same result can be achieved with `make test_launch` (for local build without
 `make test_launch_install` (for installed from source or via conda).
 These `make` rules ensure correctness of StringDecomposer's output on the test dataset.
 
-In case StringDecomposer is built locally, the same command is
+In case StringDecomposer is built locally, the command that achieves the same result is
 
     ./bin/stringdecomposer ./stringdecomposer/test_data/read.fa ./stringdecomposer/test_data/DXZ1_star_monomers.fa -o ./stringdecomposer/test_data
 
-Testing run results:
+Results can be found in
 
     ./stringdecomposer/test_data/final_decomposition.tsv           final decomposition of sequences to monomer alphabet
     ./stringdecomposer/test_data/final_decomposition_alt.tsv       final decomposition of sequences to monomer alphabet with alternative monomers for each position
@@ -85,7 +85,7 @@ The columns `<second-best-monomer>`, `<second-best-monomer-identity>`, `<reliabi
 
 ## Synopsis
 
-    stringdecomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--fast] sequences monomers
+    stringdecomposer [-h] [-t THREADS] [-o OUT_FILE] [-i MIN_IDENTITY] [-s SCORING] [-b BATCH_SIZE] [--second-best] sequences monomers
 
 Required arguments:
 
@@ -106,7 +106,7 @@ Optional arguments:
 
     -b BATCH_SIZE, --batch-size BATCH_SIZE             set size of the batch in parallelization (by default 5000)
 
-    --second-best                                      StringDecomposer will generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (not recommended with large number of monomers)
+    --second-best                                      StringDecomposer will generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (not recommended when running StringDecomposer of a large number of monomers)
 
 ## Latest updates
 
