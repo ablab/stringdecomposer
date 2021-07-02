@@ -33,3 +33,6 @@ jobs:
       run: |
         mkdir test && cd test
         make -C .. test_launch
+    - name: Run test dataset w/ install
+      run: |
+        make -C .. test_launch_install
