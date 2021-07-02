@@ -29,6 +29,7 @@ jobs:
     - name: Install
       run: |
         make install
+        make uninstall
     - name: Run test dataset
       run: |
         mkdir test && cd test
@@ -37,3 +38,11 @@ jobs:
       run: |
         cd test
         make -C .. test_launch_install
+        make -C .. uninstall
+    - name: Run test dataset w/ binary
+      run: |
+        cd test
+        make -C .. install
+        stringdecomposer ../stringdecomposer/test_data/read.fa ../stringdecomposer/test_data/DXZ1_star_monomers.fa -o . --second-best
+        make -C .. uninstall
+        make -C .. install
