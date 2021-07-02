@@ -50,5 +50,11 @@ jobs:
         make install
         cd test
         stringdecomposer ../stringdecomposer/test_data/read.fa ../stringdecomposer/test_data/DXZ1_star_monomers.fa -o . --second-best
-        make -C .. uninstall   
-      
+        make -C .. uninstall
+    - name: Run test dataset w/ binary 3
+      run: |
+        make install
+        cd ..
+        mkdir test && cd test
+        stringdecomposer ../stringdecomposer/stringdecomposer/test_data/read.fa ../stringdecomposer/stringdecomposer/test_data/DXZ1_star_monomers.fa -o . --second-best
+        make -C ../stringdecomposer uninstall
