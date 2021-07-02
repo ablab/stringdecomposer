@@ -35,5 +35,5 @@ jobs:
         make -C .. test_launch
     - name: Run test dataset w/ install
       run: |
-        mkdir test && cd test
+        cd test
         make -C .. test_launch_install
