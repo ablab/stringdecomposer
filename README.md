@@ -122,7 +122,6 @@ Optional arguments:
 * py module of StringDecomposer saves commit hash and has a logger
 
 ### StringDecomposer 1.0 release (11 August 2020)
-
 * initial StringDecomposer release
 * conda support
 * results of StringDecomposer monomer annotation for available centromere assemblies and ONT and Hifi reads of cen6, cen8, and cenX can be found at [Figshare](https://doi.org/10.6084/m9.figshare.12783371)
