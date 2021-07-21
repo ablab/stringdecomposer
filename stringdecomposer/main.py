@@ -220,7 +220,9 @@ def main():
     logger = get_logger(logfn, logger_name='StringDecomposer')
 
     logger.info(f'cmd: {sys.argv}')
-    logger.info(f'git hash: {get_git_revision_short_hash()}')
+    # TODO get_git_revision_short_hash is commented out
+    # since it does not work when stringdecomposer is run from outside of repo
+    # logger.info(f'git hash: {get_git_revision_short_hash()}')
 
     raw_decomp_fn = os.path.join(args.out_dir, args.out_file + "_raw.tsv")
     raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn, args.ed_thr, logger)
