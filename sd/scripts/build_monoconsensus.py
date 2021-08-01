@@ -1,5 +1,4 @@
 from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
 from Bio import SeqIO
 from Bio.SeqIO import FastaIO
 from Bio import SearchIO
@@ -164,6 +163,7 @@ def align_mappings(mappings, clustal_dir, pair_name):
     pair_name = pair_name.replace("(", "_")
     pair_name = pair_name.replace(")", "_")
     pair_name = pair_name.replace(".", "_")
+    pair_name = pair_name.replace("&", "_")
     algns = run_clustal(mappings, clustal_dir, pair_name)
     consensus, scores = extract_consensus(algns)
     print(len(consensus))
@@ -208,9 +208,9 @@ def build_monoconsensus(monodec, ref, step, clustal_dir):
             if m_name not in mappings:
                 mappings[m_name] = []
             if monodec[i][5] == "+":
-                mappings[m_name].append(make_record(ref[monodec[i][0]].seq[m_s - step: m_e + 1 + step], m_name + str(m_s), m_name + str(m_s)))
+                mappings[m_name].append(make_record(ref[monodec[i][0]].seq[m_s - step: m_e + step], m_name + str(m_s), m_name + str(m_s)))
             else:
-                mappings[m_name].append(make_record(ref[monodec[i][0]].seq[m_s - step: m_e + 1 + step].reverse_complement(), m_name + str(m_s) + "_rev", m_name + str(m_s) + "_rev"))
+                mappings[m_name].append(make_record(ref[monodec[i][0]].seq[m_s - step: m_e + step].reverse_complement(), m_name + str(m_s) + "_rev", m_name + str(m_s) + "_rev"))
     m_consensus = []
     m_scores = {}
     for m in mappings:
@@ -237,9 +237,9 @@ def build_pairconsensus(hors, monodec, ref, clustal_dir):
                     s1, e1, s2, e2 = int(monodec[j][2]), int(monodec[j][3]), int(monodec[j+1][2]), int(monodec[j+1][3])
                     if s2 - e1 < 10:
                         if monodec[j][5] == "+":
-                            mappings.append(make_record(ref[monodec[j][0]].seq[s1: e2 + 1], m1+"_" + m2 + str(s1), m1 + "_" +m2 + str(s1) ))
+                            mappings.append(make_record(ref[monodec[j][0]].seq[s1: e2], m1+"_" + m2 + str(s1), m1 + "_" +m2 + str(s1) ))
                         else:
-                            mappings.append(make_record(ref[monodec[j][0]].seq[s1: e2 + 1].reverse_complement(), m1+"_" + m2 + str(s1) + "_rev", m1 + "_" +m2 + str(s1) + "_rev" ))
+                            mappings.append(make_record(ref[monodec[j][0]].seq[s1: e2].reverse_complement(), m1+"_" + m2 + str(s1) + "_rev", m1 + "_" +m2 + str(s1) + "_rev" ))
             print("pair: ", m1, m2, len(mappings))
             if len(mappings) > 0:
                 pairs_consensus.append(align_mappings(mappings, clustal_dir, m1+"_" + m2)[0])
@@ -259,6 +259,8 @@ def build_pairconsensus(hors, monodec, ref, clustal_dir):
                 l = border[i][1]
             print(len(cur_consensus))
             hors_seq.append(make_record(Seq(cur_consensus), hor_desc[0], hor_desc[0], str(len(cur_consensus)) + "bp " + ",".join(hor) ))
+        else:
+            hors_seq.append(make_record(Seq(""), hor_desc[0], hor_desc[0], str(0) + "bp " + ",".join(hor) ))
     return hors_seq
 
 
@@ -278,23 +280,26 @@ def divide_into_monomers(hors_lst, hors, monomers, horfile, monofile, outtsv):
     hors_res, res, bed = [], [], []
     for i in range(len(hors)):
         h, start_mono, hor_len = hors[i], hors_lst[i][1][0], len(hors_lst[i][1])
-        triple_hors = []
-        triple_hors.append(make_record(h.seq + h.seq + h.seq, h.id, h.name, h.description))
-        save_fasta(horfile, triple_hors)
-        decomposition = run(horfile, monofile, "1", "-1,-1,-1,1", "5000", outtsv)
-        inHOR, start_shift = False, 0
-        newhor_seq = ""
-        for ln in decomposition.split("\n")[1:-1]:
-            ref, mono, start, end, score = ln.split("\t")[:5]
-            if mono == start_mono:
-                inHOR, start_shift = True, int(start)
-                print("shift", start_shift)
-            if inHOR and len(res) < hor_len:
-                res.append(make_record(triple_hors[0].seq[int(start): int(end) + 1], mono, mono, ref + ":" + str(int(start) - start_shift) + "-" + str(int(end) + 1 - start_shift) ))
-                r, g, b = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
-                bed.append("\t".join([ref, str(int(start) - start_shift), str(int(end) + 1 - start_shift), mono, str(int(float(score))), "+", str(int(start) - start_shift), str(int(end) + 1 - start_shift), ",".join([str(r), str(g), str(b)]) ]))
-                newhor_seq += triple_hors[0].seq[int(start): int(end) + 1]
-        hors_res.append(make_record(newhor_seq, h.id, h.id, str(len(newhor_seq)) + "bp " + ",".join(hors_lst[i][1]) ))
+        if len(h.seq) > 0:
+          triple_hors = []
+          triple_hors.append(make_record(h.seq + h.seq + h.seq, h.id, h.name, h.description))
+          save_fasta(horfile, triple_hors)
+          decomposition = run(horfile, monofile, "1", "-1,-1,-1,1", "5000", outtsv)
+          inHOR, start_shift = False, 0
+          newhor_seq = ""
+          print(start_mono, hor_len, len(h.seq))
+          for ln in decomposition.split("\n")[1:-1]:
+              ref, mono, start, end, score = ln.split("\t")[:5]
+              if mono == start_mono:
+                  inHOR, start_shift = True, int(start)
+                  print("shift", start_shift)
+              if inHOR and len(res) < hor_len:
+                  print(mono, ref + ":" + str(int(start) - start_shift) + "-" + str(int(end) + 1 - start_shift), len(res) )
+                  res.append(make_record(triple_hors[0].seq[int(start): int(end) + 1], mono, mono, ref + ":" + str(int(start) - start_shift) + "-" + str(int(end) + 1 - start_shift) ))
+                  r, g, b = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                  bed.append("\t".join([ref, str(int(start) - start_shift), str(int(end) + 1 - start_shift), mono, str(int(float(score))), "+", str(int(start) - start_shift), str(int(end) + 1 - start_shift), ",".join([str(r), str(g), str(b)]) ]))
+                  newhor_seq += triple_hors[0].seq[int(start): int(end) + 1]
+          hors_res.append(make_record(newhor_seq, h.id, h.id, str(len(newhor_seq)) + "bp " + ",".join(hors_lst[i][1]) ))
     return hors_res, res, bed
 
 
