@@ -2,7 +2,7 @@
 
 # StringDecomposer
 
-## Version 1.1.1
+## Version 1.1.2
 
 As an input StringDecomposer algorithm takes the set of monomers (typically, alpha satellites) and a genomic segment (assembly, Oxford Nanopore or a PacBio HiFi read) that contains a tandem repeat consisting of the given monomers.
 StringDecomposer partitions this segment into distinct monomers, providing an accurate translation from the nucleotide alphabet into the monomer alphabet.
@@ -109,6 +109,10 @@ Optional arguments:
     --second-best                                      StringDecomposer will generate <second-best-monomer>, <second-best-monomer-identity>, <reliability> and _homo_-related columns (not recommended when running StringDecomposer of a large number of monomers)
 
 ## Latest updates
+
+### StringDecomposer 1.1.2 release (12 Oct 2021)
+
+* Remove building with Address Sanitizer by default
 
 ### StringDecomposer 1.1.1 release (20 July 2021)
 
