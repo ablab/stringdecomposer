@@ -64,15 +64,15 @@ public:
         match_(match) {
     }
 
-    void AlignReadsSet(vector<Seq> &reads, int threads, int part_size, int ed_thr) {
+    void AlignReadsSet(vector<Seq> &reads, int threads, int part_size, int ed_thr, int overlap = 500) {
         vector<Seq> new_reads;
         vector<int> save_steps;
         for (const auto & r: reads) {
             int cnt = 0;
             //cout << r.seq.size() << endl;
             for (size_t i = 0; i < r.seq.size(); i += part_size) {
-                if ((int) r.seq.size() - i >= 500 || r.seq.size() < 500) {
-                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + 500, static_cast<int>(r.seq.size() - i)) ), i );
+                if ((int) r.seq.size() - i >= overlap || r.seq.size() < overlap) {
+                    Seq seq = Seq(r.read_id.name, r.seq.substr(i, min(part_size + overlap, static_cast<int>(r.seq.size() - i)) ), i );
                     new_reads.push_back(seq);
                     ++ cnt;
                 }
@@ -372,22 +372,22 @@ void add_reverse_complement(vector<Seq> &monomers) {
 
 
 int main(int argc, char **argv) {
-    if (argc < 4) {
+    if (argc < 5) {
         cout << "Failed to process. Number of arguments < 5\n";
-        cout << "./decompose <reads> <monomers> <threads> <part-size> [<ins-score> <del-score> <mismatch-score> <match-score>]\n";
+        cout << "./decompose <reads> <monomers> <threads> <part-size> <overlap> [<ins-score> <del-score> <mismatch-score> <match-score>]\n";
         return -1;
     }
     int ins = -1, del = -1, mismatch = -1, match = 1;
-    if (argc == 9) {
-        ins = stoi(argv[5]);
-        del = stoi(argv[6]);
-        mismatch = stoi(argv[7]);
-        match = stoi(argv[8]);
+    if (argc == 10) {
+        ins = stoi(argv[6]);
+        del = stoi(argv[7]);
+        mismatch = stoi(argv[8]);
+        match = stoi(argv[9]);
     }
 
     int ed_thr = -1;
-    if (argc == 10) {
-        ed_thr = stoi(argv[9]);
+    if (argc == 11) {
+        ed_thr = stoi(argv[10]);
     }
 
     cerr << "Scores: insertion=" << ins << " deletion=" << del << " mismatch=" << mismatch << " match=" << match << endl;
@@ -397,5 +397,6 @@ int main(int argc, char **argv) {
     MonomersAligner monomers_aligner(monomers, ins, del, mismatch, match);
     int num_threads = stoi(argv[3]);
     int part_size = stoi(argv[4]);
-    monomers_aligner.AlignReadsSet(reads, num_threads, part_size, ed_thr);
+    int overlap = stoi(argv[5]);
+    monomers_aligner.AlignReadsSet(reads, num_threads, part_size, ed_thr, overlap);
 }

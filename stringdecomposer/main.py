@@ -183,15 +183,15 @@ def convert_tsv(decomposition, reads, monomers, outfile, identity_th, light):
             if len(cur_dec) > 0:
                 print_read(fout, fout_alt, cur_dec, reads[prev_read], monomers, identity_th, light)
 
-def run(sequences, monomers, num_threads, scoring, batch_size, raw_file, ed_thr, logger):
+def run(sequences, monomers, num_threads, scoring, batch_size, raw_file, ed_thr, overlap, logger):
     ins, dels, mm, match = scoring.split(",")
     if not os.path.isfile(SD_BIN):
         logger.info('The binary of String Decomposer is not available. Did you forget to run `make`? Aborting.')
         sys.exit(1)
 
-    logger.info(' '.join(["Run", SD_BIN, "with parameters", sequences, monomers, str(num_threads), str(batch_size), scoring]))
+    logger.info(' '.join(["Run", SD_BIN, "with parameters", sequences, monomers, str(num_threads), str(batch_size), str(overlap), scoring]))
     with open(raw_file, 'w') as f:
-        subprocess.run([SD_BIN, sequences, monomers, num_threads, batch_size, ins, dels, mm, match, str(ed_thr)], stdout = f, check = True)
+        subprocess.run([SD_BIN, sequences, monomers, num_threads, batch_size, overlap, ins, dels, mm, match, str(ed_thr)], stdout = f, check = True)
     with open(raw_file, 'r') as f:
         raw_decomposition = "".join(f.readlines())
     return raw_decomposition
@@ -213,6 +213,7 @@ def main():
     parser.add_argument('--second-best', dest="second_best", help='generate second best monomer and homopolymer scores', action="store_true")
     parser.add_argument('--ed_thr', help='align only monomers with edit distance less then ed_thr for each segment (by default align all monomers)', default=-1,
                         type=int, required=False)
+    parser.add_argument('-v', '--overlap',  help='set size of batch overlap (by default 500)', type=str, default="500", required=False)
     args = parser.parse_args()
     pathlib.Path(args.out_dir).mkdir(parents=True, exist_ok=True)
 
@@ -225,7 +226,7 @@ def main():
     # logger.info(f'git hash: {get_git_revision_short_hash()}')
 
     raw_decomp_fn = os.path.join(args.out_dir, args.out_file + "_raw.tsv")
-    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn, args.ed_thr, logger)
+    raw_decomposition = run(args.sequences, args.monomers, args.threads, args.scoring, args.batch_size, raw_decomp_fn, args.ed_thr, args.overlap, logger)
     logger.info("Saved raw decomposition to " + raw_decomp_fn)
 
     reads = load_fasta(args.sequences, "map")
